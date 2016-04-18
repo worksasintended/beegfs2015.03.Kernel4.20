@@ -94,10 +94,11 @@ void StorageTargets::initQuotaBlockDevices()
    TargetPathMap targets;
    getAllTargets(&targets);
 
-   for (StorageTargetDataMapIter iter = storageTargetDataMap.begin(); iter != storageTargetDataMap.end(); iter++)
+   for (StorageTargetDataMapIter iter = storageTargetDataMap.begin();
+      iter != storageTargetDataMap.end(); iter++)
    {
       (iter->second).quotaBlockDevice = QuotaBlockDevice::getBlockDeviceOfTarget(
-         (iter->second).targetPath);
+         (iter->second).targetPath, iter->first);
    }
 }
 

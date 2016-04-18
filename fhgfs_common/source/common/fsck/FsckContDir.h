@@ -25,7 +25,7 @@ class FsckContDir
       //only for deserialization
       FsckContDir() {}
 
-      std::string getID() const
+      const std::string& getID() const
       {
          return this->id;
       }

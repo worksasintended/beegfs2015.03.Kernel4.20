@@ -475,6 +475,7 @@ FhgfsOpsErr FhgfsOpsRemoting_mkdir(App* app, const EntryInfo* parentInfo,
    struct CreateInfo* createInfo, EntryInfo* outEntryInfo)
 {
    Logger* log = App_getLogger(app);
+   NodeStoreEx* metaNodes = App_getMetaNodes(app);
    const char* logContext = "Remoting (mkdir)";
 
    MkDirMsg requestMsg;
@@ -483,6 +484,13 @@ FhgfsOpsErr FhgfsOpsRemoting_mkdir(App* app, const EntryInfo* parentInfo,
    FhgfsOpsErr requestRes;
    MkDirRespMsg* mkResp;
    FhgfsOpsErr retVal;
+   Node* metaNode;
+
+   metaNode = NodeStoreEx_referenceNode(metaNodes, parentInfo->ownerNodeID);
+   if (metaNode && Node_hasFeature(metaNode, META_FEATURE_UMASK) )
+      createInfo->umask = current_umask();
+   else
+      createInfo->mode &= ~current_umask();
 
    // prepare request
    MkDirMsg_initFromEntryInfo(&requestMsg, parentInfo, createInfo);
@@ -526,6 +534,9 @@ FhgfsOpsErr FhgfsOpsRemoting_mkdir(App* app, const EntryInfo* parentInfo,
 
 cleanup_request:
    MkDirMsg_uninit( (NetMessage*)&requestMsg);
+
+   if (metaNode)
+      NodeStoreEx_releaseNode(metaNodes, &metaNode);
 
    return retVal;
 }
@@ -603,6 +614,7 @@ FhgfsOpsErr FhgfsOpsRemoting_mkfileWithStripeHints(App* app, const EntryInfo* pa
    struct CreateInfo* createInfo, unsigned numtargets, unsigned chunksize, EntryInfo* outEntryInfo)
 {
    Logger* log = App_getLogger(app);
+   NodeStoreEx* metaNodes = App_getMetaNodes(app);
    const char* logContext = "Remoting (mkfile)";
 
    MkFileMsg requestMsg;
@@ -611,7 +623,14 @@ FhgfsOpsErr FhgfsOpsRemoting_mkfileWithStripeHints(App* app, const EntryInfo* pa
    FhgfsOpsErr requestRes;
    MkFileRespMsg* mkResp;
    FhgfsOpsErr retVal;
+   Node* metaNode;
 
+   metaNode = NodeStoreEx_referenceNode(metaNodes, parentInfo->ownerNodeID);
+   if (metaNode && Node_hasFeature(metaNode, META_FEATURE_UMASK) )
+      createInfo->umask = current_umask(); // Add umask to message if server supportsit.
+   else
+      createInfo->mode &= ~current_umask(); // Just subtract umask - might creat an ACL too
+                                           // restrictive but we can't do much more on an old server
    // prepare request
    MkFileMsg_initFromEntryInfo(&requestMsg, parentInfo, createInfo);
 
@@ -661,6 +680,9 @@ FhgfsOpsErr FhgfsOpsRemoting_mkfileWithStripeHints(App* app, const EntryInfo* pa
 
 cleanup_request:
    MkFileMsg_uninit( (NetMessage*)&requestMsg);
+
+   if (metaNode)
+      NodeStoreEx_releaseNode(metaNodes, &metaNode);
 
    return retVal;
 }
@@ -2434,14 +2456,14 @@ cleanup_request:
  * and O_EXCL wasn't specified or file didn't exist and was created.
  */
 FhgfsOpsErr FhgfsOpsRemoting_lookupIntent(App* app,
-   const LookupIntentInfoIn* inInfo, LookupIntentInfoOut* outInfo)
+   LookupIntentInfoIn* inInfo, LookupIntentInfoOut* outInfo)
 {
    Config* cfg = App_getConfig(app);
 
    FhgfsOpsErr retVal;
    uint16_t parentNodeID = inInfo->parentEntryInfo->ownerNodeID;
 
-   const CreateInfo* createInfo = inInfo->createInfo;
+   CreateInfo* createInfo = inInfo->createInfo;
    const OpenInfo* openInfo = inInfo->openInfo;
 
    LookupIntentMsg requestMsg;
@@ -2466,11 +2488,21 @@ FhgfsOpsErr FhgfsOpsRemoting_lookupIntent(App* app,
 
    if(createInfo)
    {
+      NodeStoreEx* metaStore = App_getMetaNodes(app);
+      Node* metaNode = NodeStoreEx_referenceNode(metaStore, parentNodeID);
+      if (metaNode && Node_hasFeature(metaNode, META_FEATURE_UMASK) )
+         createInfo->umask = current_umask();
+      else
+         createInfo->mode &= ~current_umask();
+
       LookupIntentMsg_addIntentCreate(&requestMsg, createInfo->userID, createInfo->groupID,
-         createInfo->mode, createInfo->preferredStorageTargets);
+         createInfo->mode, createInfo->umask, createInfo->preferredStorageTargets);
 
       if(inInfo->isExclusiveCreate)
          LookupIntentMsg_addIntentCreateExclusive(&requestMsg);
+
+      if (metaNode)
+         NodeStoreEx_releaseNode(metaStore, &metaNode);
    }
 
    if(openInfo)

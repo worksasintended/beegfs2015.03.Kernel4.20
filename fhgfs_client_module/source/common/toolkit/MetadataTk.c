@@ -36,6 +36,8 @@ void CreateInfo_init(App* app, struct inode* parentDirInode, const char* entryNa
 
    outCreateInfo->entryName = entryName;
    outCreateInfo->mode      = mode;
+   outCreateInfo->umask     = -1; // -1 means server doesn't support umask. The actual value is set
+                                  // after the server feature flag is checked.
    outCreateInfo->isExclusiveCreate = isExclusiveCreate;
 
    outCreateInfo->preferredStorageTargets = App_getPreferredStorageTargets(app);

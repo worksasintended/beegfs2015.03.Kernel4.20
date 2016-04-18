@@ -3,7 +3,6 @@
 
 
 #include <common/net/message/storage/quota/GetQuotaInfoMsg.h>
-#include <common/storage/quota/QuotaBlockDevice.h>
 #include <common/storage/quota/QuotaData.h>
 #include <common/toolkit/SynchronizedCounter.h>
 #include <common/Common.h>
@@ -28,9 +27,6 @@ class GetQuotaInfoMsgEx : public GetQuotaInfoMsg
          QuotaDataList* outQuotaDataList);
       bool requestQuotaForRange(QuotaManager* quotaManager, QuotaDataList* outQuotaDataList);
       bool requestQuotaForList(QuotaManager* quotaManager, QuotaDataList* outQuotaDataList);
-
-      bool checkQuota(QuotaBlockDeviceMap* blockDevices, QuotaData* outData);
-
 };
 
 #endif /* GETQUOTAINFOMSGEX_H_ */

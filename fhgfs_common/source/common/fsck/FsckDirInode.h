@@ -45,17 +45,17 @@ class FsckDirInode
       bool readable;
 
    public:
-      std::string getID() const
+      const std::string& getID() const
       {
          return id;
       }
 
-      std::string getParentDirID() const
+      const std::string& getParentDirID() const
       {
          return parentDirID;
       }
 
-      void setParentDirID(std::string parentDirID)
+      void setParentDirID(const std::string& parentDirID)
       {
          this->parentDirID = parentDirID;
       }

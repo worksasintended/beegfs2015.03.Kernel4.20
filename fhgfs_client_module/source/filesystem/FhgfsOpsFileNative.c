@@ -181,7 +181,7 @@ static struct append_range_descriptor* ard_from_page(struct page* page)
 
 static struct append_range_descriptor* __mapping_ard(struct address_space* mapping)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,8,0)
+#ifdef KERNEL_HAS_ADDRSPACE_ASSOC_MAPPING
    // guarantees that pointer casting round-trips properly. gotta love C
    BUILD_BUG_ON(__alignof__(struct append_range_descriptor) < __alignof(struct address_space) );
    // same field, same semantics, different type.
@@ -208,7 +208,7 @@ static struct append_range_descriptor* mapping_ard_get(struct address_space* map
 
 static void __set_mapping_ard(struct address_space* mapping, struct append_range_descriptor* ard)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,8,0)
+#ifdef KERNEL_HAS_ADDRSPACE_ASSOC_MAPPING
    mapping->assoc_mapping = (struct address_space*) ard;
 #else
    mapping->private_data = ard;

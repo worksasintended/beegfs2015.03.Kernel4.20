@@ -44,12 +44,12 @@ class FsckFsID
       {
       }
 
-      std::string getID() const
+      const std::string& getID() const
       {
          return this->id;
       }
 
-      std::string getParentDirID() const
+      const std::string& getParentDirID() const
       {
          return this->parentDirID;
       }

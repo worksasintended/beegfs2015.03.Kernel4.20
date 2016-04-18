@@ -373,7 +373,7 @@ bool MsgHelperRepair::createLostAndFound(Node** outReferencedNode,
    std::string lostFoundPathStr = META_LOSTANDFOUND_PATH;
    UInt16List preferredNodes;
 
-   MkDirMsg mkDirMsg(&rootEntryInfo, lostFoundPathStr , 0, 0, S_IFDIR | S_IRWXU | S_IRWXG,
+   MkDirMsg mkDirMsg(&rootEntryInfo, lostFoundPathStr , 0, 0, S_IFDIR | S_IRWXU | S_IRWXG, 0000,
       &preferredNodes);
 
    // request/response

@@ -387,4 +387,8 @@ retry:
 }
 #endif
 
+#ifndef KERNEL_HAS_CURRENT_UMASK
+#define current_umask() (current->fs->umask)
+#endif
+
 #endif /* OSCOMPAT_H_ */

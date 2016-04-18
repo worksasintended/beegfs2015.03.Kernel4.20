@@ -93,6 +93,15 @@ bool LookupIntentMsg::deserializePayload(const char* buf, size_t bufLen)
          bufPos += modeLen;
       }
 
+      if (isMsgHeaderFeatureFlagSet(LOOKUPINTENTMSG_FLAG_UMASK) )
+      { // optional umask
+         unsigned umaskLen;
+         if (!Serialization::deserializeInt(&buf[bufPos], bufLen-bufPos, &umask, &umaskLen) )
+            return false;
+
+         bufPos += umaskLen;
+      }
+
       { // preferredTargets
          if(!Serialization::deserializeUInt16ListPreprocess(&buf[bufPos], bufLen-bufPos,
             &prefTargetsElemNum, &prefTargetsListStart, &prefTargetsBufLen) )
@@ -145,6 +154,10 @@ void LookupIntentMsg::serializePayload(char* buf)
 
       // mode
       bufPos += Serialization::serializeInt(&buf[bufPos], mode);
+
+      // optional umask
+      if (isMsgHeaderFeatureFlagSet(LOOKUPINTENTMSG_FLAG_UMASK) )
+         bufPos += Serialization::serializeInt(&buf[bufPos], umask);
 
       // preferredTargets
       bufPos += Serialization::serializeUInt16List(&buf[bufPos], preferredTargets);

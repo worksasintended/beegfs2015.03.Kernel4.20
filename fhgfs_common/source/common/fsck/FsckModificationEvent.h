@@ -27,7 +27,7 @@ class FsckModificationEvent
        * @param eventType
        * @param entryID
        */
-      FsckModificationEvent(ModificationEventType eventType, std::string entryID):
+      FsckModificationEvent(ModificationEventType eventType, const std::string& entryID):
          eventType(eventType), entryID(entryID)
       {
       }
@@ -43,7 +43,7 @@ class FsckModificationEvent
          return this->eventType;
       }
 
-      std::string getEntryID() const
+      const std::string& getEntryID() const
       {
          return this->entryID;
       }
@@ -75,7 +75,7 @@ class FsckModificationEvent
          return !(operator==( other ) );
       }
 
-      void update(ModificationEventType eventType, std::string entryID)
+      void update(ModificationEventType eventType, const std::string& entryID)
       {
          this->eventType = eventType;
          this->entryID = entryID;

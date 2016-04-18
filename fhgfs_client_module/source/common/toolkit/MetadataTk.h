@@ -43,7 +43,7 @@ static inline void LookupIntentInfoIn_addEntryInfo(LookupIntentInfoIn* this,
 static inline void LookupIntentInfoIn_addOpenInfo(LookupIntentInfoIn* this,
    const OpenInfo* openInfo);
 static inline void LookupIntentInfoIn_addCreateInfo(LookupIntentInfoIn* this,
-   const CreateInfo* createInfo);
+   CreateInfo* createInfo);
 static inline void OpenInfo_init(OpenInfo* this, int accessFlags, fhgfs_bool isPagedMode);
 static inline void LookupIntentInfoOut_prepare(LookupIntentInfoOut* this,
    EntryInfo* outEntryInfo, fhgfs_stat* outFhgfsStat);
@@ -59,6 +59,7 @@ struct CreateInfo
       unsigned userID;
       unsigned groupID;
       int mode;
+      int umask;
       UInt16List* preferredMetaTargets;
       UInt16List* preferredStorageTargets;
       fhgfs_bool isExclusiveCreate; // only for open() and creat(), is O_CREAT set?
@@ -79,7 +80,7 @@ struct LookupIntentInfoIn
    const EntryInfo* entryInfoPtr;      // only set on revalidate
    const char* entryName;              // file name
 
-   const CreateInfo* createInfo;       // only set on file create
+   CreateInfo* createInfo;       // only set on file create
    fhgfs_bool isExclusiveCreate;       // fhgfs_true iff O_EXCL is set
 
    const OpenInfo* openInfo;           // only set on file open
@@ -117,7 +118,7 @@ void LookupIntentInfoIn_addOpenInfo(LookupIntentInfoIn* this, const OpenInfo* op
    this->openInfo = openInfo;
 }
 
-void LookupIntentInfoIn_addCreateInfo(LookupIntentInfoIn* this, const CreateInfo* createInfo)
+void LookupIntentInfoIn_addCreateInfo(LookupIntentInfoIn* this, CreateInfo* createInfo)
 {
    this->createInfo        = createInfo;
 

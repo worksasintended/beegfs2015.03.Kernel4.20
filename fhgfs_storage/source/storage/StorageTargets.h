@@ -1,18 +1,22 @@
 #ifndef STORAGETARGETS_H_
 #define STORAGETARGETS_H_
 
+
 #include <common/Common.h>
 #include <common/app/log/LogContext.h>
-#include <common/storage/quota/QuotaBlockDevice.h>
 #include <common/storage/StorageDefinitions.h>
 #include <common/nodes/TargetStateInfo.h>
 #include <common/threading/SafeRWLock.h>
 #include <app/config/Config.h>
 #include <storage/TargetOfflineWait.h>
+#include <storage/QuotaBlockDevice.h>
+
+
 
 #define LAST_BUDDY_COMM_TIMESTAMP_FILENAME "lastbuddycomm"
 #define LAST_BUDDY_COMM_OVERRIDE_FILENAME  "lastbuddycomm.override"
 #define BUDDY_NEEDS_RESYNC_FILENAME        "buddyneedsresync"
+
 
 struct StorageTargetData
 {
@@ -24,6 +28,7 @@ struct StorageTargetData
    bool buddyResyncInProgress;
    bool cleanShutdown; // Was the previous session cleanly shut down?
 };
+
 
 typedef std::map<uint16_t, StorageTargetData> StorageTargetDataMap;
 typedef StorageTargetDataMap::iterator StorageTargetDataMapIter;

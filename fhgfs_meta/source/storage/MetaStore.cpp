@@ -800,7 +800,8 @@ FhgfsOpsErr MetaStore::mkNewMetaFileUnlocked(DirInode* dir, MkFileDetails* mkDet
       else
       if (aclXAttrRes == FhgfsOpsErr_NODATA)
       {
-         // Directory does not have a default ACL - nothing to do.
+         // Directory does not have a default ACL - subtract umask from mode bits.
+         mkDetails->mode &= ~mkDetails->umask;
          needsACL = false;
       }
       else

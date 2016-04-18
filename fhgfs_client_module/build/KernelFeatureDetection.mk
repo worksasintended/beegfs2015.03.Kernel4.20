@@ -425,6 +425,12 @@ $(call define_if_matches, KERNEL_HAS_IOV_ITER_FUNCTIONS, "void iov_iter_advance"
 $(call define_if_matches, KERNEL_HAS_IOV_ITER_TRUNCATE, "static inline void iov_iter_truncate(struct iov_iter \*i, size_t count)", fs.h) 
 $(call define_if_matches, KERNEL_HAS_IOV_ITER_TRUNCATE, "static inline void iov_iter_truncate(struct iov_iter \*i, u64 count)", uio.h) 
 
+# address_space.assoc_mapping went away in vanilla 3.8, but SLES11 backports that change
+$(call define_if_matches, KERNEL_HAS_ADDRSPACE_ASSOC_MAPPING, -F "assoc_mapping", fs.h)
+
+# current_umask() was added in 2.6.30
+$(call define_if_matches, KERNEL_HAS_CURRENT_UMASK, -F "current_umask", fs.h)
+
 # Find out whether ib_create_cq function has cq_attr argument
 # This is tricky because the function declaration spans multiple lines.
 # Note: Was introduced in vanilla 4.2

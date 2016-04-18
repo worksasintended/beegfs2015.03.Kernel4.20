@@ -37,6 +37,7 @@
 unsigned const APP_FEATURES[] =
 {
    META_FEATURE_DUMMY,
+   META_FEATURE_UMASK,
 };
 
 

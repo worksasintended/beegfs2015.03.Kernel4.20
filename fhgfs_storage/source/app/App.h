@@ -34,6 +34,7 @@
 #include <storage/SyncedStoragePaths.h>
 #include <storage/StorageTargets.h>
 #include <testing/TestRunner.h>
+#include <toolkit/QuotaTk.h>
 
 
 #ifndef BEEGFS_VERSION
@@ -72,6 +73,7 @@ class App : public AbstractApp
 
       void stopComponents();
       void handleComponentException(std::exception& e);
+
 
    private:
       int appResult;
@@ -137,6 +139,9 @@ class App : public AbstractApp
       BuddyResyncer* buddyResyncer;
       ChunkLockStore* chunkLockStore;
 
+      void* dlOpenHandleLibZfs;  // handle of the libzfs from dlopen
+      bool libZfsErrorReported;
+
       void runNormal();
 
       void runUnitTests();
@@ -189,6 +194,10 @@ class App : public AbstractApp
       bool restoreSessions();
       bool storeSessions();
       bool deleteSessionFiles();
+
+      bool openLibZfs();
+      bool closeLibZfs();
+
 
    public:
       /**
@@ -432,6 +441,39 @@ class App : public AbstractApp
       WorkerList* getWorkers()
       {
          return &workerList;
+      }
+
+      void setLibZfsErrorReported(bool isReported)
+      {
+         libZfsErrorReported = isReported;
+      }
+
+      void* getDlOpenHandleLibZfs()
+      {
+         if(dlOpenHandleLibZfs)
+            return dlOpenHandleLibZfs;
+         else
+         if(cfg->getQuotaDisableZfsSupport() )
+         {
+            if(!libZfsErrorReported)
+            {
+               logger->logErr("ZfsSupport", "Quota support for ZFS is disabled.");
+               libZfsErrorReported = true;
+            }
+         }
+         else
+         if(!libZfsErrorReported)
+            openLibZfs();
+
+         return dlOpenHandleLibZfs;
+      }
+
+      bool isDlOpenHandleLibZfsValid()
+      {
+         if(dlOpenHandleLibZfs)
+            return true;
+
+         return false;
       }
 };
 #endif /*APP_H_*/

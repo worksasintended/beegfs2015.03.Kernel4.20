@@ -19,7 +19,9 @@ bool MkFileMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
    LOG_DEBUG(logContext, Log_SPAM, "parentEntryID: " +
       getParentInfo()->getEntryID() + " newFileName: " + getNewName() );
 
-   MkFileDetails mkDetails(this->getNewName(), getUserID(), getGroupID(), getMode() );
+   const int umask = isMsgHeaderFeatureFlagSet(MKFILEMSG_FLAG_UMASK) ? getUmask() : 0000;
+
+   MkFileDetails mkDetails(this->getNewName(), getUserID(), getGroupID(), getMode(), umask );
 
    UInt16List preferredNodes;
    parsePreferredNodes(&preferredNodes);

@@ -2,7 +2,7 @@
 #define UNITTK_H_
 
 #include <common/Common.h>
-#include <common/storage/quota/QuotaBlockDevice.h>
+#include <common/storage/quota/Quota.h>
 
 
 class UnitTk

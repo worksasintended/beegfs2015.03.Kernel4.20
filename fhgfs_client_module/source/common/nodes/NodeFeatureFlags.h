@@ -25,6 +25,7 @@
 // meta feature flags
 
 #define META_FEATURE_DUMMY          0
+#define META_FEATURE_UMASK          1
 
 
 // storage feature flags

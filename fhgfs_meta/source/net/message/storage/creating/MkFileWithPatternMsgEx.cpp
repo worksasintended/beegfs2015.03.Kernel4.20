@@ -106,7 +106,7 @@ FhgfsOpsErr MkFileWithPatternMsgEx::mkMetaFile(DirInode* dir, std::string fileNa
    // swap given preferred targets of stripe pattern with chosen targets
    stripePattern->getStripeTargetIDsModifyable()->swap(stripeTargets);
 
-   MkFileDetails mkDetails(fileName, this->getUserID(), this->getGroupID(), this->getMode() );
+   MkFileDetails mkDetails(fileName, this->getUserID(), this->getGroupID(), this->getMode(), 0);
 
    FileInodeStoreData inodeDiskData;
 

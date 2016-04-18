@@ -19,6 +19,11 @@ void MkDirMsg_serializePayload(NetMessage* this, char* buf)
    
    bufPos += Serialization_serializeInt(&buf[bufPos], thisCast->mode);
 
+   // umask
+
+   if (NetMessage_isMsgHeaderFeatureFlagSet(this, MKDIRMSG_FLAG_UMASK) )
+      bufPos += Serialization_serializeInt(&buf[bufPos], thisCast->umask);
+
    // parentInfo
 
    bufPos += EntryInfo_serialize(thisCast->parentInfo, &buf[bufPos]);
@@ -37,13 +42,19 @@ unsigned MkDirMsg_calcMessageLength(NetMessage* this)
 {
    MkDirMsg* thisCast = (MkDirMsg*)this;
 
-   return NETMSG_HEADER_LENGTH +
+   unsigned msgLength = NETMSG_HEADER_LENGTH +
       Serialization_serialLenUInt() + // userID
       Serialization_serialLenUInt() + // groupID
-      Serialization_serialLenInt() + // mode
-      EntryInfo_serialLen(thisCast->parentInfo) + // parentEntryInfo
+      Serialization_serialLenInt();  // mode
+
+   if (NetMessage_isMsgHeaderFeatureFlagSet(this, MKDIRMSG_FLAG_UMASK) )
+      msgLength += Serialization_serialLenInt();
+
+   msgLength += EntryInfo_serialLen(thisCast->parentInfo) + // parentEntryInfo
       Serialization_serialLenStrAlign4(thisCast->newDirNameLen) + // newDirName
       Serialization_serialLenUInt16List(thisCast->preferredNodes); // preferredNodes
+
+   return msgLength;
 }
 
 

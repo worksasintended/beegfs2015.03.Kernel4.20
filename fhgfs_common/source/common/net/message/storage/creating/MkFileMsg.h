@@ -6,6 +6,7 @@
 
 
 #define MKFILEMSG_FLAG_STRIPEHINTS        1 /* msg contains extra stripe hints */
+#define MKFILEMSG_FLAG_UMASK              2 /* msg contains separet umask info */
 
 
 class MkFileMsg : public NetMessage
@@ -16,7 +17,7 @@ class MkFileMsg : public NetMessage
        * @param entryInfo just a reference, so do not free it as long as you use this object!
        */
       MkFileMsg(EntryInfo* parentInfo, std::string& newName,
-         unsigned userID, unsigned groupID, int mode,
+         unsigned userID, unsigned groupID, int mode, int umask,
          UInt16List* preferredTargets) : NetMessage(NETMSGTYPE_MkFile)
       {
          this->parentInfoPtr = parentInfo;
@@ -25,7 +26,11 @@ class MkFileMsg : public NetMessage
          this->userID = userID;
          this->groupID = groupID;
          this->mode = mode;
+         this->umask = umask;
          this->preferredTargets = preferredTargets;
+
+         if (umask != -1)
+            addMsgHeaderFeatureFlag(MKFILEMSG_FLAG_UMASK);
       }
 
       
@@ -50,10 +55,15 @@ class MkFileMsg : public NetMessage
                Serialization::serialLenUInt(); // chunksize
          }
 
+         unsigned umaskLen = 0;
+         if (isMsgHeaderFeatureFlagSet(MKFILEMSG_FLAG_UMASK) )
+            umaskLen = Serialization::serialLenInt();
+
          return NETMSG_HEADER_LENGTH +
             Serialization::serialLenUInt() + // userID
             Serialization::serialLenUInt() + // groupID
             Serialization::serialLenInt() + // mode
+            umaskLen + // optional umask
             stripeHintsLen + // optional stripe hints
             this->parentInfoPtr->serialLen() + // entryInfo
             Serialization::serialLenStrAlign4(this->newNameLen) + // newName
@@ -62,7 +72,7 @@ class MkFileMsg : public NetMessage
 
       unsigned getSupportedHeaderFeatureFlagsMask() const
       {
-         return MKFILEMSG_FLAG_STRIPEHINTS;
+         return MKFILEMSG_FLAG_STRIPEHINTS | MKFILEMSG_FLAG_UMASK;
       }
 
 
@@ -73,6 +83,7 @@ class MkFileMsg : public NetMessage
       unsigned userID;
       unsigned groupID;
       int mode;
+      int umask;
 
       unsigned numtargets;
       unsigned chunksize;
@@ -110,6 +121,11 @@ class MkFileMsg : public NetMessage
       int getMode()
       {
          return this->mode;
+      }
+
+      int getUmask()
+      {
+         return this->umask;
       }
 
       const char* getNewName(void)

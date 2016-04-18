@@ -59,7 +59,7 @@ class FsckDirEntry
       //only for deserialization
       FsckDirEntry() {}
 
-      std::string getID() const
+      const std::string& getID() const
       {
          return this->id;
       }
@@ -69,7 +69,7 @@ class FsckDirEntry
          this->id = id;
       }
 
-      std::string getName() const
+      const std::string& getName() const
       {
          return this->name;
       }
@@ -79,7 +79,7 @@ class FsckDirEntry
           this->name = name;
       }
 
-      std::string getParentDirID() const
+      const std::string& getParentDirID() const
       {
          return this->parentDirID;
       }

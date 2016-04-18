@@ -23,16 +23,25 @@ PACKAGEDIR="/tmp/beegfs_packages-${DATE}/"
 print_usage()
 {
 	echo
-	echo "usage: `basename $0` [options]"
-	echo "  -c    Run make clean only."
-	echo "  -d    Dry-run, only print the exports."
-	echo "  -s S  Minor version string (e.g. r1). Default is based on current date."
-	echo "  -v S  Major version string (e.g. 2012.10). Default is based on current date."
-	echo "  -D    Disable beegfs-admon package build."
-	echo "  -C    Build client packages only"
-	echo "  -x    Build with BEEGFS_DEBUG"
-	echo "  -j N  Number of processes for make"
-	echo "  -p S  Package directory"
+	echo "USAGE:"
+	echo "  $ `basename $0` [options]"
+	echo
+	echo "OPTIONS:"
+        echo "  -v S   Major version string (e.g. \"2015.03\")."
+	echo "         Default is based on current date."
+        echo "  -s S   Minor version string (e.g. \"r1\")."
+        echo "         Default is based on current date."
+        echo "  -j N   Number of parallel processes for \"make\"."
+        echo "  -p S   Package destination directory."
+	echo "         Default is a subdir of \"/tmp\"."
+	echo "  -c     Run \"make clean\" only."
+	echo "  -d     Dry-run, only print export variables."
+	echo "  -D     Disable beegfs-admon package build."
+	echo "  -C     Build client packages only."
+	echo "  -x     Build with BEEGFS_DEBUG."
+	echo
+	echo "EXAMPLE:"
+	echo "  $ `basename $0` -j 4 -p /tmp/my_beegfs_packages"
 	echo
 }
 
@@ -56,8 +65,12 @@ DRY_RUN=0
 CLEAN_ONLY=0
 CLIENT_ONLY=0
 
-while getopts "cds:v:DCxj:p:" opt; do
+while getopts "hcds:v:DCxj:p:" opt; do
 	case $opt in
+	h)
+		print_usage
+		exit 1
+		;;
 	c)
 		CLEAN_ONLY=1
 		;;

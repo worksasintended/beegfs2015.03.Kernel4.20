@@ -25,12 +25,16 @@
 
 #include <signal.h>
 #include <sys/resource.h>
+#include <dlfcn.h>
+
 
 
 #define APP_WORKERS_DIRECT_NUM   1
 #define APP_SYSLOG_IDENTIFIER    "beegfs-storage"
 
 #define APP_STORAGE_UMASK (0) // allow any creat() / mkdir() mode without masking anything
+
+#define APP_LIB_ZFS_NAME "libzfs.so"
 
 
 /**
@@ -91,6 +95,9 @@ App::App(int argc, char** argv)
    this->exceededQuotaStore = NULL;
    this->buddyResyncer = NULL;
    this->chunkLockStore = NULL;
+
+   this->dlOpenHandleLibZfs = NULL;
+   this->libZfsErrorReported = false;
 }
 
 App::~App()
@@ -809,6 +816,8 @@ void App::joinComponents()
    // (the StorageBenchOperator is not a normal component, so it gets special treatment here)
    if(storageBenchOperator)
       storageBenchOperator->waitForShutdownBenchmark();
+
+   closeLibZfs();
 }
 
 void App::streamListenersInit() throw(ComponentInitException)
@@ -1595,3 +1604,35 @@ bool App::deleteSessionFiles()
    return retVal;
 }
 
+bool App::openLibZfs()
+{
+   if(!dlOpenHandleLibZfs)
+   {
+      dlOpenHandleLibZfs = dlopen(APP_LIB_ZFS_NAME, RTLD_LAZY);
+
+      if(!dlOpenHandleLibZfs)
+      {
+         log->log(Log_ERR, "Error during open of libzfs.so. Error: " + std::string(dlerror() ) );
+         libZfsErrorReported = true;
+
+         return false;
+      }
+   }
+
+   return true;
+}
+
+bool App::closeLibZfs()
+{
+   if(dlOpenHandleLibZfs)
+   {
+      if(dlclose(dlOpenHandleLibZfs) )
+      {
+         log->log(Log_ERR, "Error during close of libzfs.so. Error: " + std::string(dlerror() ) );
+         libZfsErrorReported = true;
+         return false;
+      }
+   }
+
+   return true;
+}

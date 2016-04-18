@@ -14,8 +14,8 @@ class Path
          this->isPathAbsolute = false;
          this->isPathStrValid = false;
       }
-      
-      Path(const std::string pathStr)
+
+      Path(const std::string& pathStr)
       {
          this->isPathAbsolute = isPathStrAbsolute(pathStr);
          parseStr(pathStr);
@@ -34,7 +34,7 @@ class Path
             childPath.pathElems.begin(), childPath.pathElems.end() );
       }
 
-      Path(Path& parentPath, const std::string childPathStr)
+      Path(Path& parentPath, const std::string& childPathStr)
       {
          Path childPath(childPathStr);
          
@@ -176,7 +176,7 @@ class Path
       /**
        * @return string does not end with a slash
        */
-      std::string getPathAsStr()
+      const std::string& getPathAsStr()
       {
          if(!isPathStrValid)
             updatePathStr();
@@ -190,7 +190,7 @@ class Path
        *
        * @return string does not end with a slash
        */
-      std::string getPathAsStrConst() const
+      const std::string& getPathAsStrConst() const
       {
          if(unlikely(!isPathStrValid) )
          {
@@ -199,7 +199,8 @@ class Path
 
             LOG_DEBUG_BACKTRACE();
 
-            return "<undef>";
+            static std::string undef = "<undef>";
+            return undef;
          }
 
          return pathStr;

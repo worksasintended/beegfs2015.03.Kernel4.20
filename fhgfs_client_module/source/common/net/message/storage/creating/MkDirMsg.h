@@ -10,6 +10,8 @@
  * this message supports only serialization, deserialization is not implemented.
  */
 
+#define MKDIRMSG_FLAG_UMASK 2 /* Message contains separate umask data */
+
 
 struct MkDirMsg;
 typedef struct MkDirMsg MkDirMsg;
@@ -34,6 +36,7 @@ struct MkDirMsg
    unsigned userID;
    unsigned groupID;
    int mode;
+   int umask;
 
    // for serialization
    const EntryInfo* parentInfo; // not owned by this object!
@@ -72,7 +75,11 @@ void MkDirMsg_initFromEntryInfo(MkDirMsg* this, const EntryInfo* parentInfo,
    this->userID  = createInfo->userID;
    this->groupID = createInfo->groupID;
    this->mode    = createInfo->mode;
+   this->umask   = createInfo->umask;
    this->preferredNodes = createInfo->preferredMetaTargets;
+
+   if (createInfo->umask != -1)
+      NetMessage_addMsgHeaderFeatureFlag(&this->netMessage, MKDIRMSG_FLAG_UMASK);
 }
 
 MkDirMsg* MkDirMsg_construct(void)

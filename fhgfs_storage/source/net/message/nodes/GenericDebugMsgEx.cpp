@@ -2,8 +2,10 @@
 #include <common/net/msghelpers/MsgHelperGenericDebug.h>
 #include <common/toolkit/MessagingTk.h>
 #include <program/Program.h>
+#include <session/ZfsSession.h>
 #include <toolkit/QuotaTk.h>
 #include "GenericDebugMsgEx.h"
+
 
 
 #define GENDBGMSG_OP_LISTOPENFILES          "listopenfiles"
@@ -236,6 +238,7 @@ std::string GenericDebugMsgEx::processOpUsedQuota(std::istringstream& commandStr
 
    std::ostringstream responseStream;
 
+   ZfsSession session;
    QuotaDataType quotaDataType = QuotaDataType_NONE;
    std::string quotaDataTypeStr;
    bool forEachTarget = false;
@@ -295,7 +298,7 @@ std::string GenericDebugMsgEx::processOpUsedQuota(std::istringstream& commandStr
          app->getStorageTargets()->getQuotaBlockDevice(&quotaBlockDevices, *iter);
 
          QuotaTk::requestQuotaForRange(&quotaBlockDevices, rangeStart, rangeEnd, quotaDataType,
-            &outQuotaDataList);
+            &outQuotaDataList, &session);
 
          responseStream << outQuotaDataList.size() << " used quota for " << quotaDataTypeStr
             << " IDs on target: " << *iter << std::endl;
@@ -311,7 +314,7 @@ std::string GenericDebugMsgEx::processOpUsedQuota(std::istringstream& commandStr
       QuotaDataList outQuotaDataList;
 
       QuotaTk::requestQuotaForRange(&quotaBlockDevices, rangeStart, rangeEnd, quotaDataType,
-         &outQuotaDataList);
+         &outQuotaDataList, &session);
 
       QuotaData::quotaDataListToString(&outQuotaDataList, &responseStream);
    }

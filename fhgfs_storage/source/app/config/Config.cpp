@@ -57,6 +57,7 @@ void Config::loadDefaults(bool addDashes)
    configMapRedefine("tuneUsePerTargetWorkers",       "true");
 
    configMapRedefine("quotaEnableEnforcement",        "false");
+   configMapRedefine("quotaDisableZfsSupport",        "false");
 
    configMapRedefine("sysResyncSafetyThresholdMins",  "10");
    configMapRedefine("sysTargetOfflineTimeoutSecs",   "180");
@@ -171,6 +172,9 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw(InvalidC
       else
       if(iter->first == std::string("quotaEnableEnforcement") )
          quotaEnableEnforcment = StringTk::strToBool(iter->second);
+      else
+      if(iter->first == std::string("quotaDisableZfsSupport") )
+         quotaDisableZfsSupport = StringTk::strToBool(iter->second);
       else
       if(iter->first == std::string("sysResyncSafetyThresholdMins") )
          sysResyncSafetyThresholdMins = StringTk::strToInt64(iter->second);

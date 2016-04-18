@@ -71,8 +71,7 @@ bool FsckDB::insertDirEntries(FsckDirEntryList& dentries, FsckDirEntry& outFaile
          break;
       }
 
-      sqlRes = sqlite3_bind_text(stmt, index++, iter->getParentDirID().c_str(),
-         strlen(iter->getParentDirID().c_str()), 0);
+      sqlRes = sqlite3_bind_text(stmt, index++, iter->getParentDirID().c_str(), -1, 0);
       if ( sqlRes != SQLITE_OK )
       {
          retVal = false;
@@ -789,8 +788,7 @@ bool FsckDB::insertContDirs(FsckContDirList& contDirs, FsckContDir& outFailedIns
    {
       short index = 1;
 
-      sqlRes = sqlite3_bind_text(stmt, index++, iter->getID().c_str(),
-         strlen(iter->getID().c_str()), 0);
+      sqlRes = sqlite3_bind_text(stmt, index++, iter->getID().c_str(), -1, 0);
       if ( sqlRes != SQLITE_OK )
       {
          retVal = false;

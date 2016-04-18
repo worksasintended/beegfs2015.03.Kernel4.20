@@ -29,6 +29,15 @@ bool MkFileMsg::deserializePayload(const char* buf, size_t bufLen)
       bufPos += modeLen;
    }
 
+   if (isMsgHeaderFeatureFlagSet(MKFILEMSG_FLAG_UMASK) )
+   { // umask
+      unsigned umaskLen;
+      if (!Serialization::deserializeInt(&buf[bufPos], bufLen-bufPos, &umask, &umaskLen) )
+         return false;
+
+      bufPos += umaskLen;
+   }
+
    // optional stripe hints
    if(isMsgHeaderFeatureFlagSet(MKFILEMSG_FLAG_STRIPEHINTS) )
    {
@@ -93,6 +102,10 @@ void MkFileMsg::serializePayload(char* buf)
 
    // mode
    bufPos += Serialization::serializeInt(&buf[bufPos], mode);
+
+   // optional umask
+   if (isMsgHeaderFeatureFlagSet(MKFILEMSG_FLAG_UMASK) )
+      bufPos += Serialization::serializeInt(&buf[bufPos], umask);
 
    // optional stripe hints
    if(isMsgHeaderFeatureFlagSet(MKFILEMSG_FLAG_STRIPEHINTS) )

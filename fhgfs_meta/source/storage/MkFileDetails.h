@@ -8,8 +8,8 @@
 
 struct MkFileDetails
 {
-      MkFileDetails(std::string newName, unsigned userID, unsigned groupID, int mode) :
-         newName(newName), userID(userID), groupID(groupID), mode(mode)
+      MkFileDetails(std::string newName, unsigned userID, unsigned groupID, int mode, int umask) :
+         newName(newName), userID(userID), groupID(groupID), mode(mode), umask(umask)
       {
          // see initializer list
       }
@@ -18,6 +18,7 @@ struct MkFileDetails
       unsigned userID;
       unsigned groupID;
       int mode;
+      int umask;
 };
 
 

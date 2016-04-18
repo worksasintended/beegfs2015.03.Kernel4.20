@@ -6,6 +6,7 @@
 
 
 #define MKDIRMSG_FLAG_NOMIRROR   1 /* do not use mirror setting from parent (i.e. do not mirror) */
+#define MKDIRMSG_FLAG_UMASK      2 /* message contains separate umask data */
 
 
 class MkDirMsg : public NetMessage
@@ -19,7 +20,7 @@ class MkDirMsg : public NetMessage
        * @param preferredNodes just a reference, so do not free it as long as you use this object!
        */
       MkDirMsg(EntryInfo* parentEntryInfo, std::string& newDirName,
-         unsigned userID, unsigned groupID, int mode,
+         unsigned userID, unsigned groupID, int mode, int umask,
          UInt16List* preferredNodes) : NetMessage(NETMSGTYPE_MkDir)
       {
          this->parentEntryInfoPtr = parentEntryInfo;
@@ -28,7 +29,11 @@ class MkDirMsg : public NetMessage
          this->userID = userID;
          this->groupID = groupID;
          this->mode = mode;
+         this->umask = umask;
          this->preferredNodes = preferredNodes;
+
+         if (umask != -1)
+            addMsgHeaderFeatureFlag(MKDIRMSG_FLAG_UMASK);
       }
 
       /**
@@ -44,10 +49,14 @@ class MkDirMsg : public NetMessage
       
       unsigned calcMessageLength()
       {
+         const unsigned umaskLen =
+            isMsgHeaderFeatureFlagSet(MKDIRMSG_FLAG_UMASK) ? Serialization::serialLenInt() : 0;
+
          return NETMSG_HEADER_LENGTH +
             Serialization::serialLenUInt() + // userID
             Serialization::serialLenUInt() + // groupID
             Serialization::serialLenInt() + // mode
+            umaskLen + // optional umask
             this->parentEntryInfoPtr->serialLen() +
             Serialization::serialLenStrAlign4(this->newDirNameLen) +
             Serialization::serialLenUInt16List(preferredNodes); // preferredNodes
@@ -55,12 +64,18 @@ class MkDirMsg : public NetMessage
 
       unsigned getSupportedHeaderFeatureFlagsMask() const
       {
-         return MKDIRMSG_FLAG_NOMIRROR;
+         return MKDIRMSG_FLAG_NOMIRROR | MKDIRMSG_FLAG_UMASK;
       }
 
-      void setMode(int mode)
+      void setMode(int mode, int umask)
       {
          this->mode = mode;
+         this->umask = umask;
+
+         if (umask != -1)
+            addMsgHeaderFeatureFlag(MKDIRMSG_FLAG_UMASK);
+         else
+            unsetMsgHeaderFeatureFlag(MKDIRMSG_FLAG_UMASK);
       }
 
    private:
@@ -68,6 +83,7 @@ class MkDirMsg : public NetMessage
       unsigned userID;
       unsigned groupID;
       int mode;
+      int umask;
 
       // serialization / deserialization
       const char* newDirName;
@@ -106,6 +122,11 @@ class MkDirMsg : public NetMessage
       int getMode()
       {
          return mode;
+      }
+
+      int getUmask()
+      {
+         return umask;
       }
 
       EntryInfo* getParentInfo(void)

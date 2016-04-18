@@ -32,7 +32,7 @@ def copyConfigDir(verbose):
             message = "create directory: " + destDirPath
             print >> sys.stdout, message
 
-         os.mkdir(destDirPath, 0o644)
+         os.mkdir(destDirPath, 0o755)
 
       for filename in files:
          sourceFilePath = os.path.normpath(os.path.join(root, filename) )
@@ -162,7 +162,7 @@ def process(verbose) :
       sys.exit(1)
 
    if not os.path.exists(BEEGFS_CONF_DIR):
-      os.mkdir(BEEGFS_CONF_DIR, 0o644)
+      os.mkdir(BEEGFS_CONF_DIR, 0o755)
 
    message = "\nCopy all configuration files from " + FHGFS_CONF_DIR +" to " + BEEGFS_CONF_DIR + \
    " and rename to beegfs-...\n"

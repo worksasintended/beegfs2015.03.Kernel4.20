@@ -93,7 +93,7 @@ extern FhgfsOpsErr FhgfsOpsRemoting_setXAttr(App* app, const EntryInfo* entryInf
 
 
 extern FhgfsOpsErr FhgfsOpsRemoting_lookupIntent(App* app,
-   const LookupIntentInfoIn* inInfo, LookupIntentInfoOut* outInfo);
+   LookupIntentInfoIn* inInfo, LookupIntentInfoOut* outInfo);
 
 extern FhgfsOpsErr FhgfsOpsRemoting_hardlink(App* app, const char* fromName, unsigned fromLen,
    EntryInfo* fromInfo, EntryInfo* fromDirInfo, const char* toName, unsigned toLen,

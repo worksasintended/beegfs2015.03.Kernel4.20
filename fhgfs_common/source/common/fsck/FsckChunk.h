@@ -28,7 +28,7 @@ class FsckChunk
        * @param groupID
        * @param buddyGroupID the buddyGroupID this chunk belongs to
        */
-      FsckChunk(std::string id, uint16_t targetID, Path& savedPath, int64_t fileSize,
+      FsckChunk(const std::string& id, uint16_t targetID, Path& savedPath, int64_t fileSize,
          uint64_t usedBlocks, int64_t creationTime, int64_t modificationTime, int64_t lastAccessTime,
          unsigned userID, unsigned groupID, uint16_t buddyGroupID) :
          id(id), targetID(targetID), savedPath(savedPath), fileSize(fileSize),
@@ -50,7 +50,7 @@ class FsckChunk
        * @param userID
        * @param groupID
        */
-      FsckChunk(std::string id, uint16_t targetID, Path& savedPath,
+      FsckChunk(const std::string& id, uint16_t targetID, Path& savedPath,
          int64_t fileSize, int64_t usedBlocks, int64_t creationTime, int64_t modificationTime,
          int64_t lastAccessTime, unsigned userID, unsigned groupID) :
          id(id), targetID(targetID), savedPath(savedPath), fileSize(fileSize),
@@ -83,7 +83,7 @@ class FsckChunk
                              // buddyGroupID
 
    public:
-      std::string getID() const
+      const std::string& getID() const
       {
          return this->id;
       }

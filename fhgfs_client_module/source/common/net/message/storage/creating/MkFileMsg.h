@@ -7,6 +7,7 @@
 
 
 #define MKFILEMSG_FLAG_STRIPEHINTS        1 /* msg contains extra stripe hints */
+#define MKFILEMSG_FLAG_UMASK              2 /* msg contains separate umask data */
 
 
 struct MkFileMsg;
@@ -41,6 +42,7 @@ struct MkFileMsg
    unsigned userID;
    unsigned groupID;
    int mode;
+   int umask;
    
    unsigned numtargets;
    unsigned chunksize;
@@ -85,7 +87,11 @@ void MkFileMsg_initFromEntryInfo(MkFileMsg* this, const EntryInfo* parentInfo,
    this->userID           = createInfo->userID;
    this->groupID          = createInfo->groupID;
    this->mode             = createInfo->mode;
+   this->umask            = createInfo->umask;
    this->preferredTargets = createInfo->preferredStorageTargets;
+
+   if (createInfo->umask != -1)
+      NetMessage_addMsgHeaderFeatureFlag(&this->netMessage, MKFILEMSG_FLAG_UMASK);
 }
 
 MkFileMsg* MkFileMsg_construct(void)

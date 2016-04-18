@@ -17,6 +17,8 @@
 
 // feature flags as header flags
 #define LOOKUPINTENTMSG_FLAG_USE_QUOTA          1 /* if the message contains quota informations */
+#define LOOKUPINTENTMSG_FLAG_UMASK              2 /* message contains separate umask data */
+
 
 class LookupIntentMsg : public NetMessage
 {
@@ -87,6 +89,9 @@ class LookupIntentMsg : public NetMessage
                Serialization::serialLenUInt()                        +  // groupID
                Serialization::serialLenInt()                         +  // mode
                Serialization::serialLenUInt16List(preferredTargets);    // preferredTargets
+
+            if (isMsgHeaderFeatureFlagSet(LOOKUPINTENTMSG_FLAG_UMASK) )
+               msgLength += Serialization::serialLenInt();              // umask
          }
 
          return msgLength;
@@ -102,6 +107,7 @@ class LookupIntentMsg : public NetMessage
       unsigned userID; // (file creation data)
       unsigned groupID; // (file creation data)
       int mode; // file creation mode permission bits  (file creation data)
+      int umask; // umask (file creation data)
 
       unsigned sessionIDLen; // (file open data)
       const char* sessionID; // (file open data)
@@ -123,7 +129,7 @@ class LookupIntentMsg : public NetMessage
 
    public:
 
-      void addIntentCreate(unsigned userID, unsigned groupID, int mode,
+      void addIntentCreate(unsigned userID, unsigned groupID, int mode, int umask,
          UInt16List* preferredTargets)
       {
          this->intentFlags |= LOOKUPINTENTMSG_FLAG_CREATE;
@@ -131,7 +137,11 @@ class LookupIntentMsg : public NetMessage
          this->userID = userID;
          this->groupID = groupID;
          this->mode = mode;
+         this->umask = umask;
          this->preferredTargets = preferredTargets;
+
+         if (umask != -1)
+            addMsgHeaderFeatureFlag(LOOKUPINTENTMSG_FLAG_UMASK);
       }
 
       void addIntentCreateExclusive()
@@ -201,6 +211,11 @@ class LookupIntentMsg : public NetMessage
          return mode;
       }
 
+      int getUmask() const
+      {
+         return umask;
+      }
+
       const char* getSessionID() const
       {
          return sessionID;
@@ -213,7 +228,7 @@ class LookupIntentMsg : public NetMessage
 
       unsigned getSupportedHeaderFeatureFlagsMask() const
       {
-         return LOOKUPINTENTMSG_FLAG_USE_QUOTA;
+         return LOOKUPINTENTMSG_FLAG_USE_QUOTA | LOOKUPINTENTMSG_FLAG_UMASK;
       }
 
 };

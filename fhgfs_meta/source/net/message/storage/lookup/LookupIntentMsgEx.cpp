@@ -264,7 +264,11 @@ FhgfsOpsErr LookupIntentMsgEx::revalidate(EntryInfo* diskEntryInfo)
 FhgfsOpsErr LookupIntentMsgEx::create(EntryInfo* parentInfo,
    std::string& entryName, EntryInfo *outEntryInfo, FileInodeStoreData* outInodeData)
 {
-   MkFileDetails mkDetails(entryName, getUserID(), getGroupID(), getMode() );
+   const int umask = isMsgHeaderFeatureFlagSet(LOOKUPINTENTMSG_FLAG_UMASK)
+      ? getUmask()
+      : 0000;
+
+   MkFileDetails mkDetails(entryName, getUserID(), getGroupID(), getMode(), umask );
 
    UInt16List preferredTargets;
    parsePreferredTargets(&preferredTargets);

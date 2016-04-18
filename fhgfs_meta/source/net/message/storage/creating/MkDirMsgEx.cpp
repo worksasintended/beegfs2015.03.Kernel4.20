@@ -139,6 +139,7 @@ FhgfsOpsErr MkDirMsgEx::mkDir(EntryInfo* parentInfo, std::string newName,
    std::string parentEntryID = parentInfo->getEntryID();
 
    int mode = getMode();
+   int umask = getUmask();
    CharVector parentDefaultACLXAttr;
    CharVector accessACLXAttr;
 
@@ -163,7 +164,7 @@ FhgfsOpsErr MkDirMsgEx::mkDir(EntryInfo* parentInfo, std::string newName,
 
          // Note: This modifies the mode bits as well as the ACL itself.
          FhgfsOpsErr modeRes = parentDefaultACL.modifyModeBits(mode, needsACL);
-         setMode(mode);
+         setMode(mode, 0);
 
          if (modeRes != FhgfsOpsErr_SUCCESS)
          {
@@ -180,14 +181,22 @@ FhgfsOpsErr MkDirMsgEx::mkDir(EntryInfo* parentInfo, std::string newName,
          }
       }
       else
-         if (parentDefaultACLRes != FhgfsOpsErr_NODATA)
+      if (parentDefaultACLRes == FhgfsOpsErr_NODATA)
+      {
+         // containing dir has no ACL, so we can continue without one
+         if (isMsgHeaderFeatureFlagSet(MKDIRMSG_FLAG_UMASK) )
          {
-            LogContext(logContext).log(Log_ERR,
-               "Error loading default ACL for directory ID " + parentDir->getID() );
-            retVal = parentDefaultACLRes;
-            goto clean_up;
+            mode &= ~umask;
+            setMode(mode, umask);
          }
-      // else if it's FhgfsOpsErr_NODATA, containing dir has no ACL, so we can continue without one.
+      }
+      else
+      {
+         LogContext(logContext).log(Log_ERR,
+            "Error loading default ACL for directory ID " + parentDir->getID() );
+         retVal = parentDefaultACLRes;
+         goto clean_up;
+      }
    }
 
    outEntryInfo->set(ownerNodeID, parentEntryID, entryID, newName, DirEntryType_DIRECTORY, 0);

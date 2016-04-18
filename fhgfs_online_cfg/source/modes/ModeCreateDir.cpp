@@ -284,7 +284,7 @@ bool ModeCreateDir::communicate(Node* ownerNode, EntryInfo* parentInfo, DirSetti
 
    std::string newDirName = settings->path->getLastElem();
 
-   MkDirMsg msg(parentInfo, newDirName, settings->userID, settings->groupID, settings->mode,
+   MkDirMsg msg(parentInfo, newDirName, settings->userID, settings->groupID, settings->mode, 0,
       settings->preferredNodes);
 
    if(settings->noMirroring)

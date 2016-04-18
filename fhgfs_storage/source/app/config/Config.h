@@ -60,6 +60,7 @@ class Config : public AbstractConfig
       bool        tuneUsePerTargetWorkers; // true to have tuneNumWorkers separate for each target
 
       bool        quotaEnableEnforcment;
+      bool        quotaDisableZfsSupport;
 
       int64_t     sysResyncSafetyThresholdMins; // minutes to add to last buddy comm timestamp
       unsigned    sysTargetOfflineTimeoutSecs;
@@ -215,6 +216,11 @@ class Config : public AbstractConfig
       bool getQuotaEnableEnforcment() const
       {
          return quotaEnableEnforcment;
+      }
+
+      bool getQuotaDisableZfsSupport() const
+      {
+         return quotaDisableZfsSupport;
       }
 
       unsigned getTuneNumResyncGatherSlaves() const

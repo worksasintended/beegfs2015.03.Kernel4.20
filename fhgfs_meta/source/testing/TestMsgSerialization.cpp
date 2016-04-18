@@ -41,10 +41,11 @@ void TestMsgSerialization::testMkDirMsgSerialization()
    unsigned int uid = 2345;
    unsigned int gid = 8794;
    int mode = 0777;
+   int umask = 0022;
    std::string newDirName = "test";
    UInt16List preferredNodes;
 
-   MkDirMsg msg(&parentInfo, newDirName, uid, gid, mode, &preferredNodes);
+   MkDirMsg msg(&parentInfo, newDirName, uid, gid, mode, umask, &preferredNodes);
    MkDirMsg msgClone;
 
    bool testRes = this->testMsgSerialization(msg, msgClone);

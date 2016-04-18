@@ -29,6 +29,15 @@ bool MkDirMsg::deserializePayload(const char* buf, size_t bufLen)
       bufPos += modeLen;
    }
 
+   if (isMsgHeaderFeatureFlagSet(MKDIRMSG_FLAG_UMASK) )
+   {
+      unsigned umaskLen;
+      if (!Serialization::deserializeInt(&buf[bufPos], bufLen-bufPos, &umask, &umaskLen) )
+         return false;
+
+      bufPos += umaskLen;
+   }
+
    { // parentEntryInfo
       unsigned parentBufLen;
       this->parentEntryInfo.deserialize(&buf[bufPos], bufLen-bufPos, &parentBufLen);
@@ -72,6 +81,11 @@ void MkDirMsg::serializePayload(char* buf)
 
    bufPos += Serialization::serializeInt(&buf[bufPos], mode);
 
+   // optional umask
+
+   if (isMsgHeaderFeatureFlagSet(MKDIRMSG_FLAG_UMASK) )
+      bufPos += Serialization::serializeInt(&buf[bufPos], umask);
+
    // parentEntryInfo
 
    bufPos += this->parentEntryInfoPtr->serialize(&buf[bufPos]);
@@ -104,7 +118,7 @@ TestingEqualsRes MkDirMsg::testingEquals(NetMessage *msg)
       if ( this->getMode() != msgClone->getMode() )
          testRes = TestingEqualsRes_FALSE;
       else
-      if ( this->getMode() != msgClone->getMode() )
+      if ( this->getUmask() != msgClone->getUmask() )
          testRes = TestingEqualsRes_FALSE;
       else
       if (!(this->parentEntryInfoPtr->compare(msgClone->getParentInfo() ) ) )

@@ -1,13 +1,13 @@
 #include <app/App.h>
-#include <program/Program.h>
-#include <common/net/message/storage/quota/GetQuotaInfoRespMsg.h>
-#include <common/storage/quota/QuotaBlockDevice.h>
-#include <common/storage/quota/GetQuotaConfig.h>
 #include <common/app/log/LogContext.h>
+#include <common/net/message/storage/quota/GetQuotaInfoRespMsg.h>
+#include <common/storage/quota/GetQuotaConfig.h>
+#include <session/ZfsSession.h>
+#include <storage/QuotaBlockDevice.h>
+#include <program/Program.h>
 #include <toolkit/QuotaTk.h>
-
-
 #include "GetQuotaInfoMsgEx.h"
+
 
 
 bool GetQuotaInfoMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock, char* respBuf,
@@ -24,6 +24,7 @@ bool GetQuotaInfoMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
    bool retVal = false;
    QuotaBlockDeviceMap quotaBlockDevices;
    QuotaDataList outQuotaDataList;
+   ZfsSession session;
 
    switch(getTargetSelection() )
    {
@@ -49,18 +50,18 @@ bool GetQuotaInfoMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
    {
       if(getQueryType() == GetQuotaInfo_QUERY_TYPE_SINGLE_ID)
          retVal = QuotaTk::requestQuotaForID(getIDRangeStart(), getType(), &quotaBlockDevices,
-            &outQuotaDataList);
+            &outQuotaDataList, &session);
       else
       if(getQueryType() == GetQuotaInfo_QUERY_TYPE_ID_RANGE)
          retVal = QuotaTk::requestQuotaForRange(&quotaBlockDevices, getIDRangeStart(),
-            getIDRangeEnd(), getType(), &outQuotaDataList);
+            getIDRangeEnd(), getType(), &outQuotaDataList, &session);
       else
       if(getQueryType() == GetQuotaInfo_QUERY_TYPE_ID_LIST)
       {
          UIntList idList;
          parseIDList(&idList);
          retVal = QuotaTk::requestQuotaForList(&quotaBlockDevices, &idList, getType(),
-            &outQuotaDataList);
+            &outQuotaDataList, &session);
       }
    }
 

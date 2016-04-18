@@ -22,6 +22,7 @@
 
 // feature flags as header flags
 #define LOOKUPINTENTMSG_FLAG_USE_QUOTA          1 /* if the message contains quota informations */
+#define LOOKUPINTENTMSG_FLAG_UMASK              2 /* message contains separate umask data */
 
 
 struct LookupIntentMsg;
@@ -47,7 +48,7 @@ extern unsigned LookupIntentMsg_calcMessageLength(NetMessage* this);
 
 // inliners
 static inline void LookupIntentMsg_addIntentCreate(LookupIntentMsg* this,
-   unsigned userID, unsigned groupID, int mode, UInt16List* preferredTargets);
+   unsigned userID, unsigned groupID, int mode, int umask, UInt16List* preferredTargets);
 static inline void LookupIntentMsg_addIntentCreateExclusive(LookupIntentMsg* this);
 static inline void LookupIntentMsg_addIntentOpen(LookupIntentMsg* this, const char* sessionID,
    unsigned accessFlags);
@@ -68,6 +69,7 @@ struct LookupIntentMsg
    unsigned userID; // (file creation data)
    unsigned groupID; // (file creation data)
    int mode; // file creation mode permission bits  (file creation data)
+   int umask;
 
    unsigned sessionIDLen; // (file open data)
    const char* sessionID; // (file open data)
@@ -169,15 +171,19 @@ void LookupIntentMsg_destruct(NetMessage* this)
    os_kfree(this);
 }
 
-void LookupIntentMsg_addIntentCreate(LookupIntentMsg* this,
-   unsigned userID, unsigned groupID, int mode, UInt16List* preferredTargets)
+void LookupIntentMsg_addIntentCreate(LookupIntentMsg* this, unsigned userID, unsigned groupID,
+   int mode, int umask, UInt16List* preferredTargets)
 {
    this->intentFlags |= LOOKUPINTENTMSG_FLAG_CREATE;
 
    this->userID = userID;
    this->groupID = groupID;
    this->mode = mode;
+   this->umask = umask;
    this->preferredTargets = preferredTargets;
+
+   if (umask != -1)
+      NetMessage_addMsgHeaderFeatureFlag(&this->netMessage, LOOKUPINTENTMSG_FLAG_UMASK);
 }
 
 void LookupIntentMsg_addIntentCreateExclusive(LookupIntentMsg* this)
