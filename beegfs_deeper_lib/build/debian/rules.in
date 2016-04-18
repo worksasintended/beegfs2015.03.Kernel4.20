@@ -60,6 +60,8 @@ install: build
 		$(DEB_BUILD_ROOT)/usr/include/deeper/deeper_cache.h
 	install -D dist/usr/share/doc/beegfs-deeper-lib/examples/beegfs-deeper-lib-example.cpp \
 		$(DEB_BUILD_ROOT)/usr/share/doc/beegfs-deeper-lib/examples/beegfs-deeper-lib-example.cpp
+	mkdir -p ${RPM_BUILD_ROOT}/usr/lib/
+	ln -s /opt/beegfs/lib/libbeegfs-deeper.so $(DEB_BUILD_ROOT)/usr/lib/libbeegfs-deeper.so
 
 # Build architecture-independent files here.
 binary-indep:

@@ -63,24 +63,46 @@ class DeeperCache
 
       static DeeperCache* cacheInstance;
 
-      static void makeThreadKeyNftwPath();
-      static void freeThreadKeyNftwPath(void* value);
-      void setThreadKeyNftwPath(const char* path);
-      std::string getThreadKeyNftwPath();
-
       static void makeThreadKeyNftwFlushDiscard();
       static void freeThreadKeyNftwFlushDiscard(void* value);
       void setThreadKeyNftwFlushDiscard(bool flushFlag);
       bool getThreadKeyNftwFlushDiscard();
 
+      static void makeThreadKeyNftwFollowSymlink();
+      static void freeThreadKeyNftwFollowSymlink(void* value);
+      void setThreadKeyNftwFollowSymlink(bool followSymlinkFlag);
+      bool getThreadKeyNftwFollowSymlink();
+
+      static void makeThreadKeyNftwNumFollowedSymlinks();
+      static void freeThreadKeyNftwNumFollowedSymlinks(void* value);
+      void setThreadKeyNftwNumFollowedSymlinks(int numFollowedSymlinks);
+      int getThreadKeyNftwNumFollowedSymlinks();
+      void resetThreadKeyNftwNumFollowedSymlinks();
+      bool testAndIncrementThreadKeyNftwNumFollowedSymlinks();
+
+      static void makeThreadKeyNftwDestPath();
+      static void freeThreadKeyNftwDestPath(void* value);
+      void setThreadKeyNftwDestPath(const char* destPath);
+      bool getThreadKeyNftwDestPath(std::string& outValue);
+      void resetThreadKeyNftwDestPath();
+
+      static void makeThreadKeyNftwSourcePath();
+      static void freeThreadKeyNftwSourcePath(void* value);
+      void setThreadKeyNftwSourcePath(const char* sourcePath);
+      bool getThreadKeyNftwSourcePath(std::string& outValue);
+      void resetThreadKeyNftwSourcePath();
+
+      void setThreadKeyNftwPaths(const char* sourcePath, const char* destPath);
+      bool getThreadKeyNftwPaths(std::string& sourcePath, std::string& destPath);
+      void resetThreadKeyNftwPaths();
 
       static int nftwCopyFileToCache(const char *fpath, const struct stat *sb, int tflag,
          struct FTW *ftwbuf);
       static int nftwCopyFileToGlobal(const char *fpath, const struct stat *sb, int tflag,
          struct FTW *ftwbuf);
       int nftwHandleFlags(std::string sourcePath, std::string destPath, const struct stat *sb,
-         int tflag, bool copyToCache, bool deleteSource);
-      static int nftwDeleteDirectories(const char *fpath, const struct stat *sb, int tflag,
+         int tflag, bool copyToCache, bool deleteSource, bool followSymlink);
+      static int nftwDelete(const char *fpath, const struct stat *sb, int tflag,
          struct FTW *ftwbuf);
 
       void addEntryToSessionMap(int fd, int deeper_open_flags, std::string path);
@@ -90,7 +112,14 @@ class DeeperCache
          bool deleteSource);
       int copyFileRange(const char* sourcePath, const char* destPath, const struct stat* statSource,
          off_t* offset, size_t numBytes);
-      int copyDir(const char* source, const char* dest, bool copyToCache, bool deleteSource);
+      int copyDir(const char* source, const char* dest, bool copyToCache, bool deleteSource,
+         bool followSymlink);
+      int createSymlink(const char* sourcePath, const char* destPath, const struct stat* statSource,
+         bool copyToCache, bool deleteSource);
+      int handleSubdirectoryFlag(const char* source, const char* dest, bool copyToCache,
+         bool deleteSource, bool followSymlink);
+      int handleFollowSymlink(std::string sourcePath, std::string destPath,
+         const struct stat* statSourceSymlink, bool copyToCache, bool deleteSource, bool ignoreDir);
 
 
 

@@ -109,9 +109,9 @@ void Config::initImplicitVals() throw(InvalidConfigException)
  */
 void Config::trimPaths()
 {
-   if(this->sysMountPointCache[this->sysMountPointCache.size() - 1] == '/')
-      this->sysMountPointCache.resize(this->sysMountPointCache.size() - 1);
+   if(this->sysMountPointCache[this->sysMountPointCache.size() - 1] != '/')
+      this->sysMountPointCache += "/";
 
-   if(this->sysMountPointGlobal[this->sysMountPointGlobal.size() - 1] == '/')
-      this->sysMountPointGlobal.resize(this->sysMountPointGlobal.size() - 1);
+   if(this->sysMountPointGlobal[this->sysMountPointGlobal.size() - 1] != '/')
+      this->sysMountPointGlobal += "/";
 }

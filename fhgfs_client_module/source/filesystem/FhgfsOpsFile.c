@@ -43,13 +43,6 @@ struct file_operations fhgfs_file_buffered_ops =
    .release          = FhgfsOps_release,
    .read             = FhgfsOps_read,
    .write            = FhgfsOps_write,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
-   .read_iter        = FhgfsOps_read_iter, // replacement for aio_read
-   .write_iter       = FhgfsOps_write_iter, // replacement for aio_write
-#else
-   .aio_read         = FhgfsOps_aio_read,
-   .aio_write        = FhgfsOps_aio_write,
-#endif // LINUX_VERSION_CODE
    .fsync            = FhgfsOps_fsync,
    .flush            = FhgfsOps_flush,
    .llseek           = FhgfsOps_llseek,

@@ -13,25 +13,28 @@ extern "C" {
 #include <sys/stat.h>
 
 
-#define DEEPER_RETVAL_SUCCESS        0 // return value for success
-#define DEEPER_RETVAL_ERROR         -1 // return value for an error
+#define DEEPER_RETVAL_SUCCESS            0 // return value for success
+#define DEEPER_RETVAL_ERROR             -1 // return value for an error
 
 // valid deeper_open_flags
-#define DEEPER_OPEN_NONE             0 // no deeper open flags needed
-#define DEEPER_OPEN_FLUSHWAIT        1 // wait until flush is finished on close (synchronous)
-#define DEEPER_OPEN_FLUSHONCLOSE     2 // flush to deeper cache to global storage on close
-#define DEEPER_OPEN_DISCARD          4 // delete file from deeper cache on close
+#define DEEPER_OPEN_NONE                 0 // no deeper open flags needed
+#define DEEPER_OPEN_FLUSHWAIT            1 // wait until flush is finished on close (synchronous)
+#define DEEPER_OPEN_FLUSHONCLOSE         2 // flush the deeper cache to global storage on close
+#define DEEPER_OPEN_DISCARD              4 // delete file from deeper cache on close
+#define DEEPER_OPEN_FLUSHFOLLOWSYMLINKS  8 // do not create symlinks, copy the destination file/dir
 
 // valid deeper_prefetch_flags
-#define DEEPER_PREFETCH_NONE         0 // no deeper prefetch flags needed
-#define DEEPER_PREFETCH_WAIT         1 // wait until prefetch is finished (synchronous prefetch)
-#define DEEPER_PREFETCH_SUBDIRS      2 // also prefetch all subdirectories
+#define DEEPER_PREFETCH_NONE             0 // no deeper prefetch flags needed
+#define DEEPER_PREFETCH_WAIT             1 // wait until prefetch is finished (synchronous prefetch)
+#define DEEPER_PREFETCH_SUBDIRS          2 // also prefetch all subdirectories
+#define DEEPER_PREFETCH_FOLLOWSYMLINKS   4 // do not create symlinks, copy the destination file/dir
 
 // valid deeper_flush_flags
-#define DEEPER_FLUSH_NONE            0 // no deeper flush flags needed
-#define DEEPER_FLUSH_WAIT            1 // wait until flush is finished (synchronous flush)
-#define DEEPER_FLUSH_SUBDIRS         2 // also flush all subdirectories
-#define DEEPER_FLUSH_DISCARD         4 // delete file from deeper cache after flush
+#define DEEPER_FLUSH_NONE                0 // no deeper flush flags needed
+#define DEEPER_FLUSH_WAIT                1 // wait until flush is finished (synchronous flush)
+#define DEEPER_FLUSH_SUBDIRS             2 // also flush all subdirectories
+#define DEEPER_FLUSH_DISCARD             4 // delete file from deeper cache after flush
+#define DEEPER_FLUSH_FOLLOWSYMLINKS      8 // do not create symlinks, copy the destination file/dir
 
 
 
@@ -93,6 +96,8 @@ int deeper_cache_closedir(DIR *dirp);
  *        DEEPER_OPEN_FLUSHWAIT to make DEEPER_OPEN_FLUSHONCLOSE a synchronous operation, which
  *        means the close operation will only return after flushing is complete;
  *        DEEPER_OPEN_DISCARD to remove the file from the cache layer after it has been closed.
+ *        DEEPER_OPEN_FOLLOWSYMLINKS to copy the destination file or directory and do not create
+ *           symbolic links when a symbolic link was found;
  * @return file descriptor as non-negative integer on success, -1 and errno set in case of error.
  */
 int deeper_cache_open(const char* path, int oflag, mode_t mode, int deeper_open_flags);
@@ -117,6 +122,8 @@ int deeper_cache_close(int fildes);
  *        DEEPER_PREFETCH_SUBDIRS to recursively copy all subdirs, if given path leads to a
  *           directory;
  *        DEEPER_PREFETCH_WAIT to make this a synchronous operation.
+ *        DEEPER_PREFETCH_FOLLOWSYMLINKS to copy the destination file or directory and do not
+ *           create symbolic links when a symbolic link was found;
  * @return 0 on success, -1 and errno set in case of error.
  */
 int deeper_cache_prefetch(const char* path, int deeper_prefetch_flags);
@@ -157,6 +164,8 @@ int deeper_cache_prefetch_wait(const char* path, int deeper_prefetch_flags);
  *        DEEPER_FLUSH_SUBDIRS to recursively copy all subdirs, if given path leads to a
  *           directory;
  *        DEEPER_FLUSH_DISCARD to remove the file from the cache layer after it has been flushed.
+ *        DEEPER_FLUSH_FOLLOWSYMLINKS to copy the destination file or directory and do not create
+ *           symbolic links when a symbolic link was found;
  * @return 0 on success, -1 and errno set in case of error.
  */
 int deeper_cache_flush(const char* path, int deeper_flush_flags);

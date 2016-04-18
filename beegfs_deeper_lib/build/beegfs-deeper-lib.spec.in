@@ -94,6 +94,9 @@ mkdir -p ${RPM_BUILD_ROOT}/usr/include
 cp -a include/deeper ${RPM_BUILD_ROOT}/usr/include/
 install -D build/dist/usr/share/doc/beegfs-deeper-lib/examples/beegfs-deeper-lib-example.cpp \
 	${RPM_BUILD_ROOT}/usr/share/doc/beegfs-deeper-lib/examples/beegfs-deeper-lib-example.cpp
+mkdir -p ${RPM_BUILD_ROOT}/usr/lib/
+ln -s %{PREFIX}/lib/libbeegfs-deeper.so ${RPM_BUILD_ROOT}/usr/lib/libbeegfs-deeper.so
+
 
 # for rpm stupidness only!
 pushd ${RPM_BUILD_ROOT}/%{PREFIX}/lib/
@@ -105,5 +108,7 @@ popd
 %config(noreplace) /etc/beegfs/beegfs-deeper-lib.conf
 /etc/ld.so.conf.d/beegfs-deeper.conf
 %{PREFIX}/lib/libbeegfs-deeper.so
+/usr/lib/libbeegfs-deeper.so
 /usr/include/deeper
 /usr/share/doc/beegfs-deeper-lib/examples/beegfs-deeper-lib-example.cpp
+

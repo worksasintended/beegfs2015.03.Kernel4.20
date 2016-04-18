@@ -67,6 +67,12 @@ endif
 all: $(SOURCES) $(LIB)
 
 all-deeper: $(SOURCES) $(LIB)
+	# clean up old stuff first
+	$(MAKE) clean
+
+	$(MAKE) FHGFS_OPENTK_IBVERBS=0
+
+strip:
 	cp lib$(LIB).a lib$(LIB)-unstripped.a
 	${STRIP} --strip-debug lib$(LIB).a
 

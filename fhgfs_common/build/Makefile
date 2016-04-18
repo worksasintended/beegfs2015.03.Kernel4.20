@@ -71,32 +71,27 @@ all: $(SOURCES) $(LIB)
 all-deeper: $(SOURCES) deeper
 
 deeper: $(OBJECTS)
-	ar -crs lib$(LIB)-unstripped.a $(OBJECTS)
-
-	echo "CREATE libbeegfs-common-opentk-unstripped.a" > arlib-unstripped.in
-	echo "ADDLIB lib$(LIB)-unstripped.a" >> arlib-unstripped.in
-	echo "ADDLIB $(BEEGFS_OPENTK_PATH)/build/libbeegfs-opentk-unstripped.a" >> arlib-unstripped.in
-	echo "SAVE" >> arlib-unstripped.in
-	echo "END" >> arlib-unstripped.in
-	ar -M < arlib-unstripped.in
-	ranlib lib$(LIB)-unstripped.a
-
-	cp lib$(LIB)-unstripped.a lib$(LIB).a
-	${STRIP} --strip-debug lib$(LIB).a
-
+	ar -crs lib$(LIB).a $(OBJECTS)
 	echo "CREATE libbeegfs-common-opentk.a" > arlib.in
 	echo "ADDLIB lib$(LIB).a" >> arlib.in
 	echo "ADDLIB $(BEEGFS_OPENTK_PATH)/build/libbeegfs-opentk.a" >> arlib.in
 	echo "SAVE" >> arlib.in
 	echo "END" >> arlib.in
 	ar -M < arlib.in
-	ranlib lib$(LIB).a
+	ranlib libbeegfs-common-opentk.a
 
-	${STRIP} --strip-debug libbeegfs-common-opentk.a
 
 
 $(LIB): $(OBJECTS)
 	ar -r lib$(LIB).a $(OBJECTS)
+
+strip:
+	cp -a lib$(LIB).a lib$(LIB)-unstripped.a
+	${STRIP} --strip-debug lib$(LIB).a
+	ifeq ($(BEEGFS_DEEPER_SO),1)
+	cp -a libbeegfs-common-opentk.a libbeegfs-common-opentk-unstripped.a
+	${STRIP} --strip-debug libbeegfs-common-opentk.a
+	endif
 
 .cpp.o: 
 	$(CXX) $(CXXFLAGS) -c $(@:.o=.cpp) -E -MMD -MF$(@:.o=.d) -MT$(@) -o/dev/null
@@ -104,7 +99,7 @@ $(LIB): $(OBJECTS)
 
 clean:
 	rm -rf $(CLEANUP_OBJECTS) $(DEPENDENCY_FILES) lib$(LIB).a lib$(LIB)-unstripped.a \
-		libbeegfs-common-opentk.a libbeegfs-common-opentk-unstripped.a arlib.in arlib-unstripped.in
+		libbeegfs-common-opentk.a arlib.in
 
 help:
 	@echo 'Optional Arguments:'

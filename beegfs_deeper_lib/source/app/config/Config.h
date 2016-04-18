@@ -36,22 +36,22 @@ class Config : public AbstractConfig
    public:
       // getters & setters
 
-      std::string getSysMountPointCache() const
+      const std::string& getSysMountPointCache() const
       {
          return sysMountPointCache;
       }
       
-      std::string getSysMountPointGlobal() const
+      const std::string& getSysMountPointGlobal() const
       {
          return sysMountPointGlobal;
       }
 
-      uint64_t getSysCacheID() const
+      const uint64_t& getSysCacheID() const
       {
          return sysCacheID;
       }
 
-      std::string getConnDeeperCachedNamedSocket() const
+      const std::string& getConnDeeperCachedNamedSocket() const
       {
          return connDeeperCachedNamedSocket;
       }

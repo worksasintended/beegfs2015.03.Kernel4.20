@@ -70,11 +70,25 @@ override BEEGFS_VERSION_CODE := $(shell bash -c \
 CXXFLAGS += -DBEEGFS_VERSION=\"$(BEEGFS_VERSION)\" -DBEEGFS_VERSION_CODE=$(BEEGFS_VERSION_CODE)
 
 
-all: $(SOURCES_CPP) $(SOURCES_C) $(LIB)
+all: test_version $(SOURCES_CPP) $(SOURCES_C) $(LIB)
+
+test_version:
+	@# just call the beegfs-version script to check whether it returns an error. the script output is
+	@# used in other places of this makefile and we want to make sure that we don't mess up version
+	@# tags in the binary with script errors.
+	@echo "beegfs version check..."
+	@$(BEEGFS_VERSION_PATH) --verbose
 
 $(LIB): $(OBJECTS_CPP) $(OBJECTS_C) libshared
 
+strip:
+	cp -a lib$(LIB).a lib$(LIB)-unstripped.a
+	${STRIP} --strip-debug lib$(LIB).a
+	cp -a lib$(LIB).so lib$(LIB)-unstripped.so
+	${STRIP} --strip-debug lib$(LIB).so
+
 libthirdparty:
+	$(MAKE) CXXFLAGS='-fPIC' -C $(BEEGFS_THIRDPARTY_PATH)/build/ clean_cppunit
 	$(MAKE) CXXFLAGS='-fPIC' -C $(BEEGFS_THIRDPARTY_PATH)/build/ cppunit
 
 libopentk:
@@ -85,20 +99,7 @@ libcommon: libopentk libthirdparty
 	$(MAKE) -C $(BEEGFS_COMMON_PATH)/build/ all-deeper
 
 libstatic: libcommon
-	ar -crs libbeegfs-cache-unstripped.a $(OBJECTS_CPP) $(OBJECTS_C)
-
-	echo "CREATE lib$(LIB)-unstripped.a" > arlib-unstripped.in
-	echo "ADDLIB libbeegfs-cache-unstripped.a" >> arlib-unstripped.in
-	echo "ADDLIB $(BEEGFS_COMMON_PATH)/build/libbeegfs-common-opentk-unstripped.a"  >> arlib-unstripped.in
-	echo "ADDLIB $(BEEGFS_THIRDPARTY_PATH)/build/libcppunit.a"  >> arlib-unstripped.in
-	echo "SAVE" >> arlib-unstripped.in
-	echo "END" >> arlib-unstripped.in
-	ar -M < arlib-unstripped.in
-	ranlib lib$(LIB)-unstripped.a
-
-	cp libbeegfs-cache-unstripped.a libbeegfs-cache.a
-	${STRIP} --strip-debug libbeegfs-cache.a
-
+	ar -crs libbeegfs-cache.a $(OBJECTS_CPP) $(OBJECTS_C)
 	echo "CREATE lib$(LIB).a" > arlib.in
 	echo "ADDLIB libbeegfs-cache.a" >> arlib.in
 	echo "ADDLIB $(BEEGFS_COMMON_PATH)/build/libbeegfs-common-opentk.a"  >> arlib.in
@@ -107,8 +108,6 @@ libstatic: libcommon
 	echo "END" >> arlib.in
 	ar -M < arlib.in
 	ranlib lib$(LIB).a
-
-	${STRIP} --strip-debug lib$(LIB).a
 
 
 
@@ -123,8 +122,6 @@ package_lib:
 	$(MAKE) clean
 
 	$(MAKE)
-	cp -a lib$(LIB).so lib$(LIB)-unstripped.so
-	${STRIP} --strip-debug lib$(LIB).so
 
 .cpp.o: 
 	$(CXX) $(CXXFLAGS) -c $(@:.o=.cpp) -E -MMD -MF$(@:.o=.d) -MT$(@) -o/dev/null
@@ -135,7 +132,7 @@ package_lib:
 	$(DISTCC) $(CXX) $(CXXFLAGS) -o $@ -c $(@:.o=.c) 
 
 install: package_lib
-	install -D -m 644 lib$(LIB).so $(DESTDIR)/$(PREFIX)/lib/lib$(LIB).so
+	install -D -m 755 lib$(LIB).so $(DESTDIR)/$(PREFIX)/lib/lib$(LIB).so
 
 package_install: install
 	@# PREFIX is something like /usr or /usr/local or /opt/beegfs
@@ -149,7 +146,7 @@ package_install: install
 clean:
 	rm -rf $(CLEANUP_OBJECTS) $(DEPENDENCY_FILES) lib$(LIB).so \
 		lib$(LIB)-unstripped.so lib$(LIB).a lib$(LIB)-unstripped.a \
-		libbeegfs-cache.a libbeegfs-cache-unstripped.a arlib.in arlib-unstripped.in
+		libbeegfs-cache.a arlib.in
 	$(MAKE) -C $(BEEGFS_COMMON_PATH)/build/ clean
 	$(MAKE) -C $(BEEGFS_OPENTK_PATH)/build/ clean
 	$(MAKE) -C $(BEEGFS_THIRDPARTY_PATH)/build/ clean_cppunit
