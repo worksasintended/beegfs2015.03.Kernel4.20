@@ -228,7 +228,8 @@ public class JInternalFrameSetQuota extends javax.swing.JInternalFrame implement
       {
          int valueCounter = 0;
          StringBuilder errorStr = new StringBuilder(DEFAULT_STRING_LENGTH);
-         errorStr.append("Some lines of the file are not valid:\n");
+         errorStr.append("Some lines of the file are not valid:");
+         errorStr.append(System.lineSeparator());
          for (int failedLine : failedLines)
          {
             errorStr.append(failedLine);
@@ -237,7 +238,7 @@ public class JInternalFrameSetQuota extends javax.swing.JInternalFrame implement
 
             if (valueCounter == ERROR_LINES_PER_ROW)
             {
-               errorStr.append("\n");
+               errorStr.append(System.lineSeparator());
                valueCounter = 0;
             }
          }

@@ -390,10 +390,10 @@ void App::initDataObjects(int argc, char** argv) throw(InvalidConfigException)
    this->storageNodes->attachTargetMapper(targetMapper);
    this->targetMapper->attachCapacityPools(storageCapacityPools);
 
-   this->targetStateStore = new MgmtdTargetStateStore();
+   this->targetStateStore = new MgmtdTargetStateStore(NODETYPE_Storage);
    this->targetMapper->attachStateStore(targetStateStore);
 
-   this->metaStateStore = new MgmtdTargetStateStore();
+   this->metaStateStore = new MgmtdTargetStateStore(NODETYPE_Meta);
    this->metaNodes->attachStateStore(metaStateStore);
 
    this->workQueue = new MultiWorkQueue();

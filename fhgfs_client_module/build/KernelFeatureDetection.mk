@@ -13,6 +13,18 @@ endef
 
 # KERNEL_HAS_DROP_NLINK Detection [START]
 #
+# kernels >=v4.4 expect a netns argument for rdma_create_id
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -qs "struct rdma_cm_id \*rdma_create_id.struct net \*net," \
+      ${OFED_DETECTION_PATH}/rdma/rdma_cm.h \
+      && echo "-DOFED_HAS_NETNS")
+
+# kernels >=v4.4 split up ib_send_wr into a lot of other structs
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -qs -F "struct ib_atomic_wr {" \
+      ${OFED_DETECTION_PATH}/rdma/ib_verbs.h \
+      && echo "-DOFED_SPLIT_WR")
+
 # Find out whether the kernel has a drop_nlink function.
 # Note: Was added in vanilla 2.6.19, but RedHat adds it to 2.6.18.
 KERNEL_HAS_DROP_NLINK = $(shell \
@@ -431,6 +443,9 @@ $(call define_if_matches, KERNEL_HAS_ADDRSPACE_ASSOC_MAPPING, -F "assoc_mapping"
 # current_umask() was added in 2.6.30
 $(call define_if_matches, KERNEL_HAS_CURRENT_UMASK, -F "current_umask", fs.h)
 
+# super_operations.show_options was changed to struct dentry* in 3.3
+$(call define_if_matches, KERNEL_HAS_SHOW_OPTIONS_DENTRY, -F "int (*show_options)(struct seq_file *, struct dentry *);", fs.h)
+
 # Find out whether ib_create_cq function has cq_attr argument
 # This is tricky because the function declaration spans multiple lines.
 # Note: Was introduced in vanilla 4.2
@@ -438,6 +453,24 @@ OFED_HAS_IB_CREATE_CQATTR += $(shell \
    grep -sA4 "struct ib_cq \*ib_create_cq(struct ib_device \*device," ${OFED_DETECTION_PATH}/rdma/ib_verbs.h 2>&1 \
       | grep -qs "const struct ib_cq_init_attr \*cq_attr);" \
       && echo "-DOFED_HAS_IB_CREATE_CQATTR")
+
+# xattr handlers >=v4.4 also receive pointer to struct xattr_handler
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -s -F "int (*get)" ${KSRCDIR_PRUNED_HEAD}/include/linux/xattr.h \
+      | grep -q -s -F "const struct xattr_handler *" \
+      && echo "-DKERNEL_HAS_XATTR_HANDLER_PTR_ARG -DKERNEL_HAS_DENTRY_XATTR_HANDLER")
+
+# 4.5 introduces name in xattr_handler, which can be used instead of prefix
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -sFA1 "struct xattr_handler {" ${KSRCDIR_PRUNED_HEAD}/include/linux/xattr.h \
+      | grep -qsF "const char *name;" \
+      && echo "-DKERNEL_HAS_XATTR_HANDLER_NAME")
+
+# locks_lock_inode_wait is used for flock since 4.4 (before flock_lock_file_wait was used) 
+$(call define_if_matches, KERNEL_HAS_LOCKS_LOCK_INODE_WAIT, -F "static inline int locks_lock_inode_wait(struct inode *inode, struct file_lock *fl)", fs.h)
+
+# get_link() replaces follow_link() in 4.5
+$(call define_if_matches, KERNEL_HAS_GET_LINK, -F "const char * (*get_link) (struct dentry *, struct inode *, struct delayed_call *);", fs.h)
 
 # Combine results
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_DROP_NLINK)

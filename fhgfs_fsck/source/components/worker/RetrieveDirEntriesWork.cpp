@@ -8,20 +8,23 @@
 
 #include <program/Program.h>
 
-RetrieveDirEntriesWork::RetrieveDirEntriesWork(Node* node, SynchronizedCounter* counter,
-   unsigned hashDirStart, unsigned hashDirEnd, AtomicUInt64* numDentriesFound,
-   AtomicUInt64* numFileInodesFound) : Work()
-{
-   log.setContext("RetrieveDirEntriesWork");
-   this->node = node;
-   this->counter = counter;
-   this->hashDirStart = hashDirStart;
-   this->hashDirEnd = hashDirEnd;
-   this->numDentriesFound = numDentriesFound;
-   this->numFileInodesFound = numFileInodesFound;
-}
+#include <set>
 
- RetrieveDirEntriesWork::~RetrieveDirEntriesWork()
+RetrieveDirEntriesWork::RetrieveDirEntriesWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
+   unsigned hashDirStart, unsigned hashDirEnd, AtomicUInt64* numDentriesFound,
+   AtomicUInt64* numFileInodesFound, std::set<FsckTargetID>& usedTargets)
+    : Work(),
+      log("RetrieveDirEntriesWork"),
+      node(node),
+      counter(counter),
+      numDentriesFound(numDentriesFound),
+      numFileInodesFound(numFileInodesFound),
+      usedTargets(&usedTargets),
+      hashDirStart(hashDirStart),
+      hashDirEnd(hashDirEnd),
+      dentries(db->getDentryTable() ), dentriesHandle(dentries->newBulkHandle() ),
+      files(db->getFileInodesTable() ), filesHandle(files->newBulkHandle() ),
+      contDirs(db->getContDirsTable() ), contDirsHandle(contDirs->newBulkHandle() )
 {
 }
 
@@ -96,9 +99,7 @@ void RetrieveDirEntriesWork::doWork()
 
                   resultCount = dirEntries.size();
 
-                  // insert all dir entries to the buffer and, if MAX_BUFFER_SIZE is reached, flush
-                  if ( this->bufferDirEntries.add(dirEntries) > MAX_BUFFER_SIZE )
-                     this->flushDirEntries();
+                  this->dentries->insert(dirEntries, this->dentriesHandle);
 
                   numDentriesFound->increase(resultCount);
 
@@ -106,9 +107,55 @@ void RetrieveDirEntriesWork::doWork()
                   FsckFileInodeList inlinedFileInodes;
                   retrieveDirEntriesRespMsg->parseInlinedFileInodes(&inlinedFileInodes);
 
-                  // insert all inlined inodes to the buffer and flush, if MAX_BUFFER_SIZE reached
-                  if ( this->bufferFileInodes.add(inlinedFileInodes) > MAX_BUFFER_SIZE )
-                     this->flushFileInodes();
+                  struct ops
+                  {
+                     static bool dentryCmp(const FsckDirEntry& a, const FsckDirEntry& b)
+                     {
+                        return a.getID() < b.getID();
+                     }
+
+                     static bool inodeCmp(const FsckFileInode& a, const FsckFileInode& b)
+                     {
+                        return a.getID() < b.getID();
+                     }
+                  };
+
+                  dirEntries.sort(ops::dentryCmp);
+                  inlinedFileInodes.sort(ops::inodeCmp);
+
+                  // set GFIDs for inlined inodes from dentry, since meta won't tell us inode
+                  // GFIDs
+                  {
+                     FsckDirEntryListIter dit = dirEntries.begin();
+                     FsckFileInodeListIter fit = inlinedFileInodes.begin();
+
+                     while (dit != dirEntries.end() )
+                     {
+                        if (fit == inlinedFileInodes.end() )
+                           break;
+
+                        if (dit->getID() < fit->getID() )
+                        {
+                           ++dit;
+                           continue;
+                        }
+
+                        if (fit->getID() < dit->getID() )
+                        {
+                           ++fit;
+                           continue;
+                        }
+
+                        if (!fit->getIsInlined() )
+                           continue;
+
+                        fit->setSaveInode(dit->getSaveInode() );
+                        fit->setSaveDevice(dit->getSaveDevice() );
+                        ++fit;
+                     }
+                  }
+
+                  this->files->insert(inlinedFileInodes, this->filesHandle);
 
                   numFileInodesFound->increase(inlinedFileInodes.size());
 
@@ -118,7 +165,6 @@ void RetrieveDirEntriesWork::doWork()
                   for ( FsckFileInodeListIter iter = inlinedFileInodes.begin();
                      iter != inlinedFileInodes.end(); iter++ )
                   {
-                     FsckTargetIDList targetIDs;
                      FsckTargetIDType fsckTargetIDType;
 
                      if (iter->getStripePatternType() == FsckStripePatternType_BUDDYMIRROR)
@@ -129,21 +175,15 @@ void RetrieveDirEntriesWork::doWork()
                      for (UInt16VectorIter targetsIter = iter->getStripeTargets()->begin();
                         targetsIter != iter->getStripeTargets()->end(); targetsIter++)
                      {
-                        FsckTargetID fsckTargetID(*targetsIter, fsckTargetIDType);
-                        targetIDs.push_back(fsckTargetID);
+                        this->usedTargets->insert(FsckTargetID(*targetsIter, fsckTargetIDType) );
                      }
-
-                     if ( this->bufferUsedTargets.add(targetIDs, true) > MAX_BUFFER_SIZE )
-                        this->flushUsedTargets();
                   }
 
                   // parse all new cont. directories
                   FsckContDirList contDirs;
                   retrieveDirEntriesRespMsg->parseContDirs(&contDirs);
 
-                  // insert all contend dirs to the buffer and flush, if MAX_BUFFER_SIZE reached
-                  if ( this->bufferContDirs.add(contDirs) > MAX_BUFFER_SIZE )
-                     this->flushContDirs();
+                  this->contDirs->insert(contDirs, this->contDirsHandle);
 
                   SAFE_FREE(respBuf);
                   SAFE_DELETE(respMsg);
@@ -162,80 +202,11 @@ void RetrieveDirEntriesWork::doWork()
             } while ( resultCount > 0 );
          }
       }
-
-      // flush remaining entries in buffers
-      this->flushDirEntries();
-      this->flushFileInodes();
-      this->flushUsedTargets();
-      this->flushContDirs();
    }
    else
    {
       // basically this should never ever happen
       log.logErr("Requested node does not exist");
       throw FsckException("Requested node does not exist");
-   }
-}
-
-void RetrieveDirEntriesWork::flushDirEntries()
-{
-   FsckDirEntry failedInsert;
-   int errorCode;
-   bool success = this->bufferDirEntries.flush(failedInsert, errorCode);
-
-   if ( !success )
-   {
-      log.log(1, "Failed to insert dirEntry with name " + failedInsert.getName() + " and parentID "
-         + failedInsert.getParentDirID());
-      log.log(1, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while inserting dir entries to database. Please see log for more information.");
-   }
-}
-
-void RetrieveDirEntriesWork::flushFileInodes()
-{
-   FsckFileInode failedInsert;
-   int errorCode;
-   bool success = this->bufferFileInodes.flush(failedInsert, errorCode);
-
-   if ( !success )
-   {
-      log.log(1, "Failed to insert inlined file inode with ID " + failedInsert.getID());
-      log.log(1, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while inserting file inodes to database. Please see log for more information.");
-   }
-}
-
-void RetrieveDirEntriesWork::flushUsedTargets()
-{
-   FsckTargetID failedInsert;
-   int errorCode;
-
-   bool success = this->bufferUsedTargets.flush(failedInsert, errorCode);
-
-   if ( !success )
-   {
-      log.log(1, "Failed to insert used target; ID: " + StringTk::uintToStr(failedInsert.getID()));
-      log.log(1, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while inserting target IDs to database. Please see log for more information.");
-   }
-}
-
-void RetrieveDirEntriesWork::flushContDirs()
-{
-   FsckContDir failedInsert;
-   int errorCode;
-   bool success = this->bufferContDirs.flush(failedInsert, errorCode);
-
-   if ( !success )
-   {
-      log.log(1, "Failed to insert cont. dir with ID " + failedInsert.getID() + " from node "
-         + StringTk::uintToStr(failedInsert.getSaveNodeID()));
-      log.log(1, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while inserting chunks to database. Please see log for more information.");
    }
 }

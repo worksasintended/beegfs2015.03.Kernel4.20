@@ -1,10 +1,14 @@
 #include "TestRunner.h"
 
 #include "TestConfig.h"
+#include "TestCursors.h"
 #include "TestDatabase.h"
 #include "TestFsckTk.h"
 #include "TestMsgSerialization.h"
 #include "TestSerialization.h"
+#include "TestSetFragment.h"
+#include "TestSet.h"
+#include "TestTable.h"
 
 #include <program/Program.h>
 
@@ -39,8 +43,12 @@ bool TestRunner::addTests()
    if(cfg->getRunUnitTests())
    {
       this->testRunner.addTest(TestConfig::suite());
+      this->testRunner.addTest(TestCursors::suite());
       this->testRunner.addTest(TestSerialization::suite());
       this->testRunner.addTest(TestMsgSerialization::suite());
+      this->testRunner.addTest(TestSetFragment::suite());
+      this->testRunner.addTest(TestSet::suite());
+      this->testRunner.addTest(TestTable::suite());
       this->testRunner.addTest(TestDatabase::suite());
       this->testRunner.addTest(TestFsckTk::suite());
       return true;

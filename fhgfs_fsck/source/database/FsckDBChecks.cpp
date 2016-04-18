@@ -1,1255 +1,1160 @@
 #include "FsckDB.h"
 
+#include <database/FsckDBTable.h>
+#include <database/Distinct.h>
+#include <database/Group.h>
+#include <database/LeftJoinEq.h>
+#include <database/Select.h>
+#include <database/Union.h>
+#include <toolkit/DatabaseTk.h>
 #include <toolkit/FsckTkEx.h>
 
 #include <program/Program.h>
 
+#include <boost/make_shared.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <boost/tuple/tuple_comparison.hpp>
+
+namespace {
+
+struct SelectFirstFn
+{
+   template<typename> struct result;
+   template<typename F, typename L, typename R>
+   struct result<F(std::pair<L, R>&)> {
+      typedef L type;
+   };
+
+   template<typename Left, typename Right>
+   Left operator()(std::pair<Left, Right>& pair) const
+   {
+      return pair.first;
+   }
+} first;
+
+struct SecondIsNullFn
+{
+   typedef bool result_type;
+
+   template<typename Left, typename Right>
+   bool operator()(std::pair<Left, Right*>& pair) const
+   {
+      return pair.second == NULL;
+   }
+} secondIsNull;
+
+struct ObjectIDFn
+{
+   typedef db::EntryID result_type;
+
+   template<typename Obj>
+   db::EntryID operator()(Obj& obj) const
+   {
+      return obj.id;
+   }
+} objectID;
+
+struct FirstObjectIDFn
+{
+   typedef db::EntryID result_type;
+
+   template<typename Obj, typename Second>
+   db::EntryID operator()(std::pair<Obj, Second>& obj) const
+   {
+      return obj.first.id;
+   }
+} firstObjectID;
+
+struct SecondIsNotNullFn
+{
+   typedef bool result_type;
+
+   template<typename Left, typename Right>
+   bool operator()(std::pair<Left, Right*>& pair) const
+   {
+      return pair.second != NULL;
+   }
+};
+
+template<typename Left, typename Right, typename Fn>
+Filter<LeftJoinEq<Left, Right, Fn>, SecondIsNotNullFn> joinBy(Fn fn, Left left, Right right)
+{
+   return
+      db::leftJoinBy(fn, left, right)
+      | db::where(SecondIsNotNullFn() );
+}
+
+template<typename To>
+struct ConvertTo
+{
+   typedef To result_type;
+
+   template<typename From>
+   To operator()(From& from) const
+   {
+      return To(from);
+   }
+};
+
+template<typename To>
+static db::SelectOp<ConvertTo<To> > convertTo()
+{
+   return db::select(ConvertTo<To>() );
+}
+
+template<typename Inner>
+static Cursor<typename Inner::ElementType> cursor(Inner inner)
+{
+   return Cursor<typename Inner::ElementType>(inner);
+}
+
+struct IgnoreByID
+{
+   SetFragmentCursor<db::ModificationEvent> modified;
+
+   template<typename Source>
+   friend Select<
+      Filter<
+         LeftJoinEq<Source, SetFragmentCursor<db::ModificationEvent>, ObjectIDFn>,
+         SecondIsNullFn>,
+      SelectFirstFn>
+      operator|(Source source, IgnoreByID ignore)
+   {
+      return
+         leftJoinBy(
+            objectID,
+            source,
+            ignore.modified)
+         | db::where(secondIsNull)
+         | db::select(first);
+   }
+};
+
+static IgnoreByID ignoreByID(SetFragmentCursor<db::ModificationEvent> ids)
+{
+   IgnoreByID result = { ids };
+   return result;
+}
+
+struct IDFn
+{
+   template<class> struct result;
+
+   template<class F, class T>
+   struct result<F(T)> {
+      typedef T type;
+   };
+
+   template<typename T>
+   T operator()(T t) const { return t; }
+} id;
+
+}
+
+
+
+static bool dentryIsDirectory(db::DirEntry& dentry)
+{
+   return dentry.entryType == FsckDirEntryType_DIRECTORY;
+}
+
+static bool dentryIsNotDirectory(db::DirEntry& dentry)
+{
+   return dentry.entryType != FsckDirEntryType_DIRECTORY;
+}
+
+static bool isNotDisposal(db::DirInode& inode)
+{
+   return inode.id != db::EntryID::disposal();
+}
+
+namespace {
+struct DuplicateIDGroup
+{
+   typedef db::EntryID KeyType;
+   typedef db::EntryID ProjType;
+   typedef std::set<uint32_t> GroupType;
+
+   bool hasTarget;
+   uint32_t lastTarget;
+   GroupType group;
+
+   DuplicateIDGroup()
+   {
+      reset();
+   }
+
+   void reset()
+   {
+      hasTarget = false;
+      group.clear();
+   }
+
+   KeyType key(std::pair<db::EntryID, uint32_t> pair)
+   {
+      return pair.first;
+   }
+
+   ProjType project(std::pair<db::EntryID, uint32_t> pair)
+   {
+      return pair.first;
+   }
+
+   void step(std::pair<db::EntryID, uint32_t> pair)
+   {
+      if(!hasTarget)
+      {
+         lastTarget = pair.second;
+         hasTarget = true;
+         return;
+      }
+
+      if(lastTarget != 0)
+      {
+         group.insert(lastTarget);
+         lastTarget = 0;
+      }
+
+      group.insert(pair.second);
+   }
+
+   GroupType finish()
+   {
+      GroupType result;
+
+      result.swap(group);
+      reset();
+      return result;
+   }
+};
+}
+
+Cursor<std::pair<db::EntryID, std::set<uint32_t> > > FsckDB::findDuplicateInodeIDs()
+{
+   struct ops
+   {
+      static std::pair<db::EntryID, uint32_t> idAndTargetF(db::FileInode& file)
+      {
+         return std::make_pair(file.id, file.saveNodeID);
+      }
+
+      static std::pair<db::EntryID, uint32_t> idAndTargetD(db::DirInode& file)
+      {
+         return std::make_pair(file.id, file.saveNodeID);
+      }
+
+      static bool hasDuplicateID(std::pair<db::EntryID, std::set<uint32_t> >& pair)
+      {
+         return !pair.second.empty();
+      }
+   };
+
+   return cursor(
+      db::unionBy(
+         id,
+         this->dirInodesTable->get()
+         | db::where(isNotDisposal)
+         | db::select(ops::idAndTargetD),
+         this->fileInodesTable->getInodes()
+         | db::select(ops::idAndTargetF) )
+      | db::groupBy(DuplicateIDGroup() )
+      | db::where(ops::hasDuplicateID) );
+}
+
+namespace {
+struct DuplicateChunkGroup
+{
+   typedef std::pair<db::EntryID, uint32_t> KeyType;
+   typedef db::EntryID ProjType;
+   typedef std::list<FsckChunk> GroupType;
+
+   bool hasChunk;
+   db::Chunk chunk;
+   GroupType group;
+
+   DuplicateChunkGroup()
+   {
+      reset();
+   }
+
+   void reset()
+   {
+      hasChunk = false;
+      group.clear();
+   }
+
+   KeyType key(db::Chunk& chunk)
+   {
+      return std::make_pair(chunk.id, chunk.targetID);
+   }
+
+   ProjType project(db::Chunk& chunk)
+   {
+      return chunk.id;
+   }
+
+   void step(db::Chunk& chunk)
+   {
+      if(!hasChunk)
+      {
+         this->chunk = chunk;
+         hasChunk = true;
+         return;
+      }
+
+      if(group.empty() )
+         group.push_back(this->chunk);
+
+      group.push_back(chunk);
+   }
+
+   GroupType finish()
+   {
+      GroupType result;
+
+      result.swap(group);
+      reset();
+      return result;
+   }
+};
+}
+
+Cursor<std::list<FsckChunk> > FsckDB::findDuplicateChunks()
+{
+   struct ops
+   {
+      static bool hasDuplicateChunks(std::pair<db::EntryID, std::list<FsckChunk> >& pair)
+      {
+         return !pair.second.empty();
+      }
+
+      static std::list<FsckChunk> second(std::pair<db::EntryID, std::list<FsckChunk> >& pair)
+      {
+         return pair.second;
+      }
+   };
+
+   return cursor(
+      this->chunksTable->get()
+      | db::groupBy(DuplicateChunkGroup() )
+      | db::where(ops::hasDuplicateChunks)
+      | db::select(ops::second) );
+}
+
 /*
  * looks for dir entries, for which no inode was found (dangling dentries) and directly inserts
  * them into the database
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertDanglingDirEntries()
+Cursor<db::DirEntry> FsckDB::findDanglingDirEntries()
 {
-   bool retVal = checkForAndInsertDirEntriesWithoutFileInode();
-   retVal = retVal && checkForAndInsertDirEntriesWithoutDirInode();
-
-   return retVal;
-}
-
-/*
- * looks for dir entries, for which no file inode was found (according to the ID) and directly
- * inserts them into the database
- *
- * @return boolean value indicating if an error occured
- */
-bool FsckDB::checkForAndInsertDirEntriesWithoutFileInode()
-{
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_DANGLINGDENTRY);
-
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-   const char* tableNameInodes = TABLE_NAME_FILE_INODES;
-
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s,%s,%s FROM %s WHERE %s<>%i AND ~%s&%i EXCEPT SELECT "
-         "%s.%s,%s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s", "name", "parentDirID", "saveNodeID",
-      tableNameDentries, "entryType", FsckDirEntryType_DIRECTORY, IGNORE_ERRORS_FIELD,
-      (int) FsckErrorCode_DANGLINGDENTRY, tableNameDentries, "name", tableNameDentries,
-      "parentDirID", tableNameDentries, "saveNodeID", tableNameDentries, tableNameInodes,
-      tableNameDentries, "id", tableNameInodes, "id");
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s,%s) %s; "
-      "COMMIT;", tableName.c_str(), "name", "parentDirID", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
-   {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
-
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
-}
-
-/*
- * looks for dir entries, for which no dir inode was found (according to the ID) and
- * directly inserts them into the database
- *
- * @return boolean value indicating if an error occured
- */
-bool FsckDB::checkForAndInsertDirEntriesWithoutDirInode()
-{
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_DANGLINGDENTRY);
-
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-   const char* tableNameInodes = TABLE_NAME_DIR_INODES;
-
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s,%s,%s FROM %s WHERE %s=%i AND ~%s&%i EXCEPT SELECT "
-         "%s.%s,%s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s", "name", "parentDirID", "saveNodeID",
-      tableNameDentries, "entryType", FsckDirEntryType_DIRECTORY, IGNORE_ERRORS_FIELD,
-      FsckErrorCode_DANGLINGDENTRY, tableNameDentries, "name", tableNameDentries, "parentDirID",
-      tableNameDentries, "saveNodeID", tableNameDentries, tableNameInodes, tableNameDentries, "id",
-      tableNameInodes, "id");
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s,%s) %s; "
-      "COMMIT;", tableName.c_str(), "name", "parentDirID", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
-   {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
-
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+   return cursor(
+      db::unionBy(
+         objectID,
+         db::leftJoinBy(
+            objectID,
+            this->dentryTable->get()
+            | ignoreByID(this->modificationEventsTable->get() )
+            | db::where(dentryIsNotDirectory),
+            this->fileInodesTable->getInodes() )
+         | db::where(secondIsNull)
+         | db::select(first),
+         db::leftJoinBy(
+            objectID,
+            this->dentryTable->get()
+            | ignoreByID(this->modificationEventsTable->get() )
+            | db::where(dentryIsDirectory),
+            this->dirInodesTable->get() )
+         | db::where(secondIsNull)
+         | db::select(first) )
+      | db::distinctBy(objectID) );
 }
 
 /*
  * looks for dir entries, for which the inode was found on a different host as expected (according
- * to inodeOwner info in dentry) and directly inserts them into the database
- *
- * @return boolean value indicating if an error occured
+ * to inodeOwner info in dentry)
  */
-bool FsckDB::checkForAndInsertDirEntriesWithWrongOwner()
+Cursor<std::pair<db::DirEntry, uint16_t> > FsckDB::findDirEntriesWithWrongOwner()
 {
-   bool retVal = checkForAndInsertDirEntriesWithWrongFileOwner();
-   retVal = retVal && checkForAndInsertDirEntriesWithWrongDirOwner();
-
-   return retVal;
-}
-
-/*
- * looks for dir entries, for which the inode was found on a different host as expected (according
- * to inodeOwner info in dentry) and directly inserts them into the database (but only for file
- * type entries)
- *
- * @return boolean value indicating if an error occured
- */
-bool FsckDB::checkForAndInsertDirEntriesWithWrongFileOwner()
-{
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_WRONGOWNERINDENTRY);
-
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-   const char* tableNameInodes = TABLE_NAME_FILE_INODES;
-
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr, "SELECT %s.%s,%s.%s,%s.%s FROM %s,%s WHERE "
-      "%s.%s<>%i AND %s.%s=%s.%s AND %s.%s<>%s.%s AND ~%s.%s&%i", tableNameDentries, "name",
-      tableNameDentries, "parentDirID", tableNameDentries, "saveNodeID", tableNameDentries,
-      tableNameInodes, tableNameDentries, "entryType", FsckDirEntryType_DIRECTORY,
-      tableNameDentries, "id", tableNameInodes, "id", tableNameDentries, "inodeOwnerNodeID",
-      tableNameInodes, "saveNodeID", tableNameDentries, IGNORE_ERRORS_FIELD,
-      (int) FsckErrorCode_WRONGOWNERINDENTRY);
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s,%s) %s; "
-      "COMMIT;", tableName.c_str(), "name", "parentDirID", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
+   struct ops
    {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
+      static bool fileInodeOwnerIncorrect(std::pair<db::DirEntry, db::FileInode*>& pair)
+      {
+         return pair.first.inodeOwnerNodeID != pair.second->saveNodeID;
+      }
 
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
+      static bool dirInodeOwnerIncorrect(std::pair<db::DirEntry, db::DirInode*>& pair)
+      {
+         return pair.first.inodeOwnerNodeID != pair.second->saveNodeID;
+      }
 
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
+      static std::pair<db::DirEntry, uint16_t> resultF(
+         std::pair<db::DirEntry, db::FileInode*>& pair)
+      {
+         return std::make_pair(pair.first, pair.second->saveNodeID);
+      }
 
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
+      static std::pair<db::DirEntry, uint16_t> resultD(
+         std::pair<db::DirEntry, db::DirInode*>& pair)
+      {
+         return std::make_pair(pair.first, pair.second->saveNodeID);
+      }
+   };
 
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
-}
-
-/*
- * looks for dir entries, for which the inode was found on a different host as expected (according
- * to inodeOwner info in dentry) and directly inserts them into the database (but only for dir
- * type entries)
- *
- * @return boolean value indicating if an error occured
- */
-bool FsckDB::checkForAndInsertDirEntriesWithWrongDirOwner()
-{
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_WRONGOWNERINDENTRY);
-
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-   const char* tableNameInodes = TABLE_NAME_DIR_INODES;
-
-   // first check files
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr, "SELECT %s.%s,%s.%s,%s.%s FROM %s,%s WHERE "
-      "%s.%s=%i AND %s.%s=%s.%s AND %s.%s<>%s.%s AND ~%s.%s&%i", tableNameDentries, "name",
-      tableNameDentries, "parentDirID", tableNameDentries, "saveNodeID", tableNameDentries,
-      tableNameInodes, tableNameDentries, "entryType", FsckDirEntryType_DIRECTORY,
-      tableNameDentries, "id", tableNameInodes, "id", tableNameDentries, "inodeOwnerNodeID",
-      tableNameInodes, "saveNodeID", tableNameDentries, IGNORE_ERRORS_FIELD,
-      (int) FsckErrorCode_WRONGOWNERINDENTRY);
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s,%s) %s; "
-      "COMMIT;", tableName.c_str(), "name", "parentDirID", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
-   {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
-
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+   return cursor(
+      db::unionBy(
+         firstObjectID,
+         joinBy(
+            objectID,
+            this->dentryTable->get()
+            | ignoreByID(this->modificationEventsTable->get() )
+            | db::where(dentryIsNotDirectory),
+            this->fileInodesTable->getInodes() )
+         | db::where(ops::fileInodeOwnerIncorrect)
+         | db::select(ops::resultF),
+         joinBy(
+            objectID,
+            this->dentryTable->get()
+            | ignoreByID(this->modificationEventsTable->get() )
+            | db::where(dentryIsDirectory),
+            this->dirInodesTable->get() )
+         | db::where(ops::dirInodeOwnerIncorrect)
+         | db::select(ops::resultD) )
+      | db::distinctBy(firstObjectID) );
 }
 
 /*
  * looks for dir inodes, for which the owner node information is not correct and directly inserts
  * them into the database
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertInodesWithWrongOwner()
+Cursor<FsckDirInode> FsckDB::findInodesWithWrongOwner()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_WRONGINODEOWNER);
-
-   const char* tableNameInodes = TABLE_NAME_DIR_INODES;
-
-   // first check files
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s,%s FROM %s WHERE %s<>%s AND %s<>'%s' AND ~%s&%i", "id", "saveNodeID",
-      tableNameInodes, "ownerNodeID", "saveNodeID", "id", META_DISPOSALDIR_ID_STR,
-      IGNORE_ERRORS_FIELD, (int) FsckErrorCode_WRONGINODEOWNER); // Note: disposal is ignored!
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s) %s; COMMIT;",
-      tableName.c_str(), "id", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
+   struct ops
    {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
+      static bool inodeHasWrongOwner(db::DirInode& inode)
+      {
+         return inode.ownerNodeID != inode.saveNodeID
+            && inode.id != db::EntryID::disposal();
+      }
+   };
 
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
+   return Cursor<FsckDirInode>(
+      this->dirInodesTable->get()
+      | ignoreByID(this->modificationEventsTable->get() )
+      | db::where(ops::inodeHasWrongOwner)
+      | convertTo<FsckDirInode>() );
+}
 
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
+namespace {
+struct JoinDirEntriesWithBrokenByIDFile
+{
+   typedef boost::tuple<
+         db::EntryID, // ID
+         db::EntryID, // parentDirID
+         int,         // device
+         uint16_t,    // saveNodeID
+         uint64_t     // saveInode
+      > result_type;
+
+   template<typename Obj>
+   result_type operator()(Obj& obj) const
    {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
+      return result_type(obj.id, obj.parentDirID, obj.saveDevice, obj.saveNodeID, obj.saveInode);
    }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+};
 }
 
 /*
  * looks for dir entries, for which no corresponding dentry-by-id file was found in #fsids# and
  * directly inserts them into the database (only dir entries with inlined inodes are relevant)
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertDirEntriesWithBrokenByIDFile()
+Cursor<db::DirEntry> FsckDB::findDirEntriesWithBrokenByIDFile()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_BROKENFSID);
-
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-   const char* tableNameFsIDs = TABLE_NAME_FSIDS;
-
-   // NOTE: Only do this check for dentries, which have inlined inodes
-   char* selectStmtStr = NULL;
-
-
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s,%s,%s FROM %s WHERE %s AND %s!='%s' AND ~%s&%i EXCEPT "
-         "SELECT %s.%s,%s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s "
-         "AND %s.%s=%s.%s AND %s.%s=%s.%s AND %s.%s=%s.%s AND %s.%s=%s.%s", "name", "parentDirID",
-      "saveNodeID", tableNameDentries, "hasInlinedInode", "parentDirID", META_DISPOSALDIR_ID_STR,
-      IGNORE_ERRORS_FIELD, FsckErrorCode_BROKENFSID, tableNameDentries, "name", tableNameDentries,
-      "parentDirID", tableNameDentries, "saveNodeID", tableNameDentries, tableNameFsIDs,
-      tableNameFsIDs, "id", tableNameDentries, "id", tableNameFsIDs, "parentDirID",
-      tableNameDentries, "parentDirID", tableNameFsIDs, "saveNodeID", tableNameDentries,
-      "saveNodeID", tableNameFsIDs, "saveDevice", tableNameDentries, "saveDevice", tableNameFsIDs,
-      "saveInode", tableNameDentries, "saveInode");
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s,%s) %s; "
-      "COMMIT;", tableName.c_str(), "name", "parentDirID", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
+   struct ops
    {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
+      static bool fsidFileMissing(std::pair<db::DirEntry, db::FsID*>& pair)
+      {
+         return pair.first.hasInlinedInode
+            && pair.first.parentDirID != db::EntryID::disposal()
+            && pair.second == NULL;
+      }
+   };
 
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
+   return cursor(
+      db::leftJoinBy(
+         JoinDirEntriesWithBrokenByIDFile(),
+         this->dentryTable->get()
+         | ignoreByID(this->modificationEventsTable->get() ),
+         this->fsIDsTable->get() )
+      | db::where(ops::fsidFileMissing)
+      | db::select(first) );
+}
 
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
+namespace {
+struct JoinOrphanedFsIDs
+{
+   typedef boost::tuple<
+         db::EntryID, // ID
+         db::EntryID, // parentDirID
+         uint16_t     // saveNodeID
+      > result_type;
+
+   template<typename Obj>
+   result_type operator()(Obj& obj) const
    {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
+      return result_type(obj.id, obj.parentDirID, obj.saveNodeID);
    }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+};
 }
 
 /*
  * looks for dentry-by-ID files in #fsids#, for which no corresponding dentry file was found and
  * directly inserts them into the database
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertOrphanedDentryByIDFiles()
+Cursor<FsckFsID> FsckDB::findOrphanedFsIDFiles()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDFSID);
-
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-   const char* tableNameFsIDs = TABLE_NAME_FSIDS;
-
-   char* selectStmtStr = NULL;
-
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s,%s,%s FROM %s WHERE ~%s&%i EXCEPT SELECT %s.%s,%s.%s,%s.%s FROM %s,%s "
-         "WHERE %s.%s=%s.%s AND %s.%s=%s.%s AND %s.%s=%s.%s", "id", "parentDirID", "saveNodeID",
-      tableNameFsIDs, IGNORE_ERRORS_FIELD, FsckErrorCode_ORPHANEDFSID, tableNameFsIDs, "id",
-      tableNameFsIDs, "parentDirID", tableNameFsIDs, "saveNodeID", tableNameDentries,
-      tableNameFsIDs, tableNameFsIDs, "id", tableNameDentries, "id", tableNameFsIDs, "parentDirID",
-      tableNameDentries, "parentDirID", tableNameFsIDs, "saveNodeID", tableNameDentries,
-      "saveNodeID");
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s,%s) %s; "
-      "COMMIT;", tableName.c_str(), "id", "parentDirID", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
-   {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
-
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+   return Cursor<FsckFsID>(
+      db::leftJoinBy(
+         JoinOrphanedFsIDs(),
+         this->fsIDsTable->get()
+         | ignoreByID(this->modificationEventsTable->get() ),
+         this->dentryTable->get() )
+      | db::where(secondIsNull)
+      | db::select(first)
+      | convertTo<FsckFsID>() );
 }
 
 /*
  * looks for dir inodes, for which no dir entry exists
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertOrphanedDirInodes()
+Cursor<FsckDirInode> FsckDB::findOrphanedDirInodes()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDDIRINODE);
-
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-   const char* tableNameInodes = TABLE_NAME_DIR_INODES;
-
-   // first check files
-   // NOTE : META_DISPOSALDIR_ID_STR and META_ROOTDIR_ID_STR are ignored, as it is normal
-   // for them to not have a dentry
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr, "SELECT %s,%s FROM %s WHERE %s<>'%s' AND "
-      "%s<>'%s' AND ~%s&%i EXCEPT SELECT %s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s", "id",
-      "saveNodeID", tableNameInodes, "id", META_ROOTDIR_ID_STR, "id", META_DISPOSALDIR_ID_STR,
-      IGNORE_ERRORS_FIELD, (int) FsckErrorCode_ORPHANEDDIRINODE, tableNameInodes, "id",
-      tableNameInodes, "saveNodeID", tableNameInodes, tableNameDentries, tableNameInodes, "id",
-      tableNameDentries, "id");
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s) %s; COMMIT;",
-      tableName.c_str(), "id", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
+   struct ops
    {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
+      static bool inodeHasNoDentry(std::pair<db::DirInode, db::DirEntry*>& pair)
+      {
+         return pair.first.id != db::EntryID::root()
+            && pair.first.id != db::EntryID::disposal()
+            && pair.second == NULL;
+      }
+   };
 
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+   return Cursor<FsckDirInode>(
+      db::leftJoinBy(
+         objectID,
+         this->dirInodesTable->get()
+         | ignoreByID(this->modificationEventsTable->get() ),
+         this->dentryTable->get() )
+      | db::where(ops::inodeHasNoDentry)
+      | db::select(first)
+      | convertTo<FsckDirInode>() );
 }
 
 /*
  * looks for file inodes, for which no dir entry exists
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertOrphanedFileInodes()
+Cursor<FsckFileInode> FsckDB::findOrphanedFileInodes()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDFILEINODE);
-
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-   const char* tableNameInodes = TABLE_NAME_FILE_INODES;
-
-   // first check files
-   char* selectStmtStr = NULL;
-   /* size_t
-    selectStmtStrLen = asprintf(&selectStmtStr, "SELECT %s,%s FROM %s WHERE ~%s&%i EXCEPT SELECT "
-    "%s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s", "id", "saveNodeID", tableNameInodes,
-    IGNORE_ERRORS_FIELD, (int)FsckErrorCode_ORPHANEDFILEINODE, tableNameInodes, "id",
-    tableNameInodes, "saveNodeID", tableNameInodes, tableNameDentries, tableNameInodes, "id",
-    tableNameDentries, "id"); */
-
-   size_t selectStmtStrLen = asprintf(&selectStmtStr, "SELECT %s FROM %s WHERE ~%s&%i EXCEPT "
-      "SELECT %s.%s FROM %s,%s WHERE %s.%s=%s.%s", "internalID", tableNameInodes,
-      IGNORE_ERRORS_FIELD, (int) FsckErrorCode_ORPHANEDFILEINODE, tableNameInodes, "internalID",
-      tableNameInodes, tableNameDentries, tableNameInodes, "id", tableNameDentries, "id");
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   /* size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s) %s; COMMIT;",
-    tableName.c_str(), "id", "saveNodeID", selectStmtStr); */
-
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s) %s; COMMIT;",
-      tableName.c_str(), "internalID", selectStmtStr);
-
-   if ( !queryStrLen )
+   struct ops
    {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
+      static FsckFileInode fileInodeToFsckFileInode(const db::FileInode& inode)
+      {
+         return inode.toInodeWithoutStripes();
+      }
+   };
 
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+   return Cursor<FsckFileInode>(
+      db::leftJoinBy(
+         objectID,
+         this->fileInodesTable->getInodes()
+         | ignoreByID(this->modificationEventsTable->get() ),
+         this->dentryTable->get() )
+      | db::where(secondIsNull)
+      | db::select(first)
+      | db::select(ops::fileInodeToFsckFileInode) );
 }
 
 /*
  * looks for chunks, for which no inode exists
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertOrphanedChunks()
+Cursor<FsckChunk> FsckDB::findOrphanedChunks()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDCHUNK);
-
-   const char* tableNameChunks = TABLE_NAME_CHUNKS;
-   const char* tableNameInodes = TABLE_NAME_FILE_INODES;
-
-   // first check files
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s,%s,%s FROM %s WHERE ~%s&%i EXCEPT SELECT "
-         "%s.%s,%s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s", "id", "targetID",
-      "buddyGroupID", tableNameChunks, IGNORE_ERRORS_FIELD, (int) FsckErrorCode_ORPHANEDCHUNK,
-      tableNameChunks, "id", tableNameChunks, "targetID", tableNameChunks, "buddyGroupID",
-      tableNameChunks, tableNameInodes, tableNameChunks, "id", tableNameInodes, "id");
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s,%s) %s; "
-      "COMMIT;", tableName.c_str(), "id", "targetID", "buddyGroupID", selectStmtStr);
-
-   if ( !queryStrLen )
-   {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
-
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+   return Cursor<FsckChunk>(
+      db::leftJoinBy(
+         objectID,
+         this->chunksTable->get()
+         | ignoreByID(this->modificationEventsTable->get() ),
+         this->fileInodesTable->getInodes() )
+      | db::where(secondIsNull)
+      | db::select(first)
+      | convertTo<FsckChunk>() );
 }
 
 /*
  * looks for dir inodes, for which no .cont directory exists
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertInodesWithoutContDir()
+Cursor<FsckDirInode> FsckDB::findInodesWithoutContDir()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_MISSINGCONTDIR);
-
-   const char* tableNameContDirs = TABLE_NAME_CONT_DIRS;
-   const char* tableNameInodes = TABLE_NAME_DIR_INODES;
-
-   // first check files
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s,%s FROM %s WHERE ~%s&%i EXCEPT SELECT "
-         "%s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s", "id", "saveNodeID", tableNameInodes,
-      IGNORE_ERRORS_FIELD, (int) FsckErrorCode_MISSINGCONTDIR, tableNameInodes, "id",
-      tableNameInodes, "saveNodeID", tableNameInodes, tableNameContDirs, tableNameInodes, "id",
-      tableNameContDirs, "id");
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s) %s; COMMIT;",
-      tableName.c_str(), "id", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
-   {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
-
-
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+   return Cursor<FsckDirInode>(
+      db::leftJoinBy(
+         objectID,
+         this->dirInodesTable->get()
+         | ignoreByID(this->modificationEventsTable->get() ),
+         this->contDirsTable->get() )
+      | db::where(secondIsNull)
+      | db::select(first)
+      | convertTo<FsckDirInode>() );
 }
 
 /*
  * looks for content directories, for which no inode exists
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertOrphanedContDirs()
+Cursor<FsckContDir> FsckDB::findOrphanedContDirs()
 {
-   bool retVal = true;
+   return Cursor<FsckContDir>(
+      db::leftJoinBy(
+         objectID,
+         this->contDirsTable->get()
+         | ignoreByID(this->modificationEventsTable->get() ),
+         this->dirInodesTable->get() )
+      | db::where(secondIsNull)
+      | db::select(first)
+      | convertTo<FsckContDir>() );
+}
 
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDCONTDIR);
+namespace {
+struct FindWrongInodeFileAttribsGrouperDentry
+{
+   typedef db::EntryID KeyType;
+   typedef db::FileInode ProjType;
+   typedef uint64_t GroupType;
 
-   const char* tableNameInodes = TABLE_NAME_DIR_INODES;
-   const char* tableNameContDirs = TABLE_NAME_CONT_DIRS;
+   GroupType count;
 
-   // first check files
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s,%s FROM %s WHERE ~%s&%i EXCEPT SELECT "
-         "%s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s", "id", "saveNodeID", tableNameContDirs,
-      IGNORE_ERRORS_FIELD, (int) FsckErrorCode_ORPHANEDCONTDIR, tableNameContDirs, "id",
-      tableNameContDirs, "saveNodeID", tableNameContDirs, tableNameInodes, tableNameContDirs, "id",
-      tableNameInodes, "id");
+   FindWrongInodeFileAttribsGrouperDentry()
+      : count(0)
+   {}
 
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr = NULL;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s) %s; COMMIT;",
-      tableName.c_str(), "id", "saveNodeID", selectStmtStr);
-
-   if ( !queryStrLen )
+   KeyType key(std::pair<db::FileInode, db::DirEntry*>& pair)
    {
-      SAFE_FREE(selectStmtStr);
-      return false;
+      return pair.first.id;
    }
 
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
+   ProjType project(std::pair<db::FileInode, db::DirEntry*>& pair)
    {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
+      return pair.first;
    }
 
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
+   void step(std::pair<db::FileInode, db::DirEntry*>& pair)
+   {
+      this->count++;
+   }
 
-   this->dbHandlePool->releaseHandle(dbHandle);
+   GroupType finish()
+   {
+      uint64_t result = this->count;
+      this->count = 0;
+      return result;
+   }
+};
 
-   return retVal;
+struct FindWrongInodeFileAttribsGrouperChunks
+{
+   typedef db::EntryID KeyType;
+   typedef db::FileInode ProjType;
+   typedef uint64_t GroupType;
+
+   int64_t chunkSizeSum;
+   int64_t expectedFileSize;
+   std::vector<uint16_t> stripeTargets;
+   std::map<uint16_t, FsckChunk> fileChunks;
+   unsigned chunkSize;
+
+   FindWrongInodeFileAttribsGrouperChunks()
+   {
+      reset();
+   }
+
+   void reset()
+   {
+      this->chunkSizeSum = 0;
+      this->expectedFileSize = 0;
+      this->stripeTargets.clear();
+      this->fileChunks.clear();
+      this->chunkSize = 0;
+   }
+
+   KeyType key(std::pair<std::pair<db::FileInode, db::StripeTargets*>, db::Chunk*>& pair)
+   {
+      return pair.first.first.id;
+   }
+
+   ProjType project(std::pair<std::pair<db::FileInode, db::StripeTargets*>, db::Chunk*>& pair)
+   {
+      return pair.first.first;
+   }
+
+   void step(std::pair<std::pair<db::FileInode, db::StripeTargets*>, db::Chunk*>& pair)
+   {
+      db::FileInode& inode = pair.first.first;
+      db::StripeTargets* targets = pair.first.second;
+
+      if(pair.second == NULL)
+      {
+         this->chunkSizeSum = 0;
+         this->expectedFileSize = 1;
+         return;
+      }
+
+      this->chunkSizeSum += pair.second->fileSize;
+
+      this->fileChunks[pair.second->targetID] = *pair.second;
+
+      if(!this->chunkSize)
+      {
+         this->chunkSize = inode.chunkSize;
+         this->expectedFileSize = inode.fileSize;
+
+         this->stripeTargets.resize(inode.stripePatternSize);
+         std::copy(
+            inode.targets,
+            inode.targets + std::min<unsigned>(inode.NTARGETS, inode.stripePatternSize),
+            this->stripeTargets.begin() );
+      }
+
+      if(targets != NULL)
+      {
+         unsigned count = std::min<unsigned>(targets->NTARGETS,
+            this->stripeTargets.size() - targets->firstTargetIndex);
+
+         std::copy(
+            targets->targets,
+            targets->targets + count,
+            this->stripeTargets.begin() + targets->firstTargetIndex);
+      }
+   }
+
+   GroupType finish()
+   {
+      // chunk file sizes match expected size from inode, don't have to calculate actual file size
+      // from chunk sizes
+      if(this->chunkSizeSum == this->expectedFileSize)
+      {
+         uint64_t result = this->chunkSizeSum;
+         reset();
+         return result;
+      }
+
+      // otherwise perform size check
+      ChunkFileInfoVec chunkFileInfoVec;
+
+      for(UInt16VectorIter it = this->stripeTargets.begin(); it != this->stripeTargets.end(); it++)
+      {
+         std::map<uint16_t, FsckChunk>::const_iterator chunk = this->fileChunks.find(*it);
+
+         int64_t fileSize = 0;
+         uint64_t usedBlocks = 0;
+
+         if(chunk != this->fileChunks.end() )
+         {
+            fileSize = chunk->second.getFileSize();
+            usedBlocks = chunk->second.getUsedBlocks();
+         }
+
+         DynamicFileAttribs fileAttribs(1, fileSize, usedBlocks, 0, 0);
+         ChunkFileInfo stripeNodeFileInfo(this->chunkSize, MathTk::log2Int32(this->chunkSize),
+            fileAttribs);
+         chunkFileInfoVec.push_back(stripeNodeFileInfo);
+      }
+
+      // now perform the actual file size check; this check is still pretty expensive and
+      // should be optimized
+
+      // this might be a buddy mirror pattern, but we are not interested in mirror targets
+      // here, so we just create it as RAID0 pattern
+      StripePattern* stripePattern = FsckTk::FsckStripePatternToStripePattern(
+         FsckStripePatternType_RAID0, this->chunkSize, &this->stripeTargets);
+      StatData statData;
+
+      statData.setAllFake();
+
+      statData.updateDynamicFileAttribs(chunkFileInfoVec, stripePattern);
+
+      SAFE_DELETE(stripePattern);
+
+      reset();
+      return statData.getFileSize();
+   }
+};
+
+struct FindWrongInodeFileAttribsGrouper
+{
+   typedef db::EntryID KeyType;
+   typedef FsckFileInode ProjType;
+   typedef checks::InodeAttribs GroupType;
+
+   checks::InodeAttribs state;
+
+   FindWrongInodeFileAttribsGrouper()
+   {
+      reset();
+   }
+
+   void reset()
+   {
+      memset(&state, 0, sizeof(state) );
+   }
+
+   KeyType key(std::pair<db::FileInode, checks::InodeAttribs>& pair)
+   {
+      return pair.first.id;
+   }
+
+   ProjType project(std::pair<db::FileInode, checks::InodeAttribs>& pair)
+   {
+      return pair.first.toInodeWithoutStripes();
+   }
+
+   void step(std::pair<db::FileInode, checks::InodeAttribs>& pair)
+   {
+      this->state.size += pair.second.size;
+      this->state.nlinks += pair.second.nlinks;
+   }
+
+   GroupType finish()
+   {
+      GroupType result = state;
+      reset();
+      return result;
+   }
+};
+
+struct JoinWithStripedInode
+{
+   typedef db::EntryID result_type;
+
+   db::EntryID operator()(const db::DirEntry& d) const { return d.id; }
+   db::EntryID operator()(const db::Chunk& c) const { return c.id; }
+
+   db::EntryID operator()(const std::pair<db::FileInode, db::StripeTargets*>& p) const
+   {
+      return p.first.id;
+   }
+};
 }
 
 /*
  * looks for file inodes, for which the saved attribs (e.g. filesize) are not
  * equivalent to those of the primary chunks
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertWrongInodeFileAttribs()
+Cursor<std::pair<FsckFileInode, checks::InodeAttribs> > FsckDB::findWrongInodeFileAttribs()
 {
-   bool retVal = true;
+   // Note: ignore dentries in disposal as they are not counted in numHardlinks in the inodes
 
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_WRONGFILEATTRIBS);
-
-   const char* tableNameInodes = TABLE_NAME_FILE_INODES;
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-   const char* tableNameChunks = TABLE_NAME_CHUNKS;
-
-   const char* idField = "id";
-   const char* parentDirIDField = "parentDirID";
-   const char* fileSizeField = "fileSize";
-   const char* numLinksField = "numHardLinks";
-
+   struct ops
    {
-      char* selectStmtStr = NULL;
-
-      // check number of hardlinks and file size, but do not directly insert wrong sets to DB
-      // Note: ignore dentries in disposal as they are not counted in numHardlinks in the inodes
-      // Note: this query will return a complete fileInode per dataset + some additional fields;
-      // the additional fields are only used internally and are at the end of the dataset, so we
-      // can convert each dataset to a fileInode later (additional fields will be simply stripped)
-      size_t selectStmtStrLen = asprintf(&selectStmtStr,
-         "SELECT * FROM (SELECT subQuery.*, COUNT() as numDentries FROM %s, "
-            "(SELECT %s.*, SUM(%s.%s) AS size_chunks FROM %s,%s WHERE %s.%s=%s.%s "
-            "AND ~%s.%s&%i GROUP BY %s.%s) AS subQuery WHERE %s.%s=subQuery.%s AND %s.%s<>'%s' "
-            "GROUP BY %s.%s HAVING subQuery.%s<>numDentries OR "
-            "subQuery.%s<>subQuery.size_chunks)", tableNameDentries,
-         tableNameInodes, tableNameChunks, fileSizeField, tableNameInodes, tableNameChunks,
-         tableNameInodes, idField, tableNameChunks, idField,
-         tableNameInodes, IGNORE_ERRORS_FIELD, (int) FsckErrorCode_WRONGFILEATTRIBS,
-         tableNameInodes, idField, tableNameDentries, idField, idField, tableNameDentries,
-         parentDirIDField, META_DISPOSALDIR_ID_STR, tableNameDentries, idField, numLinksField,
-         fileSizeField);
-
-      if ( !selectStmtStrLen )
-         return false;
-
-      DBCursor<FsckFileInode>* cursor = new DBCursor<FsckFileInode>(this->dbHandlePool,
-         selectStmtStr);
-
-      // now for each of these entries check if they are really wrong or if they are just a
-      // sparse file (i.e. filesize calculation has to be performed)
-
-      FsckFileInode* currentInode = cursor->open();
-      while ( currentInode )
+      static bool fileAttribsIncorrect(std::pair<db::FileInode, uint64_t>& pair)
       {
-         bool isError = false;
-
-         // first check if hard link count is OK
-         FsckDirEntryList dentries;
-         this->getDirEntries(currentInode->getID(), &dentries);
-
-         if ( currentInode->getNumHardLinks() == (unsigned) dentries.size() )
-         {
-            // perform size check
-            ChunkFileInfoVec chunkFileInfoVec;
-            UInt16Vector* targetIDs = currentInode->getStripeTargets();
-
-            for ( UInt16VectorIter targetIDIter = targetIDs->begin();
-               targetIDIter != targetIDs->end(); targetIDIter++ )
-            {
-               FsckChunk* chunk = this->getChunk(currentInode->getID(), *targetIDIter);
-               if ( chunk )
-               {
-                  DynamicFileAttribs fileAttribs(1, chunk->getFileSize(), chunk->getUsedBlocks(),
-                     0, 0);
-                  ChunkFileInfo stripeNodeFileInfo(currentInode->getChunkSize(),
-                     MathTk::log2Int32(currentInode->getChunkSize()), fileAttribs);
-                  chunkFileInfoVec.push_back(stripeNodeFileInfo);
-
-                  SAFE_DELETE(chunk);
-               }
-               else
-               {
-                  DynamicFileAttribs fileAttribs(1, 0, 0, 0, 0);
-                  ChunkFileInfo stripeNodeFileInfo(currentInode->getChunkSize(),
-                     MathTk::log2Int32(currentInode->getChunkSize()), fileAttribs);
-                  chunkFileInfoVec.push_back(stripeNodeFileInfo);
-               }
-            }
-
-            // now perform the actual file size check; this check is still pretty expensive and
-            // should be optimized
-
-            // this might be a buddy mirror pattern, but we are not interested in mirror targets
-            // here, so we just create it as RAID0 pattern
-            StripePattern* stripePattern = FsckTk::FsckStripePatternToStripePattern(
-               FsckStripePatternType_RAID0, currentInode->getChunkSize(), targetIDs);
-            StatData statData;
-
-            statData.updateDynamicFileAttribs(chunkFileInfoVec, stripePattern);
-
-            SAFE_DELETE(stripePattern);
-
-            if ( currentInode->getFileSize() != statData.getFileSize() )
-            {
-               // seems to be no sparse file; filesize really seems to be wrong
-               // => add it as wrong inode
-               isError = true;
-
-            }
-         }
-         else
-            isError = true;
-
-         if ( isError )
-         {
-            std::string queryStr = "BEGIN TRANSACTION; INSERT INTO " + tableName
-               + " (internalID) VALUES ('" + StringTk::uint64ToStr(currentInode->getInternalID())
-               + "'); COMMIT;";
-
-            if ( cursor->getHandle()->sqliteBlockingExec(queryStr) != SQLITE_OK )
-            {
-               retVal = false;
-               // explicitely end transaction if something went wrong
-               cursor->getHandle()->sqliteBlockingExec("COMMIT");
-            }
-         }
-
-         currentInode = cursor->step();
+         return pair.first.fileSize != pair.second;
       }
 
-      cursor->close();
+      static std::pair<db::FileInode, checks::InodeAttribs> fileAttribs(
+         std::pair<db::FileInode, uint64_t>& pair)
+      {
+         checks::InodeAttribs attribs = { pair.second, 0 };
+         return std::make_pair(pair.first, attribs);
+      }
 
-      SAFE_DELETE(cursor);
-      SAFE_FREE(selectStmtStr);
+      static bool linkCountIncorrect(std::pair<db::FileInode, uint64_t>& pair)
+      {
+         return pair.first.numHardlinks != pair.second;
+      }
+
+      static std::pair<db::FileInode, checks::InodeAttribs> linkCount(
+         std::pair<db::FileInode, uint64_t>& pair)
+      {
+         checks::InodeAttribs attribs = { 0, pair.second };
+         return std::make_pair(pair.first, attribs);
+      }
+
+      static bool dentryNotInDisposal(db::DirEntry& dentry)
+      {
+         return dentry.parentDirID != db::EntryID::disposal();
+      }
+   };
+
+   return cursor(
+      db::unionBy(
+         firstObjectID,
+         db::leftJoinBy(
+            JoinWithStripedInode(),
+            db::leftJoinBy(
+               objectID,
+               this->fileInodesTable->getInodes()
+               | ignoreByID(this->modificationEventsTable->get() ),
+               this->fileInodesTable->getTargets() ),
+            this->chunksTable->get() )
+         | db::groupBy(FindWrongInodeFileAttribsGrouperChunks() )
+         | db::where(ops::fileAttribsIncorrect)
+         | db::select(ops::fileAttribs),
+         db::leftJoinBy(
+            objectID,
+            this->fileInodesTable->getInodes()
+            | ignoreByID(this->modificationEventsTable->get() ),
+            this->dentryTable->get()
+            | db::where(ops::dentryNotInDisposal) )
+         | db::groupBy(FindWrongInodeFileAttribsGrouperDentry() )
+         | db::where(ops::linkCountIncorrect)
+         | db::select(ops::linkCount) )
+      | db::groupBy(FindWrongInodeFileAttribsGrouper() ) );
+}
+
+namespace {
+struct WrongDirInodeGrouper
+{
+   typedef std::pair<db::DirInode, FsckDBDentryTable::ByParent*> InRowType;
+
+   typedef db::EntryID KeyType;
+   typedef db::DirInode ProjType;
+   typedef checks::InodeAttribs GroupType;
+
+   GroupType state;
+
+   WrongDirInodeGrouper()
+   {
+      memset(&state, 0, sizeof(state) );
    }
-   return retVal;
+
+   KeyType key(InRowType& row)
+   {
+      return row.first.id;
+   }
+
+   ProjType project(InRowType& row)
+   {
+      return row.first;
+   }
+
+   void step(InRowType& row)
+   {
+      if(row.second == NULL)
+         return;
+
+      this->state.size += 1;
+
+      if(row.second->entryType == FsckDirEntryType_DIRECTORY)
+         this->state.nlinks += 1;
+   }
+
+   GroupType finish()
+   {
+      GroupType result = this->state;
+      result.nlinks += 2; // for . and ..
+      memset(&state, 0, sizeof(state) );
+      return result;
+   }
+};
+
+struct JoinWrongInodeDirAttribs
+{
+   typedef db::EntryID result_type;
+
+   db::EntryID operator()(db::DirInode& inode) const { return inode.id; }
+   db::EntryID operator()(FsckDBDentryTable::ByParent& dentry) const { return dentry.parent; }
+};
 }
 
 /*
  * looks for dir inodes, for which the saved attribs (e.g. size) are not correct
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertWrongInodeDirAttribs()
+Cursor<std::pair<FsckDirInode, checks::InodeAttribs> > FsckDB::findWrongInodeDirAttribs()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_WRONGDIRATTRIBS);
-
-   const char* tableNameInodes = TABLE_NAME_DIR_INODES;
-   const char* tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-
-   char* queryStr = NULL;
-   char* selectStmtStr = NULL;
-   char* subQueryExpectedSizeStr = NULL;
-   char* subQueryNumSubdirsStr = NULL;
-
+   struct ops
    {
-      // subQueryExpectedSize
-      size_t subQueryExpectedSizeStrLen = asprintf(&subQueryExpectedSizeStr,
-         "SELECT %s FROM %s WHERE %s=%s.%s", "COUNT()", tableNameDentries, "parentDirID",
-         tableNameInodes, "id");
-
-      if ( !subQueryExpectedSizeStrLen )
+      static bool dirAttributesIncorrect(std::pair<db::DirInode, checks::InodeAttribs>& row)
       {
-         retVal = false;
-         goto cleanup;
+         db::DirInode& inode = row.first;
+         checks::InodeAttribs data = row.second;
+
+         return inode.size != data.size || inode.numHardlinks != data.nlinks;
       }
-   }
-   {
-      // subQueryNumSubdirs
-      size_t subQueryNumSubdirsStrLen = asprintf(&subQueryNumSubdirsStr,
-         "SELECT %s FROM %s WHERE %s=%s.%s AND %s=%i", "COUNT()", tableNameDentries, "parentDirID",
-         tableNameInodes, "id", "entryType", (int) FsckDirEntryType_DIRECTORY);
+   };
 
-      if ( !subQueryNumSubdirsStrLen )
-      {
-         retVal = false;
-         goto cleanup;
-      }
-   }
-
-   {
-      size_t selectStmtStrLen = asprintf(&selectStmtStr,
-         "SELECT %s,%s,%s,(%s) AS %s, %s, (%s) AS %s FROM %s WHERE (%s!=%s OR %s != %s+2) AND "
-            "%s<>'%s' AND ~%s&%i", "id", "saveNodeID", "size", subQueryExpectedSizeStr,
-         "expectedSize", "numHardLinks", subQueryNumSubdirsStr, "numSubDirs", tableNameInodes,
-         "size", "expectedSize", "numHardLinks", "numSubdirs", "id", META_DISPOSALDIR_ID_STR,
-         IGNORE_ERRORS_FIELD, (int) FsckErrorCode_WRONGDIRATTRIBS);
-
-      if ( !selectStmtStrLen )
-      {
-         retVal = false;
-         goto cleanup;
-      }
-   }
-
-   {
-      size_t queryStrLen = asprintf(&queryStr,
-         "BEGIN TRANSACTION; INSERT INTO %s (%s,%s) SELECT %s,%s FROM (%s); COMMIT;",
-         tableName.c_str(), "id", "saveNodeID", "id", "saveNodeID", selectStmtStr);
-
-      if ( !queryStrLen )
-      {
-         retVal = false;
-         goto cleanup;
-      }
-   }
-
-   { // perform the query
-      /*
-       * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-       * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-       * the same handle for the complete transaction
-       */
-      DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-      if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-      {
-         retVal = false;
-         // explicitely end transaction if something went wrong
-         dbHandle->sqliteBlockingExec("COMMIT");
-      }
-
-      this->dbHandlePool->releaseHandle(dbHandle);
-   }
-
-   cleanup:
-   SAFE_FREE(queryStr);
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(subQueryExpectedSizeStr);
-   SAFE_FREE(subQueryNumSubdirsStr);
-
-   return retVal;
+   return cursor(
+      db::leftJoinBy(
+         JoinWrongInodeDirAttribs(),
+         this->dirInodesTable->get()
+         | ignoreByID(this->modificationEventsTable->get() )
+         | db::where(isNotDisposal),
+         this->dentryTable->getByParent() )
+      | db::groupBy(WrongDirInodeGrouper() )
+      | db::where(ops::dirAttributesIncorrect)
+      | convertTo<std::pair<FsckDirInode, checks::InodeAttribs> >() );
 }
 
-/*
- * looks for target IDs, which are used in stripe patterns, but do not exist
- *
- * @param targetMapper
- * @return boolean value indicating if an error occured
- */
-bool FsckDB::checkForAndInsertMissingStripeTargets(TargetMapper* targetMapper,
-   MirrorBuddyGroupMapper* buddyGroupMapper)
+namespace {
+struct HasMissingTarget
 {
-   bool retVal = true;
+   const std::set<uint16_t> missingTargets;
+   const std::set<uint16_t> missingBuddyGroups;
 
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_MISSINGTARGET);
-   std::string tableNameUsedTargets = TABLE_NAME_USED_TARGETS;
+   HasMissingTarget(const std::set<uint16_t>& missingTargets,
+         const std::set<uint16_t>& missingBuddyGroups)
+      : missingTargets(missingTargets), missingBuddyGroups(missingBuddyGroups)
+   {}
 
-   // get all existing target IDs from mapper
-   UInt16List targets;
-   UInt16List nodeIDs;
-   targetMapper->getMappingAsLists(targets, nodeIDs);
-
-   // get all existing buddy group IDs from mapper
-   UInt16List buddyGroupIDs;
-   MirrorBuddyGroupList buddyGroups;
-   buddyGroupMapper->getMappingAsLists(buddyGroupIDs, buddyGroups);
-
-   // with the existing targets create a WHERE clause for the in-DB-check
-   std::string whereClauseTargets = "targetIDType="
-      + StringTk::intToStr((int)FsckTargetIDType_TARGET);
-   for ( UInt16ListIter iter = targets.begin(); iter != targets.end(); iter++ )
-      whereClauseTargets += " AND id!='" + StringTk::uintToStr(*iter) + "'";
-
-   std::string whereClauseBuddyGroups = "targetIDType="
-      + StringTk::intToStr((int)FsckTargetIDType_BUDDYGROUP);
-   for ( UInt16ListIter iter = buddyGroupIDs.begin(); iter != buddyGroupIDs.end(); iter++ )
-      whereClauseBuddyGroups += " AND id!='" + StringTk::uintToStr(*iter) + "'";
-
-   std::string whereClause = "((" + whereClauseTargets + ") OR (" + whereClauseBuddyGroups
-      + ")) AND ~" + std::string(IGNORE_ERRORS_FIELD) + "&"
-      + StringTk::uintToStr((int) FsckErrorCode_MISSINGTARGET);
-
-   // now select the IDs from DB, which where not in the existing targets list and add them to
-   // the error table
-
-   std::string selectStmt = "SELECT id, targetIDType FROM " + tableNameUsedTargets + " WHERE "
-      + whereClause;
-   std::string queryStr = "BEGIN TRANSACTION; INSERT INTO " + tableName + "(id,targetIDType) "
-      + selectStmt + "; COMMIT;";
-
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
+   bool operator()(std::pair<db::DirEntry, std::pair<db::FileInode, db::StripeTargets*>*>& pair)
    {
-      // we must call COMMIT here, because if query did not succeed transaction was most likely
-      // not closed
-      retVal = false;
-      dbHandle->sqliteBlockingExec("COMMIT");
+      db::FileInode& inode = pair.second->first;
+      db::StripeTargets* targets = pair.second->second;
+
+      const std::set<uint16_t>* missingTargets = NULL;
+
+      switch(inode.stripePatternType)
+      {
+      case FsckStripePatternType_RAID0:
+         missingTargets = &this->missingTargets;
+         break;
+
+      case FsckStripePatternType_BUDDYMIRROR:
+         missingTargets = &this->missingBuddyGroups;
+         break;
+
+      default:
+         return false;
+      }
+
+      unsigned inodeStripes = std::min<unsigned>(inode.stripePatternSize, inode.NTARGETS);
+      for(unsigned i = 0; i < inodeStripes; i++)
+      {
+         if(missingTargets->count(inode.targets[i]) )
+            return true;
+      }
+
+      if(targets)
+      {
+         unsigned limit = std::min<unsigned>(targets->NTARGETS,
+            inode.stripePatternSize - targets->firstTargetIndex);
+
+         for(unsigned i = 0; i < limit; i++)
+         {
+            if(missingTargets->count(targets->targets[i]) )
+               return true;
+         }
+      }
+
+      return false;
    }
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+};
 }
 
 /*
  * looks for file inodes, which have a stripe target set, which does not exist
- *
- * @param targetMapper
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertFilesWithMissingStripeTargets()
+Cursor<db::DirEntry> FsckDB::findFilesWithMissingStripeTargets(TargetMapper* targetMapper,
+   MirrorBuddyGroupMapper* buddyGroupMapper)
 {
-   bool retVal = true;
+   FsckTargetIDList usedTargets;
+   std::set<uint16_t> missingTargets;
+   std::set<uint16_t> missingBuddyGroups;
 
-   // we reuse the missing target error table here, so this check must have been done before!
-   std::string tableNameMissingTarget = TABLE_NAME_ERROR(FsckErrorCode_MISSINGTARGET);
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_FILEWITHMISSINGTARGET);
-
-   std::string tableNameInodes = TABLE_NAME_FILE_INODES;
-   std::string tableNameDentries = TABLE_NAME_DIR_ENTRIES;
-
-   // get all targets, which were detected as missing
-   FsckTargetIDList missingTargets;
-   this->getMissingStripeTargets(&missingTargets);
-
-   if ( missingTargets.empty() ) // we know that no file has missing targets in pattern
-      return true;
-
-   // iterate over the missing targets and generate a where clause to find files using them
-   std::string inodeWhereClause = "";
-   for ( FsckTargetIDListIter iter = missingTargets.begin(); iter != missingTargets.end(); iter++ )
    {
-      uint16_t id = iter->getID();
-
-      inodeWhereClause += "',' || stripeTargets || ',' LIKE '%," + StringTk::uintToStr(id)
-         + ",%' OR ";
+      SetFragmentCursor<db::UsedTarget> c = this->usedTargetIDsTable->get();
+      while(c.step() )
+         usedTargets.push_back(*c.get() );
    }
 
-   inodeWhereClause.resize(inodeWhereClause.size() - 4); // strip the last " OR "
-
-   char* selectStmtStr = NULL;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s.%s,%s.%s,%s.%s FROM %s,%s WHERE (%s) AND %s.id=%s.id", tableNameDentries.c_str(),
-      "name", tableNameDentries.c_str(), "parentDirID", tableNameDentries.c_str(), "saveNodeID",
-      tableNameDentries.c_str(), tableNameInodes.c_str(), inodeWhereClause.c_str(),
-      tableNameDentries.c_str(), tableNameInodes.c_str());
-
-   if ( !selectStmtStrLen )
+   for(FsckTargetIDListIter it = usedTargets.begin(); it != usedTargets.end(); ++it)
    {
-      return false;
+      switch(it->getTargetIDType() )
+      {
+      case FsckTargetIDType_TARGET:
+         if(!targetMapper->targetExists(it->getID() ) )
+            missingTargets.insert(it->getID() );
+         break;
+
+      case FsckTargetIDType_BUDDYGROUP: {
+         MirrorBuddyGroup group = buddyGroupMapper->getMirrorBuddyGroup(it->getID() );
+         if(group.firstTargetID == 0 && group.secondTargetID == 0)
+            missingBuddyGroups.insert(it->getID() );
+
+         break;
+      }
+      }
    }
 
-   std::string queryStr = "BEGIN TRANSACTION; INSERT INTO " + tableName
-      + "(name,parentDirID,saveNodeID) " + selectStmtStr + ";COMMIT;";
-
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      // we must call COMMIT here, because if query did not succeed transaction was most likely
-      // not closed
-      retVal = false;
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   SAFE_FREE(selectStmtStr);
-
-   return retVal;
+   return cursor(
+      joinBy(
+         JoinWithStripedInode(),
+         this->dentryTable->get(),
+         db::leftJoinBy(
+            objectID,
+            this->fileInodesTable->getInodes(),
+            this->fileInodesTable->getTargets() ) )
+      | db::where(HasMissingTarget(missingTargets, missingBuddyGroups) )
+      | db::select(first)
+      | db::distinctBy(objectID) );
 }
 
 /*
  * looks for chunks, which have wrong owner/group
  *
  * important for quotas
- *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertChunksWithWrongPermissions()
+Cursor<std::pair<FsckChunk, FsckFileInode> > FsckDB::findChunksWithWrongPermissions()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_CHUNKWITHWRONGPERM);
-
-   const char* tableNameChunks = TABLE_NAME_CHUNKS;
-   const char* tableNameInodes = TABLE_NAME_FILE_INODES;
-
-   // first check files
-   char* selectStmtStr;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s.%s,%s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s AND (%s.%s<>%s.%s OR %s.%s<>%s.%s) "
-         "AND ~%s.%s&%i", tableNameChunks, "id", tableNameChunks, "targetID", tableNameChunks,
-      "buddyGroupID", tableNameChunks, tableNameInodes, tableNameChunks, "id", tableNameInodes,
-      "id", tableNameChunks, "userID", tableNameInodes, "userID", tableNameChunks, "groupID",
-      tableNameInodes, "groupID", tableNameChunks, IGNORE_ERRORS_FIELD,
-      (int) FsckErrorCode_CHUNKWITHWRONGPERM);
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s,%s) %s; "
-      "COMMIT;", tableName.c_str(), "id", "targetID", "buddyGroupID", selectStmtStr);
-
-   if ( !queryStrLen )
+   struct ops
    {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
+      static bool chunkHasWrongPermissions(std::pair<db::Chunk, db::FileInode*>& pair)
+      {
+         return pair.first.uid != pair.second->uid
+            || pair.first.gid != pair.second->gid;
+      }
 
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
+      static std::pair<FsckChunk, FsckFileInode> result(std::pair<db::Chunk, db::FileInode*>& pair)
+      {
+         return std::make_pair(pair.first, pair.second->toInodeWithoutStripes() );
+      }
+   };
 
-   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
-
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+   return cursor(
+      joinBy(
+         objectID,
+         this->chunksTable->get()
+         | ignoreByID(this->modificationEventsTable->get() ),
+         this->fileInodesTable->getInodes() )
+      | db::where(ops::chunkHasWrongPermissions)
+      | db::select(ops::result) );
 }
 
 /*
  * looks for chunks, which are saved in the wrong place
- * *
- * @return boolean value indicating if an error occured
  */
-bool FsckDB::checkForAndInsertChunksInWrongPath()
+Cursor<std::pair<FsckChunk, FsckFileInode> > FsckDB::findChunksInWrongPath()
 {
-   bool retVal = true;
-
-   std::string tableName = TABLE_NAME_ERROR(FsckErrorCode_CHUNKINWRONGPATH);
-
-   const char* tableNameChunks = TABLE_NAME_CHUNKS;
-   const char* tableNameInodes = TABLE_NAME_FILE_INODES;
-
-   // first check files
-   char* selectStmtStr;
-   size_t selectStmtStrLen = asprintf(&selectStmtStr,
-      "SELECT %s.%s,%s.%s,%s.%s FROM %s,%s WHERE %s.%s=%s.%s AND %s.%s<>expectedchunkpath(%s.%s,"
-         "%s.%s,%s.%s,%s.%s ) AND ~%s.%s&%i", tableNameChunks, "id", tableNameChunks,
-      "targetID", tableNameChunks, "buddyGroupID", tableNameChunks, tableNameInodes, tableNameChunks,
-      "id", tableNameInodes, "id", tableNameChunks, "savedPath", tableNameChunks, "id",
-      tableNameInodes, "origParentUID", tableNameInodes, "origParentEntryID", tableNameInodes,
-      "pathInfoFlags", tableNameChunks, IGNORE_ERRORS_FIELD, (int) FsckErrorCode_CHUNKINWRONGPATH);
-
-   if ( !selectStmtStrLen )
-      return false;
-
-   char* queryStr;
-   size_t queryStrLen = asprintf(&queryStr, "BEGIN TRANSACTION; INSERT INTO %s (%s,%s,%s) %s; "
-      "COMMIT;", tableName.c_str(), "id", "targetID", "buddyGroupID", selectStmtStr);
-
-   if ( !queryStrLen )
+   struct ops
    {
-      SAFE_FREE(selectStmtStr);
-      return false;
-   }
+      static bool chunkInWrongPath(std::pair<db::Chunk, db::FileInode*>& pair)
+      {
+         db::Chunk& chunk = pair.first;
+         db::FileInode& file = *pair.second;
 
-   /*
-    * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
-    * by opening the handle here (and not inside executeQuery), we make sure that we have one and
-    * the same handle for the complete transaction
-    */
-   DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
+         return chunk.savedPath !=
+            DatabaseTk::calculateExpectedChunkPath(chunk.id.str(), file.origParentUID,
+               file.origParentEntryID.str(), file.pathInfoFlags);
+      }
 
-   std::string errorStr;
-   if ( dbHandle->sqliteBlockingExec(queryStr, &errorStr) != SQLITE_OK )
-   {
-      retVal = false;
-      // explicitely end transaction if something went wrong
-      dbHandle->sqliteBlockingExec("COMMIT");
-   }
+      static std::pair<FsckChunk, FsckFileInode> result(std::pair<db::Chunk, db::FileInode*>& pair)
+      {
+         return std::make_pair(pair.first, pair.second->toInodeWithoutStripes() );
+      }
+   };
 
-   SAFE_FREE(selectStmtStr);
-   SAFE_FREE(queryStr);
-
-   this->dbHandlePool->releaseHandle(dbHandle);
-
-   return retVal;
+   return cursor(
+      joinBy(
+         objectID,
+         this->chunksTable->get()
+         | ignoreByID(this->modificationEventsTable->get() ),
+         this->fileInodesTable->getInodes() )
+      | db::where(ops::chunkInWrongPath)
+      | db::select(ops::result) );
 }
-

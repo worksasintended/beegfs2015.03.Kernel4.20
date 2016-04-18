@@ -723,7 +723,12 @@ int FhgfsOps_flock(struct file* file, int cmd, struct file_lock* fileLock)
    // local locking
 
    {
-      int localLockRes = flock_lock_file_wait(file, fileLock);
+      #ifdef KERNEL_HAS_LOCKS_LOCK_INODE_WAIT
+         int localLockRes = locks_lock_inode_wait(file_inode(file), fileLock);
+      #else
+         int localLockRes = flock_lock_file_wait(file, fileLock);
+      #endif
+
       if(!useGlobalFileLocks)
          return localLockRes;
 
@@ -869,7 +874,11 @@ int FhgfsOps_lock(struct file* file, int cmd, struct file_lock* fileLock)
          failed we wouldn't know how to undo the local locking (e.g. if the process acquires a
          shared lock for the second time or does a merge with existing ranges). */
 
+#ifdef KERNEL_HAS_LOCKS_LOCK_INODE_WAIT
+      int localLockRes = locks_lock_inode_wait(file_inode(file), fileLock);
+#else
       int localLockRes = posix_lock_file_wait(file, fileLock);
+#endif
 
       //printk_fhgfs_debug(KERN_WARNING, "posix_lock_file result=%d, cmd=%d\n", localLockRes, cmd);
 
@@ -916,6 +925,8 @@ ssize_t FhgfsOps_read(struct file* file, char __user *buf, size_t size, loff_t *
    IGNORE_UNUSED_VARIABLE(app);
 
    FsFileInfo_getIOInfo(fileInfo, fhgfsInode, &ioInfo);
+
+   invalidate_inode_pages2(file->f_mapping);
 
    readRes = FhgfsOpsHelper_readCached(buf, size, *offsetPointer, fhgfsInode, fileInfo, &ioInfo);
    //readRes = FhgfsOpsRemoting_readfile(buf, size, *offsetPointer, &ioInfo);
@@ -1073,6 +1084,8 @@ ssize_t FhgfsOps_write(struct file* file, const char __user *buf, size_t size,
    writeCheckRes = os_generic_write_checks(file, offsetPointer, &size, S_ISBLK(inode->i_mode) );
    if(unlikely(writeCheckRes) )
       return writeCheckRes;
+
+   invalidate_inode_pages2(file->f_mapping);
 
    if(isLocallyLockedAppend)
    { // appending without global locks => move file offset to end-of-file before writing

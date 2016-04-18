@@ -2,6 +2,11 @@
 #define MSGHELPERREPAIR_H_
 
 #include <common/Common.h>
+#include <common/nodes/Node.h>
+#include <common/fsck/FsckChunk.h>
+#include <common/fsck/FsckDirEntry.h>
+#include <common/fsck/FsckDirInode.h>
+#include <common/fsck/FsckFsID.h>
 
 class MsgHelperRepair
 {
@@ -42,8 +47,8 @@ class MsgHelperRepair
          FsckDirEntryList* createdDentries, FsckFileInodeList* createdInodes);
       static void fixChunkPermissions(Node *node, FsckChunkList& chunkList,
          PathInfoList& pathInfoList, FsckChunkList& failedChunks);
-      static void moveChunks(Node* node, FsckChunkList& chunkList, StringList& moveToList,
-         FsckChunkList& failedChunks);
+      static bool moveChunk(Node* node, FsckChunk& chunk, const std::string& moveTo,
+         bool allowOverwrite);
       static void deleteFileInodes(Node* node, FsckFileInodeList& inodes,
          StringList& failedDeletes);
 

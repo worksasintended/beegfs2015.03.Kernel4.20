@@ -33,6 +33,7 @@ BEEGFS_COMMON_PATH=${BEEGFS_COMMON_PATH:-`readlink -f ../../beegfs_common`}
 BEEGFS_THIRDPARTY_PATH=${BEEGFS_THIRDPARTY_PATH:-`readlink -f ../../beegfs_thirdparty`}
 BEEGFS_ONLINE_CFG_PATH=${BEEGFS_ONLINE_CFG_PATH:-`readlink -f ../../beegfs_ctl`}
 BEEGFS_FSCK_PATH=${BEEGFS_FSCK_PATH:-`readlink -f ../../beegfs_fsck`}
+BEEGFS_FSCK_LEGACY_PATH=${BEEGFS_FSCK_LEGACY_PATH:-`readlink -f ../../beegfs_fsck_legacy`}
 BEEGFS_JAVA_LIB_PATH=${BEEGFS_JAVA_LIB_PATH:-`readlink -f ../../beegfs_java_lib`}
 
 set +e
@@ -52,6 +53,7 @@ sed 	-e "s#%BEEGFS_OPENTK_PATH%#$BEEGFS_OPENTK_PATH#" \
         -e "s#%BEEGFS_THIRDPARTY_PATH%#$BEEGFS_THIRDPARTY_PATH#" \
 	-e "s#%BEEGFS_ONLINE_CFG_PATH%#$BEEGFS_ONLINE_CFG_PATH#" \
 	-e "s#%BEEGFS_FSCK_PATH%#$BEEGFS_FSCK_PATH#" \
+	-e "s#%BEEGFS_FSCK_LEGACY_PATH%#$BEEGFS_FSCK_LEGACY_PATH#" \
 	-e "s#%BEEGFS_JAVA_LIB_PATH%#$BEEGFS_JAVA_LIB_PATH#" \
 	-e "s/%NAME%/$NAME/" \
 	-e "s/%RELEASE_STR%/$RELEASE_STR/" \

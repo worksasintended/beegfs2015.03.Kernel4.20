@@ -31,6 +31,29 @@ static struct kmem_cache* FhgfsInodeCache = NULL;
 
 static void FhgfsOps_newAttrToInode(struct iattr* iAttr, struct inode* outInode);
 
+static __always_inline int maybeRefreshInode(struct inode* inode, bool whenCacheInvalid,
+   bool withFileSize)
+{
+   App* app = FhgfsOps_getApp(inode->i_sb);
+   Config* cfg = app->cfg;
+
+   if(unlikely(!FhgfsOps_getIsRootInited(inode->i_sb) && inode->i_ino == BEEGFS_INODE_ROOT_INO)
+      || (!FhgfsInode_isCacheValid(BEEGFS_INODE(inode), inode->i_mode, cfg) && whenCacheInvalid) )
+   {
+      FhgfsIsizeHints iSizeHints;
+      int refreshRes;
+
+      refreshRes = __FhgfsOps_doRefreshInode(app, inode, NULL, &iSizeHints, !withFileSize);
+      if(refreshRes)
+         return refreshRes;
+
+      if (inode->i_ino == BEEGFS_INODE_ROOT_INO)
+         FhgfsOps_setIsRootInited(inode->i_sb, true);
+   }
+
+   return 0;
+}
+
 
 /**
  * Find out whether a directory entry exists. Add the dentry and create/associate the
@@ -96,23 +119,15 @@ struct dentry* FhgfsOps_lookupIntent(struct inode* parentDir, struct dentry* den
    /* check if root inode attribs have been fetched already
       (because the kernel doesn't do lookup/revalidate for the root inode) */
 
-   if(unlikely(!FhgfsOps_getIsRootInited(dentry->d_sb) &&
-      parentDir->i_ino == BEEGFS_INODE_ROOT_INO) )
    {
-      int initRootRes;
-      int permRes;
-
-      initRootRes = __FhgfsOps_refreshInode(app, parentDir, NULL, &iSizeHints);
-      if(initRootRes)
-         return ERR_PTR(initRootRes);
-
-      FhgfsOps_setIsRootInited(dentry->d_sb, fhgfs_true);
+      int refreshRes = maybeRefreshInode(parentDir, true, false);
 
       // root permissions might have changed now => recheck permissions
+      if (!refreshRes)
+         refreshRes = os_generic_permission(parentDir, MAY_EXEC);
 
-      permRes = os_generic_permission(parentDir, MAY_EXEC);
-      if(permRes)
-         return ERR_PTR(permRes);
+      if (refreshRes)
+         return ERR_PTR(refreshRes);
    }
 
 
@@ -255,12 +270,8 @@ int FhgfsOps_getattr(struct vfsmount* mnt, struct dentry* dentry, struct kstat* 
    struct inode* inode = dentry->d_inode;
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
 
-   fhgfs_bool cacheValid = FhgfsInode_isCacheValid(fhgfsInode, inode->i_mode, cfg);
 
    fhgfs_bool refreshOnGetAttr = Config_getTuneRefreshOnGetAttr(cfg);
-
-   FhgfsIsizeHints iSizeHints;
-
 
    FhgfsOpsHelper_logOp(5, app, dentry, inode, logContext);
 
@@ -274,11 +285,8 @@ int FhgfsOps_getattr(struct vfsmount* mnt, struct dentry* dentry, struct kstat* 
       relying on an updated link count, but while a user is creating subdirs, the stat from "find"
       can never be up-to-date, so that would also be quite useless. */
 
-   if(!cacheValid &&
-      (isRoot || FhgfsInode_getIsFileOpen(fhgfsInode) || refreshOnGetAttr) )
-   {
-      retVal = __FhgfsOps_refreshInode(app, inode, NULL, &iSizeHints);
-   }
+   retVal = maybeRefreshInode(inode,
+      isRoot || FhgfsInode_getIsFileOpen(fhgfsInode) || refreshOnGetAttr, true);
 
    if(!retVal)
    {
@@ -312,21 +320,14 @@ int FhgfsOps_getattr(struct vfsmount* mnt, struct dentry* dentry, struct kstat* 
 ssize_t FhgfsOps_listxattr(struct dentry* dentry, char* value, size_t size)
 {
    App* app = FhgfsOps_getApp(dentry->d_sb);
-   Config* cfg = App_getConfig(app);
    FhgfsOpsErr remotingRes;
    ssize_t resSize;
 
    FhgfsInode* fhgfsInode = BEEGFS_INODE(dentry->d_inode);
 
-   fhgfs_bool cacheValid = FhgfsInode_isCacheValid(fhgfsInode, dentry->d_inode->i_mode, cfg);
-   if (!cacheValid)
-   {
-      FhgfsIsizeHints iSizeHints;
-      remotingRes = __FhgfsOps_refreshInode(app, dentry->d_inode, NULL, &iSizeHints);
-
-      if (remotingRes != FhgfsOpsErr_SUCCESS)
-         return remotingRes;
-   }
+   int refreshRes = maybeRefreshInode(dentry->d_inode, true, false);
+   if (refreshRes)
+      return refreshRes;
 
    FhgfsOpsHelper_logOpDebug(app, dentry, NULL, __func__, "(size: %u)", size);
 
@@ -354,31 +355,20 @@ ssize_t FhgfsOps_listxattr(struct dentry* dentry, char* value, size_t size)
 #ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
 ssize_t FhgfsOps_getxattr(struct dentry* dentry, const char* name, void* value, size_t size)
 {
-   App* app = FhgfsOps_getApp(dentry->d_sb);
-   Config* cfg = App_getConfig(app);
-   FhgfsInode* fhgfsInode = BEEGFS_INODE(dentry->d_inode);
-   fhgfs_bool cacheValid = FhgfsInode_isCacheValid(fhgfsInode, dentry->d_inode->i_mode, cfg);
    struct inode* inode = dentry->d_inode;
 #else
 ssize_t FhgfsOps_getxattr(struct inode* inode, const char* name, void* value, size_t size)
 {
-   App* app = FhgfsOps_getApp(inode->i_sb);
-   Config* cfg = App_getConfig(app);
-   FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
-   fhgfs_bool cacheValid = FhgfsInode_isCacheValid(fhgfsInode, inode->i_mode, cfg);
 #endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
 
+   App* app = FhgfsOps_getApp(inode->i_sb);
+   FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
    FhgfsOpsErr remotingRes;
    ssize_t resSize;
 
-   if (!cacheValid)
-   {
-      FhgfsIsizeHints iSizeHints;
-      remotingRes = __FhgfsOps_refreshInode(app, inode, NULL, &iSizeHints);
-
-      if (remotingRes != FhgfsOpsErr_SUCCESS)
-         return remotingRes;
-   }
+   int refreshRes = maybeRefreshInode(inode, true, false);
+   if (refreshRes)
+      return refreshRes;
 
    // "Just get the size, don't return any value" is signaled by value=NULL. Since we only send
    // the "size" parameter to the server, we make sure that size is set to 0 in that case.
@@ -400,20 +390,13 @@ ssize_t FhgfsOps_getxattr(struct inode* inode, const char* name, void* value, si
 int FhgfsOps_removexattr(struct dentry* dentry, const char* name)
 {
    App* app = FhgfsOps_getApp(dentry->d_sb);
-   Config* cfg = App_getConfig(app);
    FhgfsOpsErr remotingRes;
 
    FhgfsInode* fhgfsInode = BEEGFS_INODE(dentry->d_inode);
 
-   fhgfs_bool cacheValid = FhgfsInode_isCacheValid(fhgfsInode, dentry->d_inode->i_mode, cfg);
-   if (!cacheValid)
-   {
-      FhgfsIsizeHints iSizeHints;
-      remotingRes = __FhgfsOps_refreshInode(app, dentry->d_inode, NULL, &iSizeHints);
-
-      if (remotingRes != FhgfsOpsErr_SUCCESS)
-         return remotingRes;
-   }
+   int refreshRes = maybeRefreshInode(dentry->d_inode, true, false);
+   if (refreshRes)
+      return refreshRes;
 
    FhgfsOpsHelper_logOpDebug(app, dentry, NULL, __func__, "(name: %s)", name);
 
@@ -432,31 +415,20 @@ int FhgfsOps_removexattr(struct dentry* dentry, const char* name)
 int FhgfsOps_setxattr(struct dentry* dentry, const char* name, const void* value, size_t size,
       int flags)
 {
-   App* app = FhgfsOps_getApp(dentry->d_sb);
-   Config* cfg = App_getConfig(app);
-   FhgfsInode* fhgfsInode = BEEGFS_INODE(dentry->d_inode);
-   fhgfs_bool cacheValid = FhgfsInode_isCacheValid(fhgfsInode, dentry->d_inode->i_mode, cfg);
    struct inode* inode = dentry->d_inode;
 #else
 int FhgfsOps_setxattr(struct inode* inode, const char* name, const void* value, size_t size,
       int flags)
 {
-   App* app = FhgfsOps_getApp(inode->i_sb);
-   Config* cfg = App_getConfig(app);
-   FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
-   fhgfs_bool cacheValid = FhgfsInode_isCacheValid(fhgfsInode, inode->i_mode, cfg);
 #endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
 
+   App* app = FhgfsOps_getApp(inode->i_sb);
+   FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
    FhgfsOpsErr remotingRes;
 
-   if (!cacheValid)
-   {
-      FhgfsIsizeHints iSizeHints;
-      remotingRes = __FhgfsOps_refreshInode(app, inode, NULL, &iSizeHints);
-
-      if (remotingRes != FhgfsOpsErr_SUCCESS)
-         return remotingRes;
-   }
+   int refreshRes = maybeRefreshInode(inode, true, false);
+   if (refreshRes)
+      return refreshRes;
 
    remotingRes = FhgfsOpsRemoting_setXAttr(app, FhgfsInode_getEntryInfo(fhgfsInode),
          name, value, size, flags);
@@ -471,7 +443,6 @@ int FhgfsOps_setxattr(struct inode* inode, const char* name, const void* value, 
 struct posix_acl* FhgfsOps_get_acl(struct inode* inode, int type)
 {
    App* app = FhgfsOps_getApp(inode->i_sb);
-   Config* cfg = App_getConfig(app);
    struct posix_acl* res = NULL;
    char* xAttrName;
    FhgfsOpsErr remotingRes;
@@ -482,20 +453,14 @@ struct posix_acl* FhgfsOps_get_acl(struct inode* inode, int type)
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
    EntryInfo* entryInfo = FhgfsInode_getEntryInfo(fhgfsInode);
 
-   fhgfs_bool cacheValid = FhgfsInode_isCacheValid(fhgfsInode, inode->i_mode, cfg);
-   if (!cacheValid)
-   {
-      FhgfsIsizeHints iSizeHints;
-      remotingRes = __FhgfsOps_refreshInode(app, inode, NULL, &iSizeHints);
-
-      if (remotingRes != FhgfsOpsErr_SUCCESS)
-         return ERR_PTR(remotingRes);
-   }
+   int refreshRes = maybeRefreshInode(inode, true, false);
+   if (refreshRes)
+      return ERR_PTR(refreshRes);
 
    if(type == ACL_TYPE_ACCESS)
-      xAttrName = POSIX_ACL_XATTR_ACCESS;
+      xAttrName = XATTR_NAME_POSIX_ACL_ACCESS;
    else if(type == ACL_TYPE_DEFAULT)
-      xAttrName = POSIX_ACL_XATTR_DEFAULT;
+      xAttrName = XATTR_NAME_POSIX_ACL_DEFAULT;
    else
       return ERR_PTR(-EOPNOTSUPP);
 
@@ -542,7 +507,6 @@ cleanup:
 int FhgfsOps_set_acl(struct inode* inode, struct posix_acl* acl, int type)
 {
    App* app = FhgfsOps_getApp(inode->i_sb);
-   Config* cfg = App_getConfig(app);
    int res;
    FhgfsOpsErr remotingRes;
    char* xAttrName;
@@ -552,20 +516,14 @@ int FhgfsOps_set_acl(struct inode* inode, struct posix_acl* acl, int type)
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
    EntryInfo* entryInfo = FhgfsInode_getEntryInfo(fhgfsInode);
 
-   fhgfs_bool cacheValid = FhgfsInode_isCacheValid(fhgfsInode, inode->i_mode, cfg);
-   if (!cacheValid)
-   {
-      FhgfsIsizeHints iSizeHints;
-      res = __FhgfsOps_refreshInode(app, inode, NULL, &iSizeHints);
-
-      if (res != FhgfsOpsErr_SUCCESS)
-         return FhgfsOpsErr_toSysErr(res);
-   }
+   int refreshRes = maybeRefreshInode(inode, true, false);
+   if (refreshRes)
+      return refreshRes;
 
    if (type == ACL_TYPE_ACCESS)
-      xAttrName = POSIX_ACL_XATTR_ACCESS;
+      xAttrName = XATTR_NAME_POSIX_ACL_ACCESS;
    else if (type == ACL_TYPE_DEFAULT)
-      xAttrName = POSIX_ACL_XATTR_DEFAULT;
+      xAttrName = XATTR_NAME_POSIX_ACL_DEFAULT;
    else
       return -EOPNOTSUPP;
 
@@ -652,7 +610,7 @@ int FhgfsOps_aclChmod(struct iattr* iattr, struct dentry* dentry)
 
    // We call FhgfsOps_setxattr directly instead of using the XAttr handler
    // because the handler would try to chmod again.
-   res = FhgfsOps_setxattr(dentry, POSIX_ACL_XATTR_ACCESS, xAttrBuf, xAttrBufLen, 0);
+   res = FhgfsOps_setxattr(dentry, XATTR_NAME_POSIX_ACL_ACCESS, xAttrBuf, xAttrBufLen, 0);
 
 buf_cleanup:
    os_kfree(xAttrBuf);
@@ -1752,7 +1710,7 @@ errorOldPath:
 }
 
 
-static void __beegfs_follow_link(struct dentry* dentry, char** linkBody, void** cookie)
+static int __beegfs_follow_link(struct dentry* dentry, char** linkBody, void** cookie)
 {
    struct inode* inode = dentry->d_inode;
    App* app = FhgfsOps_getApp(inode->i_sb);
@@ -1795,17 +1753,49 @@ static void __beegfs_follow_link(struct dentry* dentry, char** linkBody, void** 
    {
       free_page( (unsigned long)bufPage);
       *cookie = destination;
+
+      return PTR_ERR(destination);
    }
 
    // Note: free_page() is called by the put_link method in the success case
+   return 0;
 }
 
-static void __beegfs_put_link(struct inode* inode, void* cookie)
+static void __beegfs_put_link(void* cookie)
 {
    free_page( (unsigned long)cookie);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
+#if defined KERNEL_HAS_GET_LINK
+const char* FhgfsOps_get_link(struct dentry* dentry, struct inode* inode,
+   struct delayed_call* done)
+{
+   void* cookie;
+   char* destination;
+
+   if (!dentry)
+      return ERR_PTR(-ECHILD);
+
+   if(!__beegfs_follow_link(dentry, &destination, &cookie) )
+      set_delayed_call(done, __beegfs_put_link, cookie);
+
+   return destination;
+}
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
+const char* FhgfsOps_follow_link(struct dentry* dentry, void** cookie)
+{
+   char* destination;
+
+   __beegfs_follow_link(dentry, &destination, cookie);
+   return destination;
+}
+
+
+void FhgfsOps_put_link(struct inode* inode, void* cookie)
+{
+   __beegfs_put_link(cookie);
+}
+#else
 void* FhgfsOps_follow_link(struct dentry* dentry, struct nameidata* nd)
 {
    char* destination;
@@ -1820,21 +1810,7 @@ void* FhgfsOps_follow_link(struct dentry* dentry, struct nameidata* nd)
 void FhgfsOps_put_link(struct dentry* dentry, struct nameidata* nd, void* p)
 {
    if(!IS_ERR(p) )
-      __beegfs_put_link(dentry->d_inode, p);
-}
-#else
-const char* FhgfsOps_follow_link(struct dentry* dentry, void** cookie)
-{
-   char* destination;
-
-   __beegfs_follow_link(dentry, &destination, cookie);
-   return destination;
-}
-
-
-void FhgfsOps_put_link(struct inode* inode, void* cookie)
-{
-   __beegfs_put_link(inode, cookie);
+      __beegfs_put_link(p);
 }
 #endif
 

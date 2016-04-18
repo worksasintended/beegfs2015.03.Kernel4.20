@@ -3,17 +3,15 @@
 
 #include <program/Program.h>
 
-ModificationEventHandler::ModificationEventHandler(): PThread("ModificationEventHandler")
-{
-   this->database = Program::getApp()->getDatabase();
-}
-
-ModificationEventHandler::~ModificationEventHandler()
+ModificationEventHandler::ModificationEventHandler(FsckDBModificationEventsTable& table)
+   : PThread("ModificationEventHandler"),
+     table(&table)
 {
 }
 
 void ModificationEventHandler::run()
 {
+   FsckDBModificationEventsTable::BulkHandle bulkHandle(table->newBulkHandle() );
    while ( !getSelfTerminate() )
    {
       SafeMutexLock bufferListSafeLock(&bufferListMutex); // LOCK BUFFER
@@ -37,7 +35,7 @@ void ModificationEventHandler::run()
 
          bufferListSafeLock.unlock(); // UNLOCK BUFFER
 
-         flush(bufferListCopy);
+         table->insert(bufferListCopy, bulkHandle);
       }
    }
 
@@ -48,7 +46,7 @@ void ModificationEventHandler::run()
    bufferListCopy.splice(bufferListCopy.begin(), bufferList);
    bufferListSafeLock.unlock(); // UNLOCK BUFFER
 
-   flush(bufferListCopy);
+   table->insert(bufferListCopy, bulkHandle);
 }
 
 bool ModificationEventHandler::add(UInt8List& eventTypeList, StringList& entryIDList)
@@ -94,32 +92,4 @@ bool ModificationEventHandler::add(UInt8List& eventTypeList, StringList& entryID
    this->eventsAddedCond.signal();
 
    return true;
-}
-
-/*
- * Note: no locks here, only to be called with a unique list copy
- */
-void ModificationEventHandler::flush(FsckModificationEventList& flushList)
-{
-   const char* logContext = "ModificationEventHandler (flush)";
-
-   if (flushList.empty())
-      return;
-
-   FsckModificationEvent failedInsert;
-   int errorCode;
-
-   bool success = database->insertModificationEvents(flushList, failedInsert, errorCode);
-
-   if ( !success )
-   {
-      LogContext(logContext).log(1,
-         "Failed to insert modification event; eventType: "
-            + StringTk::uintToStr(failedInsert.getEventType()) + "; entryID: "
-            + failedInsert.getEntryID());
-      LogContext(logContext).log(1, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while inserting modification event to database. "
-         "Please see log for more information.");
-   }
 }

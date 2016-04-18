@@ -24,10 +24,9 @@ bool HeartbeatMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
    node->setNodeType(getNodeType() );
    node->setFhgfsVersion(getFhgfsVersion() );
 
-   BitStore nodeFeatureFlags;
-   parseNodeFeatureFlags(&nodeFeatureFlags);
-
-   node->setFeatureFlags(&nodeFeatureFlags);
+   BitStore featureFlags;
+   parseNodeFeatureFlags(&featureFlags);
+   node->setFeatureFlags(&featureFlags);
 
    // set local nic capabilities
    Node* localNode = app->getLocalNode();

@@ -1,9 +1,8 @@
 package com.beegfs.admon.gui.app.log;
 
-import static com.beegfs.admon.gui.app.config.Config.CONFIG_PROPERTY_LOG_DEBUG;
+import com.beegfs.admon.gui.program.Main;
 import java.io.IOException;
 import java.util.logging.Handler;
-import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
@@ -40,18 +39,10 @@ public class InternalLogger extends Logger
       try
       {
          // This block configures the logger with handler and formatter
-         boolean logDebug = Boolean.parseBoolean(System.getProperty(CONFIG_PROPERTY_LOG_DEBUG));
+         setLevel(Main.getConfig().getLogLevel());
 
-         if (logDebug)
-         {
-            setLevel(Level.ALL);
-         }
-         else
-         {
-            setLevel(Level.INFO);
-         }
-
-         logGuiHandler = new LogHandlerGui();
+         String newLogFile = Main.getConfig().getLogFile();
+         logGuiHandler = new LogHandlerGui(newLogFile);
          addHandler(logGuiHandler);
 
          setUseParentHandlers(true);
@@ -59,7 +50,7 @@ public class InternalLogger extends Logger
       catch (IOException e)
       {
          // logging only to system.err possible
-         System.err.println(e.getMessage() + "\n");
+         System.err.println(e.getMessage() + System.lineSeparator());
          e.printStackTrace();
       }
    }

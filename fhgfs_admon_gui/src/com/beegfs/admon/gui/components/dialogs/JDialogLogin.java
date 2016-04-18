@@ -244,8 +244,7 @@ public class JDialogLogin extends javax.swing.JDialog
       String infoHash = data.get("info");
       String adminHash = data.get("admin");
 
-      boolean ignoreVersionTest = Boolean.parseBoolean(System.getProperty("ignoreVersionTest"));
-      if (!ignoreVersionTest)
+      if (!Main.getConfig().getIgnoreVersionTest())
       {
          // check versions
          url = HttpTk.generateAdmonUrl("/XML_GetVersionString");

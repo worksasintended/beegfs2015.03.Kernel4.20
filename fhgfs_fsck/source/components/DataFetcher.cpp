@@ -10,18 +10,14 @@
 #include <toolkit/FsckTkEx.h>
 #include <toolkit/FsckException.h>
 
-DataFetcher::DataFetcher()
-{
-   generatedPackages = 0;
-   this->database = Program::getApp()->getDatabase();
-   this->workQueue = Program::getApp()->getWorkQueue();
-}
-
-DataFetcher::~DataFetcher()
+DataFetcher::DataFetcher(FsckDB& db)
+   : database(&db),
+     workQueue(Program::getApp()->getWorkQueue() ),
+     generatedPackages(0)
 {
 }
 
-bool DataFetcher::execute(unsigned short fetchMode)
+bool DataFetcher::execute()
 {
    bool retVal = true;
 
@@ -31,14 +27,9 @@ bool DataFetcher::execute(unsigned short fetchMode)
 
    printStatus();
 
-   if (fetchMode & DATAFETCHER_FETCHMODE_DIRENTRIES)
-      retrieveDirEntries(&metaNodeList);
-
-   if (fetchMode & DATAFETCHER_FETCHMODE_INODES)
-      retrieveInodes(&metaNodeList);
-
-   if (fetchMode & DATAFETCHER_FETCHMODE_CHUNKS)
-      retrieveChunks();
+   retrieveDirEntries(&metaNodeList);
+   retrieveInodes(&metaNodeList);
+   retrieveChunks();
 
    // wait for all packages to finish, because we cannot proceed if not all data was fetched
    // BUT : update output each OUTPUT_INTERVAL_MS ms
@@ -54,6 +45,22 @@ bool DataFetcher::execute(unsigned short fetchMode)
          // SynchronizedCounter (this object cannnot be destroyed before all workers terminate)
          retVal = false;
       }
+   }
+
+   if(retVal)
+   {
+      std::set<FsckTargetID> allUsedTargets;
+
+      while(!this->usedTargets.empty() )
+      {
+         allUsedTargets.insert(this->usedTargets.front().begin(), this->usedTargets.front().end() );
+         this->usedTargets.pop_front();
+      }
+
+      std::list<FsckTargetID> usedTargetsList(allUsedTargets.begin(), allUsedTargets.end() );
+
+      this->database->getUsedTargetIDsTable()->insert(usedTargetsList,
+         this->database->getUsedTargetIDsTable()->newBulkHandle() );
    }
 
    printStatus(true);
@@ -85,11 +92,12 @@ void DataFetcher::retrieveDirEntries(NodeList* nodeList)
 
          // before we create a package we increment the generated packages counter
          this->generatedPackages++;
+         this->usedTargets.insert(this->usedTargets.end(), std::set<FsckTargetID>() );
 
          this->workQueue->addIndirectWork(
-            new RetrieveDirEntriesWork(node, &(this->finishedPackages), hashDirStart,
-               BEEGFS_MIN(hashDirEnd, META_DENTRIES_LEVEL1_SUBDIR_NUM - 1), &numDentriesFound,
-               &numFileInodesFound));
+            new RetrieveDirEntriesWork(this->database, node, &(this->finishedPackages),
+               hashDirStart, BEEGFS_MIN(hashDirEnd, META_DENTRIES_LEVEL1_SUBDIR_NUM - 1),
+               &numDentriesFound, &numFileInodesFound, this->usedTargets.back()));
 
          // fetch fsIDs
 
@@ -97,7 +105,7 @@ void DataFetcher::retrieveDirEntries(NodeList* nodeList)
          this->generatedPackages++;
 
          this->workQueue->addIndirectWork(
-            new RetrieveFsIDsWork(node, &(this->finishedPackages), hashDirStart,
+            new RetrieveFsIDsWork(this->database, node, &(this->finishedPackages), hashDirStart,
                BEEGFS_MIN(hashDirEnd, META_DENTRIES_LEVEL1_SUBDIR_NUM - 1)) );
 
          hashDirStart = hashDirEnd + 1;
@@ -122,13 +130,14 @@ void DataFetcher::retrieveInodes(NodeList* nodeList)
       {
          // before we create a package we increment the generated packages counter
          this->generatedPackages++;
+         this->usedTargets.insert(this->usedTargets.end(), std::set<FsckTargetID>() );
 
          hashDirEnd = hashDirStart + hashDirsPerRequest;
 
          this->workQueue->addIndirectWork(
-            new RetrieveInodesWork(node, &(this->finishedPackages), hashDirStart,
+            new RetrieveInodesWork(this->database, node, &(this->finishedPackages), hashDirStart,
                BEEGFS_MIN(hashDirEnd, META_INODES_LEVEL1_SUBDIR_NUM - 1), &numFileInodesFound,
-               &numDirInodesFound));
+               &numDirInodesFound, this->usedTargets.back()));
 
          hashDirStart = hashDirEnd + 1;
       } while (hashDirEnd < META_INODES_LEVEL1_SUBDIR_NUM);
@@ -152,8 +161,8 @@ void DataFetcher::retrieveChunks()
       this->generatedPackages++;
 
       // node will be released inside of work package
-      this->workQueue->addIndirectWork(new RetrieveChunksWork(node, &(this->finishedPackages),
-         &numChunksFound));
+      this->workQueue->addIndirectWork(new RetrieveChunksWork(this->database, node,
+         &(this->finishedPackages), &numChunksFound));
 
       node = storageNodes->referenceNextNode(nodeNumID);
    }

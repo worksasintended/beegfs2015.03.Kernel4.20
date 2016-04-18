@@ -1,4 +1,5 @@
 #include <linux/fs.h>
+#include <linux/xattr.h>
 #include <linux/posix_acl_xattr.h>
 
 #include "common/Common.h"
@@ -16,9 +17,16 @@
  * Called when an ACL Xattr is set. Responsible for setting the mode bits corresponding to the
  * ACL mask.
  */
+#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+static int FhgfsXAttrSetACL(const struct xattr_handler* handler, struct dentry* dentry,
+   const char* name, const void* value, size_t size, int flags)
+{
+   int handler_flags = handler->flags;
+#else
 static int FhgfsXAttrSetACL(struct dentry *dentry, const char *name, const void *value, size_t size,
       int flags, int handler_flags)
 {
+#endif
    struct inode* inode = dentry->d_inode;
    char* attrName;
 
@@ -69,11 +77,11 @@ static int FhgfsXAttrSetACL(struct dentry *dentry, const char *name, const void 
       posix_acl_release(acl);
 
       // Name of the Xattr to be set later
-      attrName = POSIX_ACL_XATTR_ACCESS;
+      attrName = XATTR_NAME_POSIX_ACL_ACCESS;
    }
    else if(handler_flags == ACL_TYPE_DEFAULT)
    {
-      attrName = POSIX_ACL_XATTR_DEFAULT;
+      attrName = XATTR_NAME_POSIX_ACL_DEFAULT;
       // Note: The default acl is not reflected in any file mode permission bits.
    }
    else
@@ -93,13 +101,20 @@ static int FhgfsXAttrSetACL(struct dentry *dentry, const char *name, const void 
 }
 
 /**
- * The get-function of the xattr handler which handles the POSIX_ACL_XATTR_ACCESS and
- * POSIX_ACL_XATTR_DEFAULT xattrs.
+ * The get-function of the xattr handler which handles the XATTR_NAME_POSIX_ACL_ACCESS and
+ * XATTR_NAME_POSIX_ACL_DEFAULT xattrs.
  * @param name has to be a pointer to an empty string ("").
  */
+#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+static int FhgfsXAttrGetACL(const struct xattr_handler* handler, struct dentry* dentry,
+   const char* name, void* value, size_t size)
+{
+   int handler_flags = handler->flags;
+#else
 int FhgfsXAttrGetACL(struct dentry* dentry, const char* name, void* value, size_t size,
       int handler_flags)
 {
+#endif
    char* attrName;
 
    FhgfsOpsHelper_logOpDebug(FhgfsOps_getApp(dentry->d_sb), dentry, NULL, __func__, "Called.");
@@ -110,9 +125,9 @@ int FhgfsXAttrGetACL(struct dentry* dentry, const char* name, void* value, size_
       return -EINVAL;
 
    if(handler_flags == ACL_TYPE_ACCESS)
-      attrName = POSIX_ACL_XATTR_ACCESS;
+      attrName = XATTR_NAME_POSIX_ACL_ACCESS;
    else if(handler_flags == ACL_TYPE_DEFAULT)
-      attrName = POSIX_ACL_XATTR_DEFAULT;
+      attrName = XATTR_NAME_POSIX_ACL_DEFAULT;
    else
       return -EOPNOTSUPP;
 
@@ -123,7 +138,10 @@ int FhgfsXAttrGetACL(struct dentry* dentry, const char* name, void* value, size_
 /**
  * The get-function which is used for all the user.* xattrs.
  */
-#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+int FhgfsXAttr_getUser(const struct xattr_handler* handler, struct dentry* dentry,
+   const char* name, void* value, size_t size)
+#elif defined(KERNEL_HAS_DENTRY_XATTR_HANDLER)
 int FhgfsXAttr_getUser(struct dentry* dentry, const char* name, void* value, size_t size,
       int handler_flags)
 #else
@@ -163,7 +181,10 @@ int FhgfsXAttr_getUser(struct inode* inode, const char* name, void* value, size_
 /**
  * The set-function which is used for all the user.* xattrs.
  */
-#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+int FhgfsXAttr_setUser(const struct xattr_handler* handler, struct dentry* dentry,
+   const char* name, const void* value, size_t size, int flags)
+#elif defined(KERNEL_HAS_DENTRY_XATTR_HANDLER)
 int FhgfsXAttr_setUser(struct dentry* dentry, const char* name, const void* value, size_t size,
    int flags, int handler_flags)
 #else
@@ -202,12 +223,15 @@ int FhgfsXAttr_setUser(struct inode* inode, const char* name, const void* value,
 /**
  * The get-function which is used for all the security.* xattrs.
  */
-#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+int FhgfsXAttr_getSecurity(const struct xattr_handler* handler, struct dentry* dentry,
+   const char* name, void* value, size_t size)
+#elif defined(KERNEL_HAS_DENTRY_XATTR_HANDLER)
 int FhgfsXAttr_getSecurity(struct dentry* dentry, const char* name, void* value, size_t size,
       int handler_flags)
 #else
 int FhgfsXAttr_getSecurity(struct inode* inode, const char* name, void* value, size_t size)
-#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+#endif
 {
    FhgfsOpsErr res;
    char* prefixedName = os_kmalloc(strlen(name) + sizeof(FHGFS_XATTR_SECURITY_PREFIX) );
@@ -242,13 +266,16 @@ int FhgfsXAttr_getSecurity(struct inode* inode, const char* name, void* value, s
 /**
  * The set-function which is used for all the security.* xattrs.
  */
-#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+int FhgfsXAttr_setSecurity(const struct xattr_handler* handler, struct dentry* dentry,
+   const char* name, const void* value, size_t size, int flags)
+#elif defined(KERNEL_HAS_DENTRY_XATTR_HANDLER)
 int FhgfsXAttr_setSecurity(struct dentry* dentry, const char* name, const void* value, size_t size,
    int flags, int handler_flags)
 #else
 int FhgfsXAttr_setSecurity(struct inode* inode, const char* name, const void* value, size_t size,
    int flags)
-#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+#endif
 {
    FhgfsOpsErr res;
    char* prefixedName = os_kmalloc(strlen(name) + sizeof(FHGFS_XATTR_SECURITY_PREFIX) );
@@ -260,7 +287,7 @@ int FhgfsXAttr_setSecurity(struct inode* inode, const char* name, const void* va
 #else
    FhgfsOpsHelper_logOpDebug(FhgfsOps_getApp(inode->i_sb), NULL, inode, __func__,
       "(name: %s)", name);
-#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+#endif
 
    // add name prefix which has been removed by the generic function
    if(!prefixedName)
@@ -272,7 +299,7 @@ int FhgfsXAttr_setSecurity(struct inode* inode, const char* name, const void* va
    res = FhgfsOps_setxattr(dentry, prefixedName, value, size, flags);
 #else
    res = FhgfsOps_setxattr(inode, prefixedName, value, size, flags);
-#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+#endif
 
    kfree(prefixedName);
    return res;
@@ -281,7 +308,11 @@ int FhgfsXAttr_setSecurity(struct inode* inode, const char* name, const void* va
 #ifdef KERNEL_HAS_POSIX_GET_ACL
 const struct xattr_handler fhgfs_xattr_acl_access_handler =
 {
-   .prefix = POSIX_ACL_XATTR_ACCESS,
+#ifdef KERNEL_HAS_XATTR_HANDLER_NAME
+   .name = XATTR_NAME_POSIX_ACL_ACCESS,
+#else
+   .prefix = XATTR_NAME_POSIX_ACL_ACCESS,
+#endif
    .flags  = ACL_TYPE_ACCESS,
    .list   = NULL,
    .get    = FhgfsXAttrGetACL,
@@ -290,7 +321,11 @@ const struct xattr_handler fhgfs_xattr_acl_access_handler =
 
 const struct xattr_handler fhgfs_xattr_acl_default_handler =
 {
-   .prefix = POSIX_ACL_XATTR_DEFAULT,
+#ifdef KERNEL_HAS_XATTR_HANDLER_NAME
+   .name   = XATTR_NAME_POSIX_ACL_DEFAULT,
+#else
+   .prefix = XATTR_NAME_POSIX_ACL_DEFAULT,
+#endif
    .flags  = ACL_TYPE_DEFAULT,
    .list   = NULL,
    .get    = FhgfsXAttrGetACL,

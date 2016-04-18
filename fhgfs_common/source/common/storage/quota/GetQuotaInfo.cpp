@@ -221,12 +221,9 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
    {
       if (*iter != 0)
       {
+         // delete QuotaDataMap with invalid QuotaData
          if(this->cfg.cfgTargetSelection != GETQUOTACONFIG_ALL_TARGETS_ONE_REQUEST)
-         { // delete QuotaDataMap with invalid QuotaData
-           if(outQuotaResults->erase(*iter) > 0)
-              LogContext("GetQuotaInfo").log(Log_WARNING, "Invalid QuotaData from target: " +
-                 StringTk::uintToStr(*iter));
-         }
+            outQuotaResults->erase(*iter);
 
          retVal = false;
       }

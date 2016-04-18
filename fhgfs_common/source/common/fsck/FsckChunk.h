@@ -223,16 +223,17 @@ class FsckChunk
 
       void print()
       {
-         printf("id: %s\n", id.c_str());
-         printf("targetID: %hu\n", targetID);
-         printf("savedPath: %s\n", savedPath.getPathAsStr().c_str());
-         printf("fileSize: %" PRId64 "\n", fileSize);
-         printf("usedBlocks: %" PRIu64 "\n", usedBlocks);
-         printf("creationTime: %" PRId64 "\n", creationTime);
-         printf("modificationTime: %" PRId64 "\n", modificationTime);
-         printf("lastAccessTime: %" PRId64 "\n", lastAccessTime);
-         printf("userID: %u\n", userID);
-         printf("buddyGroupID: %hu\n", buddyGroupID);
+         std::cout
+            << "id: " << id << "\n"
+            << "targetID: " << targetID << "\n"
+            << "savedPath: " << savedPath.getPathAsStr() << "\n"
+            << "fileSize: " << fileSize << "\n"
+            << "usedBlocks: " << usedBlocks << "\n"
+            << "creationTime: " << creationTime << "\n"
+            << "modificationTime: " << modificationTime << "\n"
+            << "lastAccessTime: " << lastAccessTime << "\n"
+            << "userID: " << userID << "\n"
+            << "buddyGroupID: " << buddyGroupID << "\n";
       }
 };
 

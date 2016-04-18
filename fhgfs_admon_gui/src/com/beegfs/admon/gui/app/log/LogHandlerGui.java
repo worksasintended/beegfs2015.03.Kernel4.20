@@ -1,6 +1,5 @@
 package com.beegfs.admon.gui.app.log;
 
-import com.beegfs.admon.gui.common.enums.FilePathsEnum;
 import com.beegfs.admon.gui.components.panels.StatusPanel;
 import com.beegfs.admon.gui.program.Main;
 import java.io.IOException;
@@ -26,10 +25,10 @@ public class LogHandlerGui extends FileHandler
 
    private final Formatter formatter;
 
-   public LogHandlerGui() throws IOException
+   public LogHandlerGui(String logFilePath) throws IOException
    {
-      super(FilePathsEnum.LOG_FILE.getPath(), INTERNAL_LOGGER_MAX_LOG_FILE_SIZE,
-              INTERNAL_LOGGER_MAX_LOG_FILE_COUNT, false);
+      super(logFilePath, INTERNAL_LOGGER_MAX_LOG_FILE_SIZE, INTERNAL_LOGGER_MAX_LOG_FILE_COUNT,
+         false);
 
       formatter = new LogFormatter(this.getLevel());
       setFormatter(formatter);
@@ -137,7 +136,7 @@ public class LogHandlerGui extends FileHandler
       JTextPane textPane = Main.getMainWindow().getStatusPanel().getTextPane();
       if (!textPane.getText().contains(record.getMessage()))
       {
-         textPane.setText(textPane.getText() + text + "\n");
+         textPane.setText(textPane.getText() + text + System.lineSeparator());
          textPane.revalidate();
       }
    }
@@ -148,7 +147,7 @@ public class LogHandlerGui extends FileHandler
 
       if (!textPane.getText().contains(record.getMessage()))
       {
-         textPane.setText(textPane.getText() + text + "\n");
+         textPane.setText(textPane.getText() + text + System.lineSeparator());
          textPane.revalidate();
       }
    }

@@ -5,6 +5,7 @@
 %define BEEGFS_COMMON_PATH %BEEGFS_COMMON_PATH%
 %define BEEGFS_ONLINE_CFG_PATH %BEEGFS_ONLINE_CFG_PATH%
 %define BEEGFS_FSCK_PATH %BEEGFS_FSCK_PATH%
+%define BEEGFS_FSCK_LEGACY_PATH %BEEGFS_FSCK_LEGACY_PATH%
 %define BEEGFS_THIRDPARTY_PATH %BEEGFS_THIRDPARTY_PATH%
 %define BEEGFS_JAVA_LIB_PATH %BEEGFS_JAVA_LIB_PATH%
 %define BEEGFS_VERSION %VER%-%RELEASE_STR%
@@ -75,6 +76,7 @@ make BEEGFS_OPENTK_PATH=%{BEEGFS_OPENTK_PATH} 		\
 	BEEGFS_ONLINE_CFG_PATH=%{BEEGFS_ONLINE_CFG_PATH} 	\
 	BEEGFS_THIRDPARTY_PATH=%{BEEGFS_THIRDPARTY_PATH}  \
 	BEEGFS_FSCK_PATH=%{BEEGFS_FSCK_PATH}              \
+	BEEGFS_FSCK_LEGACY_PATH=%{BEEGFS_FSCK_LEGACY_PATH}              \
 	BEEGFS_JAVA_LIB_PATH=%{BEEGFS_JAVA_LIB_PATH} \
 	BEEGFS_VERSION=%{BEEGFS_VERSION}			\
 	-C build/ -j %{MAKE_CONCURRENCY}
@@ -86,6 +88,7 @@ echo "mkdir RPM_BUILD_ROOT (${RPM_BUILD_ROOT})"
 mkdir -p ${RPM_BUILD_ROOT}
 install -D --mode=u+rwxs,g+rx,o+rx beegfs-ctl ${RPM_BUILD_ROOT}/opt/beegfs/sbin/beegfs-ctl
 install -D beegfs-fsck ${RPM_BUILD_ROOT}/opt/beegfs/sbin/beegfs-fsck
+install -D beegfs-fsck-legacy ${RPM_BUILD_ROOT}/opt/beegfs/sbin/beegfs-fsck-legacy
 mkdir -p ${RPM_BUILD_ROOT}/sbin
 cp -a ../scripts/fsck.beegfs ${RPM_BUILD_ROOT}/sbin/
 mkdir -p ${RPM_BUILD_ROOT}/usr/bin/
@@ -105,6 +108,7 @@ cp -a ../scripts/etc/bash_completion.d/beegfs-ctl ${RPM_BUILD_ROOT}/etc/bash_com
 %defattr(-,root,root)
 /opt/beegfs/sbin/beegfs-ctl
 /opt/beegfs/sbin/beegfs-fsck
+/opt/beegfs/sbin/beegfs-fsck-legacy
 /opt/beegfs/lib/jbeegfs.jar
 /opt/beegfs/lib/libjbeegfs.so
 /usr/bin/*

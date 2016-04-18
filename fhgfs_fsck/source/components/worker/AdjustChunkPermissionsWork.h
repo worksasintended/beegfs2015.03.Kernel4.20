@@ -3,7 +3,6 @@
 
 #include <common/app/log/LogContext.h>
 #include <common/components/worker/Work.h>
-#include <components/DataFetcherBuffer.h>
 #include <common/toolkit/SynchronizedCounter.h>
 
 #include <database/FsckDB.h>

@@ -1,5 +1,6 @@
 package com.beegfs.admon.gui.components.dialogs;
 
+import com.beegfs.admon.gui.common.enums.PropertyEnum;
 import com.beegfs.admon.gui.common.threading.GuiThread;
 import com.beegfs.admon.gui.common.tools.GuiTk;
 import com.beegfs.admon.gui.program.Main;
@@ -42,7 +43,8 @@ public class JDialogUninstStatus extends javax.swing.JDialog
          jTextAreaStatus.setBackground(Color.red);
       }
 
-      jTextAreaStatus.append(text + System.getProperty("line.separator"));
+      jTextAreaStatus.append(text + System.getProperty(
+         PropertyEnum.PROPERTY_LINE_SEPARATOR.getKey()));
    }
 
    public void addLine(String text)

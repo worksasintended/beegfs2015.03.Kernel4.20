@@ -348,9 +348,8 @@ bool QuotaTk::checkRequiredLibZfsFunctions(QuotaBlockDevice* blockDevice, uint16
    if(!session.initZfsSession(app->getDlOpenHandleLibZfs() ) )
    {
       if(!app->getConfig()->getQuotaDisableZfsSupport() )
-         app->getLogger()->logErr("InitLibZFS", "Cannot initialize libzfs, maybe a "
-            "incompatible version of libzfs is installed on the locale system. The quota "
-            "system for all zfs blockdevices/pools on this server doesn't work.");
+         app->getLogger()->logErr("InitLibZFS", "Cannot initialize libzfs. "
+            "The quota system for all zfs blockdevices/pools on this machine won't work.");
 
       return false;
    }

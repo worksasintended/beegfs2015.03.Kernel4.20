@@ -6,6 +6,7 @@
 #include <common/storage/Metadata.h>
 #include "StorageTk.h"
 
+#include <ftw.h>
 #include <sys/file.h>
 #include <sys/vfs.h>
 #include <sys/statfs.h>
@@ -1132,4 +1133,20 @@ bool StorageTk::rmDirContentsRec(int fd, std::string relativeDirPath)
    closedir(dirHandle);
 
    return retVal;
+}
+
+bool StorageTk::removeDirRecursive(const std::string& dir)
+{
+   struct ops
+   {
+      static int visit(const char* path, const struct stat*, int type, struct FTW*)
+      {
+         if(type == FTW_F)
+            return ::unlink(path);
+         else
+            return ::rmdir(path);
+      }
+   };
+
+   return ::nftw(dir.c_str(), ops::visit, 10, FTW_DEPTH) == 0;
 }

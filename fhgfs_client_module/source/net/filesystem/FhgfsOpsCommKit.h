@@ -133,11 +133,14 @@ struct WritefileState
 
    // data for all stages
 
+
    // (assigned by the state-creator)
-   struct iov_iter data;
    loff_t offset; // target-node local offset
    uint16_t targetID; // target ID
    char* msgBuf; // for serialization
+   // user-supplied data buffer. we require a copy to properly reset the .data iterator to offset 0
+   // when retries happen.
+   struct iov_iter initialData;
 
    fhgfs_bool firstWriteDoneForTarget; /* true if data was previously written to this target in
                                           this session; used for the session check */
@@ -146,6 +149,7 @@ struct WritefileState
 
 
    // (assigned by the preparation stage)
+   struct iov_iter data;
    Node* node; // target-node reference
    Socket* sock; // target-node connection
    WriteLocalFileRespMsg writeRespMsg; // response message
@@ -193,7 +197,7 @@ WritefileState FhgfsOpsCommKit_assignWritefileState(const struct iov_iter* data,
    {
       .stage = WritefileStage_PREPARE,
 
-      .data = *data,
+      .initialData = *data,
       .offset = offset,
       .targetID = targetID,
       .msgBuf = msgBuf,

@@ -54,6 +54,8 @@ class Config : public AbstractConfig
 
       unsigned    tuneNumWorkers;
       std::string tunePreferredNodesFile;
+      size_t      tuneDbFragmentSize;
+      size_t      tuneDentryCacheSize;
 
       uint16_t    sysForcedRoot;
 
@@ -83,9 +85,6 @@ class Config : public AbstractConfig
       
       // enable quota support
       bool        quotaEnabled;
-
-      // keep the database file after unit tests (do not delete); useful for debugging
-      bool        keepTestDatabaseFile;
 
       // ignore computed disk space recommendation for database
       bool        ignoreDBDiskSpace;
@@ -143,6 +142,16 @@ class Config : public AbstractConfig
       unsigned getTuneNumWorkers() const
       {
          return tuneNumWorkers;
+      }
+
+      size_t getTuneDbFragmentSize() const
+      {
+         return tuneDbFragmentSize;
+      }
+
+      size_t getTuneDentryCacheSize() const
+      {
+         return tuneDentryCacheSize;
       }
 
       std::string getTunePreferredNodesFile() const
@@ -213,11 +222,6 @@ class Config : public AbstractConfig
       bool getQuotaEnabled() const
       {
          return quotaEnabled;
-      }
-
-      bool getKeepTestDatabaseFile() const
-      {
-         return keepTestDatabaseFile;
       }
 
       bool getIgnoreDBDiskSpace() const

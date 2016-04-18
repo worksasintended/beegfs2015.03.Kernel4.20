@@ -8,6 +8,7 @@
 #include <common/Common.h>
 #include <linux/fs.h>
 #include <linux/namei.h>
+#include <linux/uio.h>
 #include <asm/kmap_types.h>
 #include <linux/compat.h>
 #include <linux/list.h>
@@ -389,6 +390,13 @@ retry:
 
 #ifndef KERNEL_HAS_CURRENT_UMASK
 #define current_umask() (current->fs->umask)
+#endif
+
+#ifndef XATTR_NAME_POSIX_ACL_ACCESS
+# define XATTR_POSIX_ACL_ACCESS  "posix_acl_access"
+# define XATTR_NAME_POSIX_ACL_ACCESS XATTR_SYSTEM_PREFIX XATTR_POSIX_ACL_ACCESS
+# define XATTR_POSIX_ACL_DEFAULT  "posix_acl_default"
+# define XATTR_NAME_POSIX_ACL_DEFAULT XATTR_SYSTEM_PREFIX XATTR_POSIX_ACL_DEFAULT
 #endif
 
 #endif /* OSCOMPAT_H_ */

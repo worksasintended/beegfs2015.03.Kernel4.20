@@ -763,7 +763,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
             for (String error : errors)
             {
                errorStr.append(error);
-               errorStr.append("\n");
+               errorStr.append(System.lineSeparator());
             }
             JOptionPane.showMessageDialog(null, errorStr, "Errors occured",
                     JOptionPane.ERROR_MESSAGE);
@@ -853,7 +853,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
             for (String error : errors)
             {
                errorStr.append(error);
-               errorStr.append("\n");
+               errorStr.append(System.lineSeparator());
             }
             JOptionPane.showMessageDialog(null, errorStr, "Errors occured",
                     JOptionPane.ERROR_MESSAGE);
@@ -936,7 +936,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
             for (String error : errors)
             {
                errorStr.append(error);
-               errorStr.append("\n");
+               errorStr.append(System.lineSeparator());
             }
             JOptionPane.showMessageDialog(null, errorStr, "Errors occured",
                     JOptionPane.ERROR_MESSAGE);
@@ -2261,17 +2261,19 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
          
          if (!failedNodes.isEmpty())
          {
-            StringBuilder msg = new StringBuilder("Some hosts are not reachable through SSH.\n"
-                    + "Please make sure that all hosts exist and user root is able to do "
-                    + "passwordless SSH login.\nThis configuration is not saved!\n\nFailed Hosts : "
-                    + "\n\n");
+            StringBuilder msg = new StringBuilder("Some hosts are not reachable through SSH." +
+               System.lineSeparator() + "Please make sure that all hosts exist and user root is " +
+               "able to do passwordless SSH login." + System.lineSeparator() +
+               "This configuration is not saved!" + System.lineSeparator() +
+               System.lineSeparator() +"Failed Hosts : " + System.lineSeparator() +
+               System.lineSeparator());
             java.util.HashSet<String> tmpSet = new java.util.HashSet<>(failedNodes.size());
             for (String n : failedNodes)
             {
                if (!tmpSet.contains(n))
                {
                   msg.append(n);
-                  msg.append("\n");
+                  msg.append(System.lineSeparator());
                   tmpSet.add(n);
                }
             }

@@ -26,6 +26,7 @@ build-stamp: $(QUILT_STAMPFN) configure-stamp
 		BEEGFS_THIRDPARTY_PATH='__BEEGFS_THIRDPARTY_PATH__' \
 		BEEGFS_ONLINE_CFG_PATH='__BEEGFS_ONLINE_CFG_PATH__' \
 		BEEGFS_FSCK_PATH='__BEEGFS_FSCK_PATH__'	        \
+		BEEGFS_FSCK_LEGACY_PATH='__BEEGFS_FSCK_LEGACY_PATH__' \
 		USER_CXXFLAGS='__USER_CXXFLAGS__'		\
 		USER_LDFLAGS='__USER_LDFLAGS__'                 \
 		BEEGFS_DEBUG='__BEEGFS_DEBUG__'			\
@@ -46,9 +47,11 @@ clean:
 		BEEGFS_OPENTK_PATH='__BEEGFS_OPENTK_PATH__'	\
 		BEEGFS_ONLINE_CFG_PATH='__BEEGFS_ONLINE_CFG_PATH__' \
 		BEEGFS_FSCK_PATH='__BEEGFS_FSCK_PATH__' \
+		BEEGFS_FSCK_LEGACY_PATH='__BEEGFS_FSCK_LEGACY_PATH__' \
 		clean
 	rm -f beegfs-ctl
 	rm -f beegfs-fsck
+	rm -f beegfs-fsck-legacy
 
 	dh_clean
 
@@ -61,6 +64,7 @@ install: build
 	# manual installation
 	install -D --mode=u+rwxs,g+rx,o+rx beegfs-ctl $(DEB_BUILD_ROOT)/opt/beegfs/sbin/beegfs-ctl
 	install -D beegfs-fsck $(DEB_BUILD_ROOT)/opt/beegfs/sbin/beegfs-fsck
+	install -D beegfs-fsck-legacy $(DEB_BUILD_ROOT)/opt/beegfs/sbin/beegfs-fsck-legacy
 	mkdir -p ${DEB_BUILD_ROOT}/sbin
 	cp -a ../scripts/fsck.beegfs ${DEB_BUILD_ROOT}/sbin/
 	mkdir -p $(DEB_BUILD_ROOT)/usr/bin/

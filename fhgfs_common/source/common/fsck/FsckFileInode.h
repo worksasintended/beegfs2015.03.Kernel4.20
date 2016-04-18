@@ -128,6 +128,9 @@ class FsckFileInode
 
       bool readable;
 
+      uint64_t saveInode;
+      int32_t saveDevice;
+
    public:
       uint64_t getInternalID() const
       {
@@ -314,6 +317,26 @@ class FsckFileInode
          this->readable = readable;
       }
 
+      uint64_t getSaveInode() const
+      {
+         return this->saveInode;
+      }
+
+      void setSaveInode(uint64_t value)
+      {
+         this->saveInode = value;
+      }
+
+      int32_t getSaveDevice() const
+      {
+         return this->saveDevice;
+      }
+
+      void setSaveDevice(int32_t value)
+      {
+         this->saveDevice = value;
+      }
+
       bool operator<(const FsckFileInode& other)
       {
          if ( id < other.id )
@@ -424,31 +447,33 @@ class FsckFileInode
 
       void print()
       {
-         printf("internalID: %" PRId64 "\n", internalID);
-         printf("id: %s\n", id.c_str());
-         printf("parentDirID: %s\n", parentDirID.c_str());
-         printf("parentNodeID: %hu\n", parentNodeID);
-         printf("pathInfo.origParentEntryID: %s\n", pathInfo.getOrigParentEntryID().c_str());
-         printf("pathInfo.origUID: %u\n", pathInfo.getOrigUID());
-         printf("pathInfo.flags: %u\n", pathInfo.getFlags());
-         printf("mode: %i\n", mode);
-         printf("userID: %u\n", userID);
-         printf("groupID: %u\n", groupID);
-         printf("fileSize: %" PRId64 "\n", fileSize);
-         printf("creationTime: %" PRId64 "\n", creationTime);
-         printf("modificationTime: %" PRId64 "\n", modificationTime);
-         printf("lastAccessTime: %" PRId64 "\n", lastAccessTime);
-         printf("numHardLinks: %u\n", numHardLinks);
-         printf("usedBlocks: %" PRIu64 "\n", usedBlocks);
+         std::cout
+            << "internalID: " << internalID << "\n"
+            << "id: " << id << "\n"
+            << "parentDirID: " << parentDirID << "\n"
+            << "parentNodeID: " << parentNodeID << "\n"
+            << "pathInfo.origParentEntryID: " << pathInfo.getOrigParentEntryID() << "\n"
+            << "pathInfo.origUID: " << pathInfo.getOrigUID() << "\n"
+            << "pathInfo.flags: " << pathInfo.getFlags() << "\n"
+            << "mode: " << mode << "\n"
+            << "userID: " << userID << "\n"
+            << "groupID: " << groupID << "\n"
+            << "fileSize: " << fileSize << "\n"
+            << "creationTime: " << creationTime << "\n"
+            << "modificationTime: " << modificationTime << "\n"
+            << "lastAccessTime: " << lastAccessTime << "\n"
+            << "numHardLinks: " << numHardLinks << "\n"
+            << "usedBlocks: " << usedBlocks << "\n";
+
          for (size_t i=0; i<stripeTargets.size(); i++)
-         {
-            printf("stripeTarget %zd: %hu\n", i, stripeTargets[i]);
-         }
-         printf("stripePatternType: %i\n", (int)stripePatternType);
-         printf("chunkSize: %u\n", chunkSize);
-         printf("saveNodeID: %hu\n", saveNodeID);
-         printf("isInlined: %i\n", (int)isInlined);
-         printf("readable: %i\n", (int)readable);
+            std::cout << "stripeTarget " << i << ": " << stripeTargets[i] << "\n";
+
+         std::cout
+            << "stripePatternType: " << stripePatternType << "\n"
+            << "chunkSize: " << chunkSize << "\n"
+            << "saveNodeID: " << saveNodeID << "\n"
+            << "isInlined: " << isInlined << "\n"
+            << "readable: " << readable << "\n";
       }
 };
 

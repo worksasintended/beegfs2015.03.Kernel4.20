@@ -13,13 +13,15 @@
 
 #include <program/Program.h>
 
-RetrieveChunksWork::RetrieveChunksWork(Node* node, SynchronizedCounter* counter,
-   AtomicUInt64* numChunksFound): Work()
+RetrieveChunksWork::RetrieveChunksWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
+   AtomicUInt64* numChunksFound)
+    : Work(),
+      log("RetrieveChunksWork"),
+      node(node),
+      counter(counter),
+      numChunksFound(numChunksFound),
+      chunks(db->getChunksTable() ), chunksHandle(chunks->newBulkHandle() )
 {
-   log.setContext("RetrieveChunksWork");
-   this->node = node;
-   this->counter = counter;
-   this->numChunksFound = numChunksFound;
 }
 
 RetrieveChunksWork::~RetrieveChunksWork()
@@ -80,13 +82,11 @@ void RetrieveChunksWork::doWork()
                (FetchFsckChunkListRespMsg*) respMsg;
 
             FsckChunkList chunks;
+
             fetchFsckChunkListRespMsg->parseChunkList(&chunks);
             resultCount = chunks.size();
 
             status = fetchFsckChunkListRespMsg->getStatus();
-
-            SAFE_FREE(respBuf);
-            SAFE_DELETE(respMsg);
 
             if (status == FetchFsckChunkListStatus_READERROR)
             {
@@ -95,10 +95,12 @@ void RetrieveChunksWork::doWork()
                   + nodeID);
             }
 
-            if ( this->bufferChunks.add(chunks) > MAX_BUFFER_SIZE )
-               this->flushChunks();
+            this->chunks->insert(chunks, this->chunksHandle);
 
             numChunksFound->increase(resultCount);
+
+            SAFE_FREE(respBuf);
+            SAFE_DELETE(respMsg);
          }
          else
          {
@@ -115,32 +117,11 @@ void RetrieveChunksWork::doWork()
       } while ( (resultCount > 0) || (status == FetchFsckChunkListStatus_RUNNING) );
 
       storageNodes->releaseNode(&node);
-
-      //flush remaining chunks in buffer
-      this->flushChunks();
    }
    else
    {
       // basically this should never ever happen
       log.logErr("Requested node does not exist");
       throw FsckException("Requested node does not exist");
-   }
-}
-
-void RetrieveChunksWork::flushChunks()
-{
-   FsckChunk failedInsert;
-   int errorCode;
-
-   bool success = this->bufferChunks.flush(failedInsert, errorCode);
-
-   if ( !success )
-   {
-      log.logErr(
-         "Failed to insert chunk with ID " + failedInsert.getID() + " from target "
-            + StringTk::uintToStr(failedInsert.getTargetID()));
-      log.logErr("SQLite Error was error code " + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while inserting chunks to database. Please see log for more information.");
    }
 }

@@ -11,19 +11,14 @@ class ModeEnableQuota : public Mode
 {
    public:
       ModeEnableQuota();
-      virtual ~ModeEnableQuota();
 
       static void printHelp();
 
       virtual int execute();
 
    private:
-      FsckDB* database;
-      std::map<FsckErrorCode, FsckRepairAction> repairActions;
-
       LogContext log;
 
-      int initDatabase();
       void printHeaderInformation();
 
       void fixPermissions();

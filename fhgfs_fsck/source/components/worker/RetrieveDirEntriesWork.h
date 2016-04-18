@@ -7,20 +7,19 @@
 
 #include <common/app/log/LogContext.h>
 #include <common/components/worker/Work.h>
-#include <components/DataFetcherBuffer.h>
 #include <common/toolkit/SynchronizedCounter.h>
 
 #include <database/FsckDB.h>
+#include <database/FsckDBTable.h>
 
 // the size of one response packet, i.e. how many dentries are asked for at once
 #define RETRIEVE_DIR_ENTRIES_PACKET_SIZE 500
-
-#define MAX_BUFFER_SIZE 10000
 
 class RetrieveDirEntriesWork : public Work
 {
    public:
       /*
+       * @param db database instance
        * @param node the node to retrieve data from
        * @param counter a pointer to a Synchronized counter; this is incremented by one at the end
        * and the calling thread can wait for the counter
@@ -29,9 +28,10 @@ class RetrieveDirEntriesWork : public Work
        * @param numDentriesFound
        * @param numFileInodesFound
        */
-      RetrieveDirEntriesWork(Node* node, SynchronizedCounter* counter, unsigned hashDirStart,
-         unsigned hashDirEnd, AtomicUInt64* numDentriesFound, AtomicUInt64* numFileInodesFound);
-      virtual ~RetrieveDirEntriesWork();
+      RetrieveDirEntriesWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
+         unsigned hashDirStart, unsigned hashDirEnd, AtomicUInt64* numDentriesFound,
+         AtomicUInt64* numFileInodesFound, std::set<FsckTargetID>& usedTargets);
+
       void process(char* bufIn, unsigned bufInLen, char* bufOut, unsigned bufOutLen);
 
    private:
@@ -40,20 +40,21 @@ class RetrieveDirEntriesWork : public Work
       SynchronizedCounter* counter;
       AtomicUInt64* numDentriesFound;
       AtomicUInt64* numFileInodesFound;
+      std::set<FsckTargetID>* usedTargets;
 
       unsigned hashDirStart;
       unsigned hashDirEnd;
 
-      DataFetcherBuffer<FsckDirEntry> bufferDirEntries;
-      DataFetcherBuffer<FsckFileInode> bufferFileInodes;
-      DataFetcherBuffer<FsckTargetID> bufferUsedTargets;
-      DataFetcherBuffer<FsckContDir> bufferContDirs;
+      FsckDBDentryTable* dentries;
+      FsckDBDentryTable::BulkHandle dentriesHandle;
+
+      FsckDBFileInodesTable* files;
+      FsckDBFileInodesTable::BulkHandle filesHandle;
+
+      FsckDBContDirsTable* contDirs;
+      FsckDBContDirsTable::BulkHandle contDirsHandle;
 
       void doWork();
-      void flushDirEntries();
-      void flushFileInodes();
-      void flushUsedTargets();
-      void flushContDirs();
 };
 
 #endif /* RETRIEVEDIRENTRIESWORK_H */

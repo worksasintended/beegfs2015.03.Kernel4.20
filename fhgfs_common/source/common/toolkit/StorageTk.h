@@ -105,6 +105,8 @@ class StorageTk
       static bool rmDirContentsRec(int fd, std::string relativeDirPath);
       static bool rmDirContentsRec(std::string& absoluteDirPath);
 
+      static bool removeDirRecursive(const std::string& dir);
+
    private:
       StorageTk() {}
 

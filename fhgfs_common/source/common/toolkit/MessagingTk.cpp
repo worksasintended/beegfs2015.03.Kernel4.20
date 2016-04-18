@@ -295,6 +295,10 @@ FhgfsOpsErr MessagingTk::requestResponseTarget(RequestResponseTarget* rrTarget,
          CombinedTargetState targetState;
          if (!rrTarget->targetStates->getState(targetID, targetState) )
          {
+            // maybe the target was removed, check the mapper as well to be sure
+            if(!rrTarget->targetMapper->targetExists(targetID) )
+               return FhgfsOpsErr_UNKNOWNTARGET;
+
             LOG_DEBUG(logContext, Log_DEBUG,
                "Target has unknown state: " + StringTk::uintToStr(targetID) );
             return FhgfsOpsErr_COMMUNICATION;

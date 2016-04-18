@@ -9,14 +9,7 @@
 #include <program/Program.h>
 
 ModeEnableQuota::ModeEnableQuota()
-{
-   App* app = Program::getApp();
-   this->database = app->getDatabase();
-
-   this->log.setContext("ModeEnableQuota");
-}
-
-ModeEnableQuota::~ModeEnableQuota()
+ : log("ModeEnableQuota")
 {
 }
 

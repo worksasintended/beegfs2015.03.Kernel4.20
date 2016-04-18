@@ -307,105 +307,6 @@ void FsckTkEx::progressMeter()
    mutexLock.unlock();
 }
 
-bool FsckTkEx::compareFsckDirEntryLists(FsckDirEntryList *listA, FsckDirEntryList *listB)
-{
-   return ListTk::listsEqual(listA, listB);
-}
-
-bool FsckTkEx::compareFsckFileInodeLists(FsckFileInodeList *listA, FsckFileInodeList *listB)
-{
-   return ListTk::listsEqual(listA, listB);
-}
-
-bool FsckTkEx::compareFsckDirInodeLists(FsckDirInodeList *listA, FsckDirInodeList *listB)
-{
-   return ListTk::listsEqual(listA, listB);
-}
-
-bool FsckTkEx::compareFsckChunkLists(FsckChunkList *listA, FsckChunkList *listB)
-{
-   return ListTk::listsEqual(listA, listB);
-}
-
-bool FsckTkEx::compareFsckContDirLists(FsckContDirList *listA, FsckContDirList *listB)
-{
-   return ListTk::listsEqual(listA, listB);
-}
-
-bool FsckTkEx::compareFsckFsIDLists(FsckFsIDList* listA, FsckFsIDList* listB)
-{
-   return ListTk::listsEqual(listA, listB);
-}
-
-bool FsckTkEx::compareUInt16Lists(UInt16List* listA, UInt16List* listB)
-{
-   return ListTk::listsEqual(listA, listB);
-}
-
-/*
- * remove all elements from removeList in list
- */
-void FsckTkEx::removeFromList(FsckDirEntryList& list, FsckDirEntryList& removeList)
-{
-   ListTk::removeFromList<FsckDirEntry>(list, removeList);
-}
-
-/*
- * remove all elements from removeList in list
- */
-void FsckTkEx::removeFromList(FsckDirInodeList& list, FsckDirInodeList& removeList)
-{
-   ListTk::removeFromList<FsckDirInode>(list, removeList);
-}
-
-/*
- * remove all elements from removeList in list by ID
- */
-void FsckTkEx::removeFromList(FsckDirInodeList& list, StringList& removeList)
-{
-   removeFromListByID<FsckDirInode>(list, removeList);
-}
-
-/*
- * remove all elements from removeList in list
- */
-void FsckTkEx::removeFromList(FsckFileInodeList& list, FsckFileInodeList& removeList)
-{
-   ListTk::removeFromList<FsckFileInode>(list, removeList);
-}
-
-/*
- * remove all elements from removeList in list by ID
- */
-void FsckTkEx::removeFromList(FsckFileInodeList& list, StringList& removeList)
-{
-   removeFromListByID<FsckFileInode>(list, removeList);
-}
-
-/*
- * remove all elements from removeList in list
- */
-void FsckTkEx::removeFromList(FsckChunkList& list, FsckChunkList& removeList)
-{
-   ListTk::removeFromList<FsckChunk>(list, removeList);
-}
-
-/*
- * remove all elements from removeList in list by ID
- */
-void FsckTkEx::removeFromList(FsckChunkList& list, StringList& removeList)
-{
-   removeFromListByID<FsckChunk>(list, removeList);
-}
-
-/*
- * remove all elements from removeList in list
- */
-void FsckTkEx::removeFromList(StringList& list, StringList& removeList)
-{
-   ListTk::removeFromList<std::string>(list, removeList);
-}
-
 /*
  * this is only a rough approximation
  */
@@ -548,24 +449,6 @@ bool FsckTkEx::checkDiskSpace(Path& dbPath)
    return true;
 }
 
-std::string FsckTkEx::getErrorDesc(FsckErrorCode errorCode, bool shortDesc)
-{
-   // walk over all defined errorCodes and see if any matches
-   size_t arraySize = sizeof(__FsckErrorCodes) / sizeof(__FsckErrorCodes[0]);
-   for(size_t i=0; i < arraySize; i++)
-   {
-      if( errorCode == __FsckErrorCodes[i].errorCode )
-      { // we have a match
-         if (shortDesc)
-            return __FsckErrorCodes[i].errorShortDesc;
-         else
-            return __FsckErrorCodes[i].errorDesc;
-      }
-   }
-
-   return "";
-}
-
 std::string FsckTkEx::getRepairActionDesc(FsckRepairAction repairAction, bool shortDesc)
 {
    // walk over all defined repairActions and see if any matches
@@ -588,54 +471,6 @@ std::string FsckTkEx::getRepairActionDesc(FsckRepairAction repairAction, bool sh
 bool FsckTkEx::startModificationLogging(NodeStore* metaNodes, Node* localNode)
 {
    const char* logContext = "FsckTkEx (startModificationLogging)";
-
- /*  bool retVal = true;
-
-   NicAddressList localNicList = localNode->getNicList();
-   unsigned localPortUDP = localNode->getPortUDP();
-
-   Node* node = metaNodes->referenceFirstNode();
-
-   while (node)
-   {
-      uint16_t nodeID = node->getNumID();
-
-      bool commRes;
-      char *respBuf = NULL;
-      NetMessage *respMsg = NULL;
-
-
-      FsckSetEventLoggingMsg fsckSetEventLoggingMsg(true, localPortUDP,
-         &localNicList );
-
-      commRes = MessagingTk::requestResponse(node, &fsckSetEventLoggingMsg,
-         NETMSGTYPE_FsckSetEventLoggingResp, &respBuf, &respMsg);
-
-      if ( commRes )
-      {
-         FsckSetEventLoggingRespMsg* fsckSetEventLoggingRespMsg =
-            (FsckSetEventLoggingRespMsg*) respMsg;
-
-         bool queueEmpty = fsckSetEventLoggingRespMsg->getQueueEmpty();
-
-         retVal = queueEmpty;
-      }
-      else
-      {
-         LogContext(logContext).logErr("Communication error occured with node: " + node->getID());
-         retVal = false;
-      }
-
-      SAFE_FREE(respBuf);
-      SAFE_DELETE(respMsg);
-
-      metaNodes->releaseNode(&node);
-
-      if (!retVal)
-         break;
-
-      node = metaNodes->referenceNextNode(nodeID);
-   } */
 
    bool retVal = true;
 
@@ -822,15 +657,6 @@ bool FsckTkEx::testVersions(NodeStore* metaNodes, NodeStore* storageNodes)
       if(!compareRes)
          return false;
 
-      // this version is not compatible with server versions older than 2012.10-r9;
-      // TODO: Remove this in the 2013 releases
-      unsigned minimumServerVersion = BEEGFS_VERSION_NUM_ENCODE(2012,10,9);
-                                                                   // don't care about release type
-      compareRes =
-         VersionTk::checkRequiredRelease(minimumServerVersion, nodeVersionCode);
-      if(!compareRes)
-         return false;
-
       node = metaNodes->referenceNextNode(nodeID);
    }
 
@@ -847,15 +673,6 @@ bool FsckTkEx::testVersions(NodeStore* metaNodes, NodeStore* storageNodes)
       storageNodes->releaseNode(&node);
 
       bool compareRes = VersionTk::checkRequiredRelease(nodeVersionCode, fsckVersionCode);
-      if(!compareRes)
-         return false;
-
-      // this version is not compatible with server versions older than 2012.10-r9;
-      // TODO: Remove this in the 2013 releases
-      unsigned minimumServerVersion = BEEGFS_VERSION_NUM_ENCODE(2012,10,9);
-                                                                   // don't care about release type
-      compareRes =
-         VersionTk::checkRequiredRelease(minimumServerVersion, nodeVersionCode);
       if(!compareRes)
          return false;
 

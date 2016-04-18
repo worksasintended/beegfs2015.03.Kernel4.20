@@ -21,7 +21,6 @@ bool GetQuotaInfoMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
 
    App *app = Program::getApp();
 
-   bool retVal = false;
    QuotaBlockDeviceMap quotaBlockDevices;
    QuotaDataList outQuotaDataList;
    ZfsSession session;
@@ -40,31 +39,27 @@ bool GetQuotaInfoMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
    }
 
    if(quotaBlockDevices.empty() )
-   {
       /* no quota data available but do not return an error during message processing, it's not
       the correct place for error handling in this case */
       LogContext(logContext).logErr("Error: no quota block devices.");
-      retVal = true;
-   }
    else
    {
       if(getQueryType() == GetQuotaInfo_QUERY_TYPE_SINGLE_ID)
-         retVal = QuotaTk::requestQuotaForID(getIDRangeStart(), getType(), &quotaBlockDevices,
+         QuotaTk::requestQuotaForID(getIDRangeStart(), getType(), &quotaBlockDevices,
             &outQuotaDataList, &session);
       else
       if(getQueryType() == GetQuotaInfo_QUERY_TYPE_ID_RANGE)
-         retVal = QuotaTk::requestQuotaForRange(&quotaBlockDevices, getIDRangeStart(),
+         QuotaTk::requestQuotaForRange(&quotaBlockDevices, getIDRangeStart(),
             getIDRangeEnd(), getType(), &outQuotaDataList, &session);
       else
       if(getQueryType() == GetQuotaInfo_QUERY_TYPE_ID_LIST)
       {
          UIntList idList;
          parseIDList(&idList);
-         retVal = QuotaTk::requestQuotaForList(&quotaBlockDevices, &idList, getType(),
+         QuotaTk::requestQuotaForList(&quotaBlockDevices, &idList, getType(),
             &outQuotaDataList, &session);
       }
    }
-
 
    // send response
    GetQuotaInfoRespMsg respMsg(&outQuotaDataList);
@@ -73,5 +68,5 @@ bool GetQuotaInfoMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
    sock->sendto(respBuf, respMsg.getMsgLength(), 0,
       (struct sockaddr*)fromAddr, sizeof(struct sockaddr_in) );
 
-   return retVal;
+   return true;
 }

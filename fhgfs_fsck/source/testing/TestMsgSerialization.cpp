@@ -22,8 +22,8 @@
 
 
 TestMsgSerialization::TestMsgSerialization()
+   : log("TestMsgSerialization")
 {
-	log.setContext("TestMsgSerialization");
 }
 
 TestMsgSerialization::~TestMsgSerialization()

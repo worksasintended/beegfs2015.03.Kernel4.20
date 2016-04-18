@@ -1,8 +1,7 @@
 #include "TestConfig.h"
 
-TestConfig::TestConfig()
+TestConfig::TestConfig() : log("TestFsckConfig")
 {
-   log.setContext("TestFsckConfig");
 }
 
 TestConfig::~TestConfig()

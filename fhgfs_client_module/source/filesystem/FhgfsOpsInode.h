@@ -87,12 +87,15 @@ extern int FhgfsOps_hardlinkAsSymlink(struct dentry* oldDentry, struct inode* di
    struct dentry* newDentry);
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
-extern void* FhgfsOps_follow_link(struct dentry* dentry, struct nameidata* nd);
-extern void FhgfsOps_put_link(struct dentry* dentry, struct nameidata* nd, void* p);
-#else
+#if defined KERNEL_HAS_GET_LINK
+extern const char* FhgfsOps_get_link(struct dentry* dentry, struct inode* inode,
+   struct delayed_call* done);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)
 extern const char* FhgfsOps_follow_link(struct dentry* dentry, void** cookie);
 extern void FhgfsOps_put_link(struct inode* inode, void* cookie);
+#else
+extern void* FhgfsOps_follow_link(struct dentry* dentry, struct nameidata* nd);
+extern void FhgfsOps_put_link(struct dentry* dentry, struct nameidata* nd, void* p);
 #endif
 
 extern int FhgfsOps_rename(struct inode* inodeDirFrom, struct dentry* dentryFrom,

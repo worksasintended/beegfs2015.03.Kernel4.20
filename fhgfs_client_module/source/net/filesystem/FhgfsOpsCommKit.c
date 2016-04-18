@@ -631,6 +631,8 @@ fhgfs_bool __FhgfsOpsCommKit_writefileV2bStagePREPARE(RWfileStatesHelper* states
    currentState->sock = NULL;
    currentState->nodeResult = -FhgfsOpsErr_COMMUNICATION;
 
+   currentState->data = currentState->initialData;
+
    // select the right targetID and get target state
 
    if(StripePattern_getPatternType(statesHelper->ioInfo->pattern) == STRIPEPATTERN_BuddyMirror)

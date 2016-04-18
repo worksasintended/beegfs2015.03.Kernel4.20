@@ -13,6 +13,13 @@ class JBeeGFS {
       System.loadLibrary("jbeegfs");
    }
 
+   static final private int JBEEGFS_API_MAJOR_VERSION = 1; // major version number of the API,
+                                                           // different major version are 
+                                                           // incompatible
+   static final private int JBEEGFS_API_MINOR_VERSION = 0; // minor version number of the API, the
+                                                           // minor versions of the same major
+                                                           // version are backward compatible
+
    final private int nativeFileDescriptor;
 
    /**
@@ -63,6 +70,24 @@ class JBeeGFS {
     */
    public JBeeGFS(String fileName) throws IOException, InterruptedIOException {
       nativeFileDescriptor = open(fileName);
+   }
+
+   /**
+    * Checks if the required API version of the application is compatible to current API version
+    *
+    * @param requiredMajorVersion the required major API version of the user application
+    * @param requiredMinorVersion the required minor API version of the user application
+    * @return 0 if the required version and the API version are compatible, if not -1 is returned
+    */
+   public static boolean jBeegfsApiVersionCheck(int requiredMajorVersion, int requiredMinorVersion)
+   {
+      if(requiredMajorVersion != JBEEGFS_API_MAJOR_VERSION)
+         return false;
+
+      if(requiredMinorVersion > JBEEGFS_API_MINOR_VERSION)
+         return false;
+
+      return true;
    }
 
    /**

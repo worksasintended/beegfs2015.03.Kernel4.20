@@ -6,6 +6,7 @@ import java.util.List;
 
 public class DefinesTk
 {
+   public static final String BEEGFS_ADMON_GUI_NAMESPACE = "com.beegfs.admon.gui";
    public static final int CLIENT_STATS_DEFAULT_COLUMN_WIDTH = 50;
    public static final int CLIENT_STATS_COLUMN_WIDTH_IP = 100;
    public static final String DEFAULT_ENCODING_UTF8 = "UTF-8";

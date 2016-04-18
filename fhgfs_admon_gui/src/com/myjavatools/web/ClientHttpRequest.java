@@ -182,7 +182,7 @@ public class ClientHttpRequest extends Observable
    protected void newline() throws IOException
    {
       connect();
-      write("\r\n");
+      write("\r\n"); // do not replace with System.lineSeparator()
    }
 
    protected void writeln(String s) throws IOException

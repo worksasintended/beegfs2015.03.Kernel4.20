@@ -3,6 +3,7 @@ package com.beegfs.admon.gui.components.internalframes.install;
 
 import com.beegfs.admon.gui.common.XMLParser;
 import com.beegfs.admon.gui.common.enums.NodeTypesEnum;
+import com.beegfs.admon.gui.common.enums.PropertyEnum;
 import com.beegfs.admon.gui.common.exceptions.CommunicationException;
 import com.beegfs.admon.gui.common.threading.GuiThread;
 import com.beegfs.admon.gui.common.threading.ProgressBarThread;
@@ -292,7 +293,8 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
                       "linux-kernel-headers, kernel-source; Debian: linux-headers). If " +
                       "a custom kernel is used ignore this warning!");
                   this.getDialog().addLine("The kernel build directory is missing on the " +
-                      "following nodes:" + System.getProperty("line.separator") + hostList);
+                      "following nodes:" + System.getProperty(
+                         PropertyEnum.PROPERTY_LINE_SEPARATOR.getKey()) + hostList);
                   this.getDialog().addLine("--------------------------------------------");
                }
             }
@@ -434,16 +436,18 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
 
          if (!failedNodes.isEmpty())
          {
-            StringBuilder msg = new StringBuilder("Some hosts are not reachable through SSH.\n" +
-                "Please make sure that all hosts exist and user root is able to do " +
-                "passwordless SSH login.\n\nFailed Hosts : \n\n");
+            StringBuilder msg = new StringBuilder("Some hosts are not reachable through SSH." +
+               System.lineSeparator() + "Please make sure that all hosts exist and user root is " +
+               "able to do passwordless SSH login." + System.lineSeparator() +
+               System.lineSeparator() + "Failed Hosts :" + System.lineSeparator() +
+               System.lineSeparator());
             HashSet<String> tmpSet = new HashSet<>(failedNodes.size());
             for (String n : failedNodes)
             {
                if (!tmpSet.contains(n))
                {
                   msg.append(n);
-                  msg.append("\n");
+                  msg.append(System.lineSeparator());
                   tmpSet.add(n);
                }
             }
@@ -729,7 +733,7 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
       jTextAreaDescription.setColumns(20);
       jTextAreaDescription.setLineWrap(true);
       jTextAreaDescription.setRows(5);
-      jTextAreaDescription.setText("Install BeeGFS\n\nBased on the information provided in the previous steps, an automatic installation of BeeGFS is performed now. Please check the data gathered about your nodes before you continue. ");
+      jTextAreaDescription.setText("Install BeeGFS\n\nBased on the information provided in the previous steps, an automatic installation of BeeGFS is performed now. Please check the data gathered about your nodes before you continue.");
       jTextAreaDescription.setWrapStyleWord(true);
       jTextAreaDescription.setBorder(null);
       jPanelFrame.add(jTextAreaDescription, java.awt.BorderLayout.NORTH);

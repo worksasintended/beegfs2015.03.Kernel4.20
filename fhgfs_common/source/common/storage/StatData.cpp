@@ -386,9 +386,15 @@ void StatData::updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePat
    unsigned lastMaxNumChunksIndex = 0;
    int64_t maxNumChunks = fileInfoVec[0].getNumChunks();
 
-   int64_t oldModificationTimeSecs = fileInfoVec[0].getModificationTimeSecs();
+   // the first mtime on the metadata server can be newer then the mtime on the storage server due
+   // to minor time difference between the servers, so the ctime should be updated after every
+   // close, this issue should be fixed by the usage of the max(...) function
+   int64_t oldModificationTimeSecs = std::max(fileInfoVec[0].getModificationTimeSecs(),
+      this->settableFileAttribs.modificationTimeSecs);
    int64_t newModificationTimeSecs = oldModificationTimeSecs; // initialize with the old value
-   int64_t newLastAccessTimeSecs = fileInfoVec[0].getLastAccessTimeSecs();
+
+   int64_t newLastAccessTimeSecs = std::max(fileInfoVec[0].getLastAccessTimeSecs(),
+      this->settableFileAttribs.lastAccessTimeSecs);
 
    this->setTargetChunkBlocks(0, fileInfoVec[0].getNumBlocks(), numStripeTargets);
 

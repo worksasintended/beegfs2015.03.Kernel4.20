@@ -80,6 +80,8 @@ void Config::loadDefaults(bool addDashes)
 
    configMapRedefine("tuneNumWorkers", "32", addDashes);
    configMapRedefine("tunePreferredNodesFile", "", addDashes);
+   configMapRedefine("tuneDbFragmentSize", "0", addDashes);
+   configMapRedefine("tuneDentryCacheSize", "0", addDashes);
 
    configMapRedefine("sysForcedRoot", "0", addDashes);
 
@@ -108,8 +110,6 @@ void Config::loadDefaults(bool addDashes)
    configMapRedefine("runOnline", "false", addDashes);
    
    configMapRedefine("quotaEnabled", "false", addDashes);
-
-   configMapRedefine("keepTestDatabaseFile", "false", addDashes);
 
    configMapRedefine("ignoreDBDiskSpace", "false", addDashes);
 }
@@ -159,6 +159,12 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw (Invalid
       IGNORE_CONFIG_CLIENT_VALUE("tuneNumRetryWorkers")
       if(testConfigMapKeyMatch(iter, "tunePreferredNodesFile", addDashes) )
          tunePreferredNodesFile = iter->second;
+      else
+      if(testConfigMapKeyMatch(iter, "tuneDbFragmentSize", addDashes) )
+         tuneDbFragmentSize = StringTk::strToUInt64(iter->second.c_str() );
+      else
+      if(testConfigMapKeyMatch(iter, "tuneDentryCacheSize", addDashes) )
+         tuneDentryCacheSize = StringTk::strToUInt64(iter->second.c_str() );
       else
       IGNORE_CONFIG_CLIENT_VALUE("tuneFileCacheType")
       IGNORE_CONFIG_CLIENT_VALUE("tunePagedIOBufSize")
@@ -241,9 +247,6 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw (Invalid
       if(testConfigMapKeyMatch(iter, "quotaEnabled", addDashes) )
          quotaEnabled = StringTk::strToBool(iter->second);
       else
-      if(testConfigMapKeyMatch(iter, "keepTestDatabaseFile", addDashes) )
-         keepTestDatabaseFile = StringTk::strToBool(iter->second);
-      else
       if(testConfigMapKeyMatch(iter, "ignoreDBDiskSpace", addDashes) )
          ignoreDBDiskSpace = StringTk::strToBool(iter->second);
       else
@@ -275,6 +278,13 @@ void Config::initImplicitVals() throw (InvalidConfigException)
    // tuneNumWorkers
    if (!tuneNumWorkers)
       tuneNumWorkers = BEEGFS_MAX(System::getNumOnlineCPUs() * 2, 4);
+
+   if (!tuneDbFragmentSize)
+      tuneDbFragmentSize = uint64_t(sysconf(_SC_PHYS_PAGES) ) * sysconf(_SC_PAGESIZE) / 2;
+
+   // just blindly assume that 384 bytes will be enough for a single cache entry. should be
+   if (!tuneDentryCacheSize)
+      tuneDentryCacheSize = tuneDbFragmentSize / 384;
 
    // connAuthHash
    AbstractConfig::initConnAuthHash(connAuthFile, &connAuthHash);

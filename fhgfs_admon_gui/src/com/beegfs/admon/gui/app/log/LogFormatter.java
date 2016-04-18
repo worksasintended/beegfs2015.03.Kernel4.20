@@ -50,12 +50,12 @@ public class LogFormatter extends Formatter
          Throwable thrown = rec.getThrown();
          if (thrown != null)
          {
-            sb.append("\n");
+            sb.append(System.lineSeparator());
             sb.append(getStackTrace(thrown));
          }
       }
 
-      sb.append("\n");
+      sb.append(System.lineSeparator());
 
       return sb.toString();
    }

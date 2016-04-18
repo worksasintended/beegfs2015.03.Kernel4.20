@@ -86,7 +86,9 @@ fhgfs_bool __IBVSocket_createNewID(IBVSocket* _this)
 {
    struct rdma_cm_id* new_cm_id;
 
-   #ifdef OFED_HAS_RDMA_CREATE_QPTYPE
+   #if defined(OFED_HAS_NETNS)
+      new_cm_id = rdma_create_id(&init_net, __IBVSocket_cmaHandler, _this, RDMA_PS_TCP, IB_QPT_RC);
+   #elif defined(OFED_HAS_RDMA_CREATE_QPTYPE)
       new_cm_id = rdma_create_id(__IBVSocket_cmaHandler, _this, RDMA_PS_TCP, IB_QPT_RC);
    #else
       new_cm_id = rdma_create_id(__IBVSocket_cmaHandler, _this, RDMA_PS_TCP);
@@ -1001,7 +1003,17 @@ int __IBVSocket_postWrite(IBVSocket* _this, IBVCommDest* remoteDest, u64 localBu
 {
    IBVCommContext* commContext = _this->commContext;
    struct ib_sge list;
-   struct ib_send_wr wr;
+
+   #ifdef OFED_SPLIT_WR
+      # define rdma_of(wr) (wr)
+      # define wr_of(wr) (wr.wr)
+         struct ib_rdma_wr wr;
+   #else
+      # define rdma_of(wr) (wr.wr.rdma)
+      # define wr_of(wr) (wr)
+         struct ib_send_wr wr;
+   #endif
+
    struct ib_send_wr *bad_wr;
    int postRes;
    int waitRes;
@@ -1014,17 +1026,17 @@ int __IBVSocket_postWrite(IBVSocket* _this, IBVCommDest* remoteDest, u64 localBu
    list.length = bufLen;
    list.lkey = commContext->dmaMR->lkey;
 
-   wr.wr.rdma.remote_addr = remoteDest->vaddr;
-   wr.wr.rdma.rkey = remoteDest->rkey;
+   rdma_of(wr).remote_addr = remoteDest->vaddr;
+   rdma_of(wr).rkey = remoteDest->rkey;
 
-   wr.wr_id      = IBVSOCKET_WRITE_WORK_ID;
-   wr.sg_list    = &list;
-   wr.num_sge    = 1;
-   wr.opcode     = IB_WR_RDMA_WRITE;
-   wr.send_flags = IB_SEND_SIGNALED;
-   wr.next       = NULL;
+   wr_of(wr).wr_id      = 0;
+   wr_of(wr).sg_list    = &list;
+   wr_of(wr).num_sge    = 1;
+   wr_of(wr).opcode     = IB_WR_RDMA_READ;
+   wr_of(wr).send_flags = IB_SEND_SIGNALED;
+   wr_of(wr).next       = NULL;
 
-   postRes = ib_post_send(commContext->qp, &wr, &bad_wr);
+   postRes = ib_post_send(commContext->qp, &wr_of(wr), &bad_wr);
    if(unlikely(postRes) )
    {
       printk_fhgfs(KERN_INFO, "%d:%s: ib_post_send() failed. ErrCode: %d\n",
@@ -1041,6 +1053,9 @@ int __IBVSocket_postWrite(IBVSocket* _this, IBVCommDest* remoteDest, u64 localBu
    commContext->incompleteSend.forceWaitForAll = fhgfs_false;
 
    return 0;
+
+   #undef rdma_of
+   #undef wr_of
 }
 
 /**
@@ -1054,7 +1069,17 @@ int __IBVSocket_postRead(IBVSocket* _this, IBVCommDest* remoteDest,
 {
    IBVCommContext* commContext = _this->commContext;
    struct ib_sge list;
-   struct ib_send_wr wr;
+
+   #ifdef OFED_SPLIT_WR
+      # define rdma_of(wr) (wr)
+      # define wr_of(wr) (wr.wr)
+         struct ib_rdma_wr wr;
+   #else
+      # define rdma_of(wr) (wr.wr.rdma)
+      # define wr_of(wr) (wr)
+         struct ib_send_wr wr;
+   #endif
+
    struct ib_send_wr *bad_wr;
    int postRes;
    int waitRes;
@@ -1067,17 +1092,17 @@ int __IBVSocket_postRead(IBVSocket* _this, IBVCommDest* remoteDest,
    list.length = bufLen;
    list.lkey = commContext->dmaMR->lkey;
 
-   wr.wr.rdma.remote_addr = remoteDest->vaddr;
-   wr.wr.rdma.rkey = remoteDest->rkey;
+   rdma_of(wr).remote_addr = remoteDest->vaddr;
+   rdma_of(wr).rkey = remoteDest->rkey;
 
-   wr.wr_id      = IBVSOCKET_READ_WORK_ID;
-   wr.sg_list    = &list;
-   wr.num_sge    = 1;
-   wr.opcode     = IB_WR_RDMA_READ;
-   wr.send_flags = IB_SEND_SIGNALED;
-   wr.next       = NULL;
+   wr_of(wr).wr_id      = IBVSOCKET_READ_WORK_ID;
+   wr_of(wr).sg_list    = &list;
+   wr_of(wr).num_sge    = 1;
+   wr_of(wr).opcode     = IB_WR_RDMA_READ;
+   wr_of(wr).send_flags = IB_SEND_SIGNALED;
+   wr_of(wr).next       = NULL;
 
-   postRes = ib_post_send(commContext->qp, &wr, &bad_wr);
+   postRes = ib_post_send(commContext->qp, &wr_of(wr), &bad_wr);
    if(unlikely(postRes) )
    {
       printk_fhgfs(KERN_INFO, "%d:%s: ib_post_send() failed. ErrCode: %d\n",

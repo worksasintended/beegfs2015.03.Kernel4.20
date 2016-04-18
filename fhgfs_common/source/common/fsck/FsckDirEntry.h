@@ -48,13 +48,20 @@ class FsckDirEntry
       int saveDevice; // the device on which this dentry file is saved (according to stat)
       uint64_t saveInode; // the inode of this dentry file (according to stat)
 
+      // used in fsck database to identify dentries with a compact value instead of the full
+      // name
+      uint64_t internalID;
+
    public:
       FsckDirEntry(std::string id, std::string name, std::string parentDirID,
          uint16_t entryOwnerNodeID, uint16_t inodeOwnerNodeID, FsckDirEntryType entryType,
-         bool hasInlinedInode, uint16_t saveNodeID, int saveDevice, uint64_t saveInode) :
-         id(id), name(name), parentDirID(parentDirID), entryOwnerNodeID(entryOwnerNodeID),
-         inodeOwnerNodeID(inodeOwnerNodeID), entryType(entryType), hasInlinedInode(hasInlinedInode),
-         saveNodeID(saveNodeID), saveDevice(saveDevice), saveInode(saveInode) { };
+         bool hasInlinedInode, uint16_t saveNodeID, int saveDevice, uint64_t saveInode,
+         uint64_t internalID = 0)
+         : id(id), name(name), parentDirID(parentDirID), entryOwnerNodeID(entryOwnerNodeID),
+           inodeOwnerNodeID(inodeOwnerNodeID), entryType(entryType),
+           hasInlinedInode(hasInlinedInode), saveNodeID(saveNodeID), saveDevice(saveDevice),
+           saveInode(saveInode), internalID(internalID)
+      {}
 
       //only for deserialization
       FsckDirEntry() {}
@@ -159,6 +166,11 @@ class FsckDirEntry
          this->saveInode = inode;
       }
 
+      uint64_t getInternalID() const
+      {
+         return this->internalID;
+      }
+
 
       bool operator< (const FsckDirEntry& other)
       {
@@ -226,16 +238,17 @@ class FsckDirEntry
 
       void print()
       {
-         printf("id: %s\n", id.c_str());
-         printf("name: %s\n", name.c_str());
-         printf("parentDirID: %s\n", parentDirID.c_str());
-         printf("entryOwnerNodeID: %hu\n", entryOwnerNodeID);
-         printf("inodeOwnerNodeID: %hu\n", inodeOwnerNodeID);
-         printf("entryType: %i\n", (int)entryType);
-         printf("hasInlinedInode: %i\n", (int)hasInlinedInode);
-         printf("saveNodeID: %hu\n", saveNodeID);
-         printf("saveDevice: %i\n", (int)saveDevice);
-         printf("saveInode: %" PRId64 "\n", saveInode);
+         std::cout
+            << "id: " << id.c_str() << "\n"
+            << "name: " << name << "\n"
+            << "parentDirID: " << parentDirID << "\n"
+            << "entryOwnerNodeID: " << entryOwnerNodeID << "\n"
+            << "inodeOwnerNodeID: " << inodeOwnerNodeID << "\n"
+            << "entryType: " << entryType << "\n"
+            << "hasInlinedInode: " << hasInlinedInode << "\n"
+            << "saveNodeID: " << saveNodeID << "\n"
+            << "saveDevice: " << saveDevice << "\n"
+            << "saveInode: " << saveInode << "\n";
       }
 };
 

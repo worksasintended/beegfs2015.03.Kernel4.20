@@ -689,7 +689,8 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
                {
                   for (String hostString : failedHosts)
                   {
-                     errorStr.append("\nFailed to start ");
+                     errorStr.append(System.lineSeparator());
+                     errorStr.append("Failed to start ");
                      errorStr.append(desc);
                      errorStr.append(" on host ");
                      errorStr.append(hostString);
@@ -785,7 +786,8 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
                {
                   for (String hostString : failedHosts)
                   {
-                     errorStr.append("\nFailed to stop ");
+                     errorStr.append(System.lineSeparator());
+                     errorStr.append("Failed to stop ");
                      errorStr.append(desc);
                      errorStr.append(" on host ");
                      errorStr.append(hostString);

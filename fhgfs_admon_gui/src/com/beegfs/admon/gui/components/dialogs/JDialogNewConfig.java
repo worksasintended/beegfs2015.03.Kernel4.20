@@ -1,6 +1,6 @@
 package com.beegfs.admon.gui.components.dialogs;
 
-import com.beegfs.admon.gui.app.config.Config;
+import com.beegfs.admon.gui.common.enums.PropertyEnum;
 import com.beegfs.admon.gui.common.tools.GuiTk;
 import com.beegfs.admon.gui.program.Main;
 import java.io.File;
@@ -23,7 +23,7 @@ public class JDialogNewConfig extends javax.swing.JDialog
       this.setLocationRelativeTo(null);
       this.abortPushed = false;
       jTextFieldHostname.setText(Main.getConfig().getAdmonHost());
-      jTextFieldPort.setText(Main.getConfig().getAdmonHttpPort());
+      jTextFieldPort.setText(String.valueOf(Main.getConfig().getAdmonHttpPort()));
       jTextResolution.setText(Main.getConfig().getResolution());
       jComboBoxLogLevel.setSelectedIndex(Main.getConfig().getLogLevelNumeric());
    }
@@ -195,47 +195,53 @@ public class JDialogNewConfig extends javax.swing.JDialog
    }// </editor-fold>//GEN-END:initComponents
 
     private void jButtonSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonSaveActionPerformed
-       this.abortPushed = false;
-       String hostname = jTextFieldHostname.getText();
-       int port;
+      this.abortPushed = false;
+      String hostname = jTextFieldHostname.getText();
+      int port;
 
-       try
-       {
-          port = Integer.parseInt(jTextFieldPort.getText());
-       }
-       catch (NumberFormatException e)
-       {
-          JOptionPane.showMessageDialog(null, "Please provide a number as port value", 
-                  "Wrong port value", JOptionPane.ERROR_MESSAGE);
-          return;
-       }
+      try
+      {
+         port = Integer.parseInt(jTextFieldPort.getText());
+      }
+      catch (NumberFormatException e)
+      {
+         JOptionPane.showMessageDialog(null, "Please provide a number as port value", 
+            "Wrong port value", JOptionPane.ERROR_MESSAGE);
+         return;
+      }
 
-       boolean validResolution = Main.getConfig().setResolution(jTextResolution.getText());
-       if(!validResolution)
-       {
-          JOptionPane.showMessageDialog(null, "Please provide a valid resolution value. Example: " +
-             "2048x2048 ", "Wrong resolution value", JOptionPane.ERROR_MESSAGE);
-          return;
-       }
+      boolean validResolution = Main.getConfig().setResolution(jTextResolution.getText());
+      if(!validResolution)
+      {
+         JOptionPane.showMessageDialog(null, "Please provide a valid resolution value. Example: " +
+            "2048x2048 ", "Wrong resolution value", JOptionPane.ERROR_MESSAGE);
+         return;
+      }
 
-       Main.getConfig().setAdmonHost(hostname);
-       Main.getConfig().setAdmonHttpPort(String.valueOf(port));
-       Main.getConfig().setLogLevel(jComboBoxLogLevel.getSelectedIndex());
+      Main.getConfig().setAdmonHost(hostname);
+      Main.getConfig().setAdmonHttpPort(port);
+      Main.getConfig().setLogLevel(jComboBoxLogLevel.getSelectedIndex());
 
-       if (Main.getConfig().writeConfigFile(new File(Config.DEFAULT_CONFIG_NAME)))
-       {
-          dispose();
-       }
-       else
-       {
-          JOptionPane.showMessageDialog(null, "Could not write configuration file", "Write failed",
-                  JOptionPane.ERROR_MESSAGE);
-       }
+      String cfgFile = System.getProperty(PropertyEnum.PROPERTY_ADMON_GUI_CFG_FILE.getKey());
+      if (cfgFile == null)
+      {
+         cfgFile = Main.getConfig().getCfgFile();
+      }
+
+      if (Main.getConfig().writeConfigFile(new File(cfgFile)))
+      {
+         dispose();
+      }
+      else
+      {
+         JOptionPane.showMessageDialog(null, "Could not write configuration file", "Write failed",
+            JOptionPane.ERROR_MESSAGE);
+      }
 }//GEN-LAST:event_jButtonSaveActionPerformed
 
     private void jButtonCloseActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonCloseActionPerformed
-       this.abortPushed = true;
-       this.dispose();
+      this.abortPushed = true;
+      this.dispose();
 }//GEN-LAST:event_jButtonCloseActionPerformed
 
    public boolean getAbortPushed()

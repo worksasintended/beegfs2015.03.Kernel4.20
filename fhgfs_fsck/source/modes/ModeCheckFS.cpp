@@ -5,26 +5,87 @@
 #include <components/DataFetcher.h>
 #include <components/worker/RetrieveChunksWork.h>
 #include <net/msghelpers/MsgHelperRepair.h>
+#include <toolkit/DatabaseTk.h>
 #include <toolkit/FsckTkEx.h>
 
 #include <program/Program.h>
 
-#define PRINT_ERROR(text, askForAction) \
-   if (askForAction) { FsckTkEx::fsckOutput(std::string("> ") + std::string(text),OutputOptions_LINEBREAK | OutputOptions_NOLOG); } \
-   FsckTkEx::fsckOutput(std::string("> ") + std::string(text), OutputOptions_NOSTDOUT);
+#include <ftw.h>
 
-#define PRINT_ERROR_COUNT(count) \
-   FsckTkEx::fsckOutput(">>> Found " + StringTk::int64ToStr(count) + " errors. " \
-   "Detailed information can also be found in " + Program::getApp()->getConfig()->getLogOutFile() \
-   + ".", OutputOptions_ADDLINEBREAKBEFORE | OutputOptions_DOUBLELINEBREAK);
+template<unsigned Actions>
+UserPrompter::UserPrompter(const FsckRepairAction (&possibleActions)[Actions],
+   FsckRepairAction defaultRepairAction)
+   : askForAction(true), possibleActions(possibleActions, possibleActions + Actions),
+     repairAction(FsckRepairAction_UNDEFINED)
+{
+   if(Program::getApp()->getConfig()->getReadOnly() )
+      askForAction = false;
+   else
+   if(Program::getApp()->getConfig()->getAutomatic() )
+   {
+      askForAction = false;
+      repairAction = defaultRepairAction;
+   }
+}
 
-#define PRINT_REPAIR_ACTION(action) \
-   FsckTkEx::fsckOutput(" - [ra: " + FsckTkEx::getRepairActionDesc(action, true) + "]", \
-   OutputOptions_LINEBREAK | OutputOptions_NOSTDOUT);
+FsckRepairAction UserPrompter::chooseAction(const std::string& prompt)
+{
+   if(askForAction)
+      FsckTkEx::fsckOutput("> " + prompt, OutputOptions_LINEBREAK | OutputOptions_NOLOG);
+
+   FsckTkEx::fsckOutput("> " + prompt, OutputOptions_NOSTDOUT);
+
+   while(askForAction)
+   {
+      for(size_t i = 0; i < possibleActions.size(); i++)
+      {
+         FsckTkEx::fsckOutput(
+            "   " + StringTk::uintToStr(i + 1) + ") "
+               + FsckTkEx::getRepairActionDesc(possibleActions[i]), OutputOptions_NOLOG |
+               OutputOptions_LINEBREAK);
+      }
+
+      for(size_t i = 0; i < possibleActions.size(); i++)
+      {
+         FsckTkEx::fsckOutput(
+            "   " + StringTk::uintToStr(i + possibleActions.size() + 1) + ") "
+               + FsckTkEx::getRepairActionDesc(possibleActions[i]) + " (apply for all)",
+               OutputOptions_NOLOG | OutputOptions_LINEBREAK);
+      }
+
+      std::string inputStr;
+      getline(std::cin, inputStr);
+
+      unsigned input = StringTk::strToUInt(inputStr);
+
+      if( (input > 0) && (input <= possibleActions.size() ) )
+      {
+         // user chose for this error
+         repairAction = possibleActions[input - 1];
+         break;
+      }
+
+      if( (input > possibleActions.size() ) && (input <= possibleActions.size() * 2) )
+      {
+         // user chose for all errors => do not ask again
+         askForAction = false;
+         repairAction = possibleActions[input - possibleActions.size() - 1];
+         break;
+      }
+   }
+
+   FsckTkEx::fsckOutput(" - [ra: " + FsckTkEx::getRepairActionDesc(repairAction, true) + "]",
+      OutputOptions_LINEBREAK | OutputOptions_NOSTDOUT);
+
+   return repairAction;
+}
+
+
 
 ModeCheckFS::ModeCheckFS()
+ : log("ModeCheckFS"),
+   lostAndFoundNode(NULL)
 {
-   this->log.setContext("ModeCheckFS");
 }
 
 ModeCheckFS::~ModeCheckFS()
@@ -33,60 +94,47 @@ ModeCheckFS::~ModeCheckFS()
 
 void ModeCheckFS::printHelp()
 {
-   std::cout << "MODE ARGUMENTS:" << std::endl;
-   std::cout << " Optional:" << std::endl;
-   std::cout << "  --readOnly             Check only, skip repairs." << std::endl;
-   std::cout << "  --runOnline            Run in online mode, which means user may access the"
-      << std::endl;
-   std::cout << "                         file system while the check is running." << std::endl;
-   std::cout << "  --automatic            Do not prompt for repair actions and automatically use"
-      << std::endl;
-   std::cout << "                         reasonable default actions." << std::endl;
-   std::cout << "  --noFetch              Do not build a new database from the servers and"
-      << std::endl;
-   std::cout << "                         instead work on an existing database (e.g. from a"
-      << std::endl;
-   std::cout << "                         previous read-only run)." << std::endl;
-   std::cout << std::endl;
-   std::cout << "  --quotaEnabled         Enable checks for quota support." << std::endl;
-   std::cout << std::endl;
-   std::cout << "  --databasePath=<path>  Path to store for the database files. On systems with "
-      << std::endl;
-   std::cout << "                         many files, the database can grow to a size of several "
-      << std::endl;
-   std::cout << "                         100 GB." << std::endl;
-   std::cout << "                         (Default: " << CONFIG_DEFAULT_DBPATH << ")" << std::endl;
-   std::cout << "  --overwriteDbFile      Overwrite an existing database file without prompt." << std::endl;
-   std::cout << "  --ignoreDBDiskSpace    Ignore free disk space check for database file." << std::endl;
-   std::cout << "  --logOutFile=<path>    Path to the fsck output file, which contains a copy of"
-      << std::endl;
-   std::cout << "                         the console output." << std::endl;
-   std::cout << "                         (Default: " << CONFIG_DEFAULT_OUTFILE << ")" << std::endl;
-   std::cout << "  --logStdFile=<path>    Path to the program error log file, which contains e.g."
-      << std::endl;
-   std::cout << "                         network error messages." << std::endl;
-   std::cout << "                         (Default: " << CONFIG_DEFAULT_LOGFILE << ")" << std::endl;
-   std::cout << std::endl;
-   std::cout << "USAGE:" << std::endl;
-   std::cout << " This mode performs a full check and optional repair of a BeeGFS file system"
-      << std::endl;
-   std::cout << " instance by building a database of the current file system contents on the"
-      << std::endl;
-   std::cout << " local machine." << std::endl;
-   std::cout << std::endl;
-   std::cout << " The fsck gathers information from all BeeGFS server daemons in parallel through"
-      << std::endl;
-   std::cout << " their configured network interfaces. All server components of the file"
-      << std::endl;
-   std::cout << " system have to be running to start a check." << std::endl;
-   std::cout << std::endl;
-   std::cout << " If the fsck is running without the \"--runonline\" argument, users may not"
-      << std::endl;
-   std::cout << " access the file system during a run (otherwise false errors might be reported)."
-      << std::endl;
-   std::cout << std::endl;
-   std::cout << " Example: Check for errors, but skip repairs" << std::endl;
-   std::cout << "  $ beegfs-fsck --checkfs --runonline --readonly" << std::endl;
+   std::cout <<
+      "MODE ARGUMENTS:\n"
+      " Optional:\n"
+      "  --readOnly             Check only, skip repairs.\n"
+      "  --runOnline            Run in online mode, which means user may access the\n"
+      "                         file system while the check is running.\n"
+      "  --automatic            Do not prompt for repair actions and automatically use\n"
+      "                         reasonable default actions.\n"
+      "  --noFetch              Do not build a new database from the servers and\n"
+      "                         instead work on an existing database (e.g. from a\n"
+      "                         previous read-only run).\n"
+      "  --quotaEnabled         Enable checks for quota support.\n"
+      "  --databasePath=<path>  Path to store for the database files. On systems with \n"
+      "                         many files, the database can grow to a size of several \n"
+      "                         100 GB.\n"
+      "                         (Default: " CONFIG_DEFAULT_DBPATH ")\n"
+      "  --overwriteDbFile      Overwrite an existing database file without prompt.\n"
+      "  --ignoreDBDiskSpace    Ignore free disk space check for database file.\n"
+      "  --logOutFile=<path>    Path to the fsck output file, which contains a copy of\n"
+      "                         the console output.\n"
+      "                         (Default: " CONFIG_DEFAULT_OUTFILE ")\n"
+      "  --logStdFile=<path>    Path to the program error log file, which contains e.g.\n"
+      "                         network error messages.\n"
+      "                         (Default: " CONFIG_DEFAULT_LOGFILE ")\n"
+      "\n"
+      "USAGE:\n"
+      " This mode performs a full check and optional repair of a BeeGFS file system\n"
+      " instance by building a database of the current file system contents on the\n"
+      " local machine.\n"
+      "\n"
+      " The fsck gathers information from all BeeGFS server daemons in parallel through\n"
+      " their configured network interfaces. All server components of the file\n"
+      " system have to be running to start a check.\n"
+      "\n"
+      " If the fsck is running without the \"--runonline\" argument, users may not\n"
+      " access the file system during a run (otherwise false errors might be reported).\n"
+      "\n"
+      " Example: Check for errors, but skip repairs\n"
+      "  $ beegfs-fsck --checkfs --runonline --readonly\n";
+
+   std::cout << std::flush;
 }
 
 int ModeCheckFS::execute()
@@ -94,8 +142,6 @@ int ModeCheckFS::execute()
    App* app = Program::getApp();
    Config *cfg = app->getConfig();
    std::string databasePath = cfg->getDatabasePath();
-
-   this->database = app->getDatabase();
 
    // check root privileges
    if ( geteuid() && getegid() )
@@ -115,18 +161,15 @@ int ModeCheckFS::execute()
    if ( !FsckTkEx::checkReachability() )
       return APPCODE_COMMUNICATION_ERROR;
 
-   if (cfg->getNoFetch())
+   if(cfg->getNoFetch() )
    {
-      // check if DB file exists
-      bool dbExists = DatabaseTk::databaseFilesExist(databasePath);
-
-      if ( !dbExists )
-      {
-         std::string errStr = "At least on database file was not found in path: " + databasePath;
-
-         log.logErr(errStr);
-         FsckTkEx::fsckOutput(errStr);
-
+      try {
+         this->database.reset(new FsckDB(databasePath + "/fsckdb", cfg->getTuneDbFragmentSize(),
+            cfg->getTuneDentryCacheSize(), false) );
+      } catch (const FragmentDoesNotExist& e) {
+         std::string err = "Database was found to be incomplete in path " + databasePath;
+         log.logErr(err);
+         FsckTkEx::fsckOutput(err);
          return APPCODE_RUNTIME_ERROR;
       }
    }
@@ -136,8 +179,15 @@ int ModeCheckFS::execute()
       if ( initDBRes )
          return initDBRes;
 
+      boost::scoped_ptr<ModificationEventHandler> modificationEventHandler;
+
       if ( cfg->getRunOnline() )
       {
+         modificationEventHandler.reset(
+            new ModificationEventHandler(*this->database->getModificationEventsTable() ) );
+         modificationEventHandler->start();
+         Program::getApp()->setModificationEventHandler(modificationEventHandler.get() );
+
          // start modification logging
          bool startLogRes = FsckTkEx::startModificationLogging(app->getMetaNodes(),
             app->getLocalNode());
@@ -161,7 +211,9 @@ int ModeCheckFS::execute()
          // stop modification logging
          bool eventLoggingOK = FsckTkEx::stopModificationLogging(app->getMetaNodes());
          // stop mod event handler (to make it flush for the last time
-         Program::getApp()->getModificationEventHandler()->selfTerminate();
+         Program::getApp()->setModificationEventHandler(NULL);
+         modificationEventHandler->selfTerminate();
+         modificationEventHandler->join();
 
          // if event logging is not OK (i.e. that not all events might have been processed), go
          // into read-only mode
@@ -207,21 +259,6 @@ int ModeCheckFS::execute()
 
          return APPCODE_RUNTIME_ERROR;
       }
-
-      bool processModEventsRes = this->database->processModificationEvents();
-
-      if ( !processModEventsRes )
-      {
-         std::string errStr =
-            "An error occured while processing modification events from servers. Fsck cannot "
-            "proceed. Please see log file for more information";
-
-         log.logErr(errStr);
-         FsckTkEx::fsckOutput(errStr);
-
-         return APPCODE_RUNTIME_ERROR;
-      }
-
    }
 
    checkAndRepair();
@@ -240,7 +277,7 @@ int ModeCheckFS::initDatabase()
    Config* cfg = Program::getApp()->getConfig();
 
    // create the database path
-   Path dbPath(cfg->getDatabasePath());
+   Path dbPath(cfg->getDatabasePath() + "/fsckdb");
 
    if ( !StorageTk::createPathOnDisk(dbPath, false) )
    {
@@ -279,11 +316,38 @@ int ModeCheckFS::initDatabase()
          default:
             // abort here
             return APPCODE_USER_ABORTED;
-            break;
       }
    }
 
-   this->database->init(!(cfg->getNoFetch()));
+   struct ops
+   {
+      static int visit(const char* path, const struct stat*, int type, struct FTW* state)
+      {
+         if(state->level == 0)
+            return 0;
+         else
+         if(type == FTW_F || type == FTW_SL)
+            return ::unlink(path);
+         else
+            return ::rmdir(path);
+      }
+   };
+
+   int ftwRes = ::nftw(dbPath.getPathAsStr().c_str(), ops::visit, 10, FTW_DEPTH | FTW_PHYS);
+   if(ftwRes)
+   {
+      FsckTkEx::fsckOutput("Could not empty path for database files: " + dbPath.getPathAsStr() );
+      return APPCODE_INITIALIZATION_ERROR;
+   }
+
+   try {
+      this->database.reset(
+         new FsckDB(dbPath.getPathAsStr(), cfg->getTuneDbFragmentSize(),
+            cfg->getTuneDentryCacheSize(), true) );
+   } catch (const std::runtime_error& e) {
+      FsckTkEx::fsckOutput("Database " + dbPath.getPathAsStr() + " is corrupt");
+      return APPCODE_RUNTIME_ERROR;
+   }
 
    return 0;
 }
@@ -309,7 +373,7 @@ bool ModeCheckFS::gatherData()
 
    FsckTkEx::fsckOutput("Step 2: Gather data from nodes: ", OutputOptions_DOUBLELINEBREAK);
 
-   DataFetcher dataFetcher;
+   DataFetcher dataFetcher(*this->database);
    retVal = dataFetcher.execute();
 
    FsckTkEx::fsckOutput("", OutputOptions_LINEBREAK);
@@ -317,1499 +381,331 @@ bool ModeCheckFS::gatherData()
    return retVal;
 }
 
+template<typename Obj, typename State>
+int64_t ModeCheckFS::checkAndRepairGeneric(Cursor<Obj> cursor,
+   void (ModeCheckFS::*repair)(Obj&, State&), State& state)
+{
+   int64_t errorCount = 0;
+
+   while(cursor.step() )
+   {
+      Obj* entry = cursor.get();
+
+      (this->*repair)(*entry, state);
+      errorCount++;
+   }
+
+   if(errorCount)
+      FsckTkEx::fsckOutput(">>> Found " + StringTk::int64ToStr(errorCount)
+         + " errors. Detailed information can also be found in "
+         + Program::getApp()->getConfig()->getLogOutFile() + ".",
+      OutputOptions_DOUBLELINEBREAK);
+
+   return errorCount;
+}
+
 int64_t ModeCheckFS::checkAndRepairDanglingDentry()
 {
-   // FsckErrorCode_DANGLINGDENTRY
-   FsckErrorCode errorCode = FsckErrorCode_DANGLINGDENTRY;
+   FsckRepairAction fileActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_DELETEDENTRY,
+   };
 
-   // check for errors
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   FsckRepairAction dirActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_DELETEDENTRY,
+      FsckRepairAction_CREATEDEFAULTDIRINODE,
+   };
 
-   if ( this->database->checkForAndInsertDanglingDirEntries() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   UserPrompter forFiles(fileActions, FsckRepairAction_DELETEDENTRY);
+   UserPrompter forDirs(dirActions, FsckRepairAction_CREATEDEFAULTDIRINODE);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActionsFileDentry;
-   possibleActionsFileDentry.push_back(FsckRepairAction_NOTHING);
-   possibleActionsFileDentry.push_back(FsckRepairAction_DELETEDENTRY);
+   std::pair<UserPrompter*, UserPrompter*> prompt(&forFiles, &forDirs);
 
-   std::vector<FsckRepairAction> possibleActionsDirDentry;
-   possibleActionsDirDentry.push_back(FsckRepairAction_NOTHING);
-   possibleActionsDirDentry.push_back(FsckRepairAction_DELETEDENTRY);
-   possibleActionsDirDentry.push_back(FsckRepairAction_CREATEDEFAULTDIRINODE);
+   FsckTkEx::fsckOutput("* Dangling directory entry ...",
+      OutputOptions_FLUSH |OutputOptions_LINEBREAK);
 
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      PRINT_ERROR_COUNT(errorCount);
-
-      // first take only the dir entries representing a directory
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_DANGLINGDIRDENTRY;
-      }
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckDirEntry>* cursor = this->database->getDanglingDirectoryDirEntries(
-         FsckRepairAction_UNDEFINED);
-
-      FsckDirEntry* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement, filePath);
-
-         PRINT_ERROR(
-            "Entry ID: " + currentElement->getID() + ";Entry Name: " + currentElement->getName()
-            + "; Path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActionsDirDentry, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already acquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for directory entry with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      // now ask for actions for dir entries representing something else than a directory
-      askForAction = true;
-      repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_DANGLINGFILEDENTRY;
-      }
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      cursor = this->database->getDanglingFileDirEntries(FsckRepairAction_UNDEFINED);
-
-      currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement, filePath);
-
-         PRINT_ERROR(
-            "Entry ID: " + currentElement->getID() + ";Entry Name: " + currentElement->getName()
-            + "; Path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActionsFileDentry, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already acquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for directory entry with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairDanglingDirEntries();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findDanglingDirEntries(),
+      &ModeCheckFS::repairDanglingDirEntry, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairWrongInodeOwner()
 {
-   // FsckErrorCode_WRONGINODEOWNER
-   FsckErrorCode errorCode = FsckErrorCode_WRONGINODEOWNER;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_CORRECTOWNER,
+   };
 
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_CORRECTOWNER);
 
-   if ( this->database->checkForAndInsertInodesWithWrongOwner() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Wrong owner node saved in inode ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_CORRECTOWNER);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_WRONGINODEOWNER;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckDirInode>* cursor = this->database->getInodesWithWrongOwner(
-         FsckRepairAction_UNDEFINED);
-
-      FsckDirInode* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement->getID(), filePath);
-
-         PRINT_ERROR(
-            "Entry ID: " + currentElement->getID() + "; Path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already acquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for directory inode with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairWrongInodeOwners();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findInodesWithWrongOwner(),
+      &ModeCheckFS::repairWrongInodeOwner, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairWrongOwnerInDentry()
 {
-   //FsckErrorCode_WRONGOWNERINDENTRY
-   FsckErrorCode errorCode = FsckErrorCode_WRONGOWNERINDENTRY;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_CORRECTOWNER,
+   };
 
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_CORRECTOWNER);
 
-   if ( this->database->checkForAndInsertDirEntriesWithWrongOwner() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Dentry points to inode on wrong node ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_CORRECTOWNER);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_WRONGOWNERINDENTRY;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckDirEntry>* cursor = this->database->getDirEntriesWithWrongOwner(
-         FsckRepairAction_UNDEFINED);
-
-      FsckDirEntry* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement, filePath);
-
-         PRINT_ERROR(
-            "File ID: " + currentElement->getID() + ";File Name: " + currentElement->getName()
-            + "; Path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already acquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for directory entry with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairWrongInodeOwnersInDentry();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findDirEntriesWithWrongOwner(),
+      &ModeCheckFS::repairWrongInodeOwnerInDentry, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairOrphanedContDir()
 {
-   // FsckErrorCode_ORPHANEDCONTDIR
-   FsckErrorCode errorCode = FsckErrorCode_ORPHANEDCONTDIR;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_CREATEDEFAULTDIRINODE,
+   };
 
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_CREATEDEFAULTDIRINODE);
 
-   if ( this->database->checkForAndInsertOrphanedContDirs() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Content directory without an inode ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_CREATEDEFAULTDIRINODE);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_ORPHANEDCONTDIR;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckContDir>* cursor = this->database->getOrphanedContDirs(
-         FsckRepairAction_UNDEFINED);
-
-      FsckContDir* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         PRINT_ERROR("Directory ID: " + currentElement->getID(), askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already aquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for content directory with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairOrphanedContDirs();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findOrphanedContDirs(),
+      &ModeCheckFS::repairOrphanedContDir, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairOrphanedDirInode()
 {
-   // FsckErrorCode_ORPHANEDDIRINODE
-   FsckErrorCode errorCode = FsckErrorCode_ORPHANEDDIRINODE;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_LOSTANDFOUND,
+   };
 
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_LOSTANDFOUND);
 
-   if ( this->database->checkForAndInsertOrphanedDirInodes() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Dir inode without a dentry pointing to it (orphaned inode) ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_LOSTANDFOUND);
+   bool result = checkAndRepairGeneric(this->database->findOrphanedDirInodes(),
+      &ModeCheckFS::repairOrphanedDirInode, prompt);
 
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_ORPHANEDDIRINODE;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckDirInode>* cursor = this->database->getOrphanedDirInodes(
-         FsckRepairAction_UNDEFINED);
-
-      FsckDirInode* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         PRINT_ERROR("Directory ID: " + currentElement->getID(), askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already aquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for directory inode with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairOrphanedDirInodes();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
+   releaseLostAndFound();
+   return result;
 }
 
 int64_t ModeCheckFS::checkAndRepairOrphanedFileInode()
 {
-   // FsckErrorCode_ORPHANEDFILEINODE
-   FsckErrorCode errorCode = FsckErrorCode_ORPHANEDFILEINODE;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_DELETEINODE,
+      //FsckRepairAction_LOSTANDFOUND,
+   };
 
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_DELETEINODE);
 
-   if ( this->database->checkForAndInsertOrphanedFileInodes() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* File inode without a dentry pointing to it (orphaned inode) ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_DELETEINODE);
-//   possibleActions.push_back(FsckRepairAction_LOSTANDFOUND);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_ORPHANEDFILEINODE;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckFileInode>* cursor = this->database->getOrphanedFileInodes(
-         FsckRepairAction_UNDEFINED);
-
-      FsckFileInode* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         PRINT_ERROR("File ID: " + currentElement->getID(), askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already aquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for file inode with ID: " + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairOrphanedFileInodes();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findOrphanedFileInodes(),
+      &ModeCheckFS::repairOrphanedFileInode, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairOrphanedChunk()
 {
-   // FsckErrorCode_ORPHANEDCHUNK
-   FsckErrorCode errorCode = FsckErrorCode_ORPHANEDCHUNK;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_DELETECHUNK,
+   };
 
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_DELETECHUNK);
+   RepairChunkState state = { &prompt, "", FsckRepairAction_UNDEFINED };
 
-   if ( this->database->checkForAndInsertOrphanedChunks() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Chunk without an inode pointing to it (orphaned chunk) ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_DELETECHUNK);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_ORPHANEDCHUNK;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckChunk>* cursor = this->database->getOrphanedChunks(FsckRepairAction_UNDEFINED,
-         true);
-
-      FsckChunk* currentElement = cursor->open();
-
-      std::string lastID;
-      FsckChunkList chunksToUpdate;
-
-      // ask only once for each chunk
-      while ( true )
-      {
-         // if
-         // 1. we did not get a next element, OR
-         // 2. if the ID of the current element is a new one, AND
-         // 3. there is something set in chunks to update,
-         // then set the repair action for the chunks
-
-         if ( ((!currentElement) || (lastID.compare(currentElement->getID()) != 0))
-            && (!chunksToUpdate.empty()) )
-         {
-            PRINT_ERROR(
-               "Chunk ID: " + lastID + "; # of targets: "
-               + StringTk::uintToStr(chunksToUpdate.size()), askForAction);
-
-            if ( askForAction )
-               repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-            PRINT_REPAIR_ACTION(repairAction);
-
-            for ( FsckChunkListIter iter = chunksToUpdate.begin(); iter != chunksToUpdate.end();
-               iter++ )
-            {
-               // we need to reuse the already aquired handle; otherwise sqlite will deadlock
-               // because the handle of the cursor already holds a lock
-               if ( !this->database->setRepairAction(*iter, errorCode, repairAction,
-                  cursor->getHandle()) )
-               {
-                  this->log.logErr(
-                     "Unable to set repair action for file chunk. chunkID: " + iter->getID()
-                        + " targetID: " + StringTk::uintToStr(iter->getTargetID()));
-               }
-            }
-            chunksToUpdate.clear();
-         }
-
-         // cppcheck-suppress nullPointer [special comment to mute false cppcheck alarm]
-         if ( !currentElement )
-            break;
-
-         lastID = currentElement->getID();
-         chunksToUpdate.push_back(*currentElement);
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairOrphanedChunks();
-
-      FsckTkEx::fsckOutput("");
-   }
-
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findOrphanedChunks(),
+      &ModeCheckFS::repairOrphanedChunk, state);
 }
 
 int64_t ModeCheckFS::checkAndRepairMissingContDir()
 {
-   // FsckErrorCode_MISSINGCONTDIR
-   FsckErrorCode errorCode = FsckErrorCode_MISSINGCONTDIR;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_CREATECONTDIR,
+   };
 
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_CREATECONTDIR);
 
-   if ( this->database->checkForAndInsertInodesWithoutContDir() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Directory inode without a content directory ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-
-   possibleActions.push_back(FsckRepairAction_CREATECONTDIR);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_MISSINGCONTDIR;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckDirInode>* cursor = this->database->getInodesWithoutContDir(
-         FsckRepairAction_UNDEFINED);
-
-      FsckDirInode* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement->getID(), filePath);
-
-         PRINT_ERROR(
-            "Directory ID: " + currentElement->getID() + "; Path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already aquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for file directory with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairMissingContDirs();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findInodesWithoutContDir(),
+      &ModeCheckFS::repairMissingContDir, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairWrongFileAttribs()
 {
-   // FsckErrorCode_WRONGFILEATTRIBS
-   FsckErrorCode errorCode = FsckErrorCode_WRONGFILEATTRIBS;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_UPDATEATTRIBS,
+   };
 
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_UPDATEATTRIBS);
 
-   if ( this->database->checkForAndInsertWrongInodeFileAttribs() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Attributes of file inode are wrong ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_UPDATEATTRIBS);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_WRONGFILEATTRIBS;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckFileInode>* cursor = this->database->getInodesWithWrongFileAttribs(
-         FsckRepairAction_UNDEFINED);
-
-      FsckFileInode* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement->getID(), filePath);
-
-         PRINT_ERROR(
-            "File ID: " + currentElement->getID() + "; Path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already aquired handle; otherwise sqlite will deadlock because
-         // the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for file inode with ID: " + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairWrongFileAttribs();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findWrongInodeFileAttribs(),
+      &ModeCheckFS::repairWrongFileAttribs, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairWrongDirAttribs()
 {
-   // FsckErrorCode_WRONGDIRATTRIBS
-   FsckErrorCode errorCode = FsckErrorCode_WRONGDIRATTRIBS;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_UPDATEATTRIBS,
+   };
 
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_UPDATEATTRIBS);
 
-   if ( this->database->checkForAndInsertWrongInodeDirAttribs() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Attributes of dir inode are wrong ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_UPDATEATTRIBS);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_WRONGDIRATTRIBS;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckDirInode>* cursor = this->database->getInodesWithWrongDirAttribs(
-         FsckRepairAction_UNDEFINED);
-
-      FsckDirInode* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement->getID(), filePath);
-
-         PRINT_ERROR(
-            "Directory ID: " + currentElement->getID() + "; Path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already aquired handle; otherwise sqlite will deadlock because
-         // the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for directory inode with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairWrongDirAttribs();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
-}
-
-int64_t ModeCheckFS::checkAndRepairMissingTargets()
-{
-   // FsckErrorCode_MISSINGTARGET
-   FsckErrorCode errorCode = FsckErrorCode_MISSINGTARGET;
-
-   // check
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
-
-   TargetMapper* targetMapper = Program::getApp()->getTargetMapper();
-   MirrorBuddyGroupMapper* buddyGroupMapper = Program::getApp()->getMirrorBuddyGroupMapper();
-   if ( this->database->checkForAndInsertMissingStripeTargets(targetMapper, buddyGroupMapper) )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
-
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_CHANGETARGET);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_MISSINGTARGET;
-      }
-
-      PRINT_ERROR_COUNT(errorCount);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckTargetID>* cursor = this->database->getMissingStripeTargets(
-         FsckRepairAction_UNDEFINED);
-
-      FsckTargetID* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         uint16_t id = currentElement->getID();
-         FsckTargetIDType fsckTargetIDType = currentElement->getTargetIDType();
-
-         if (fsckTargetIDType == FsckTargetIDType_BUDDYGROUP)
-         {
-            PRINT_ERROR(
-               "Buddy Group ID: " + StringTk::uintToStr(id), askForAction);
-         }
-         else
-         {
-            PRINT_ERROR(
-               "Target ID: " + StringTk::uintToStr(id), askForAction);
-         }
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already aquired handle; otherwise sqlite will deadlock because
-         // the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for target with ID: "
-                  + StringTk::uintToStr(currentElement->getID()));
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairMissingTargets();
-
-      FsckTkEx::fsckOutput("");
-   }
-
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findWrongInodeDirAttribs(),
+      &ModeCheckFS::repairWrongDirAttribs, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairFilesWithMissingTargets()
 {
-   // FsckErrorCode_FILEWITHMISSINGTARGET
-   FsckErrorCode errorCode = FsckErrorCode_FILEWITHMISSINGTARGET;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_DELETEFILE,
+   };
 
-   // check for errors
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_NOTHING);
 
-   if ( this->database->checkForAndInsertFilesWithMissingStripeTargets() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* File has a missing target in stripe pattern ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_DELETEFILE);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      PRINT_ERROR_COUNT(errorCount);
-
-      // first take only the dir entries representing a directory
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_FILEWITHMISSINGTARGET;
-      }
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckDirEntry>* cursor = this->database->getFilesWithMissingStripeTargets(
-         FsckRepairAction_UNDEFINED);
-
-      FsckDirEntry* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement, filePath);
-
-         PRINT_ERROR(
-            "Entry ID: " + currentElement->getID() + "; Entry Name: " + currentElement->getName()
-            + "; Path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already acquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for directory entry with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairFilesWithMissingTargets();
-
-      FsckTkEx::fsckOutput("");
-   }
-   return errorCount;
+   return checkAndRepairGeneric(
+      this->database->findFilesWithMissingStripeTargets(
+         Program::getApp()->getTargetMapper(), Program::getApp()->getMirrorBuddyGroupMapper() ),
+      &ModeCheckFS::repairFileWithMissingTargets, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairDirEntriesWithBrokeByIDFile()
 {
-   // FsckErrorCode_BROKEFSID
-   FsckErrorCode errorCode = FsckErrorCode_BROKENFSID;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_RECREATEFSID,
+   };
 
-   // check for errors
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_RECREATEFSID);
 
-   if ( this->database->checkForAndInsertDirEntriesWithBrokenByIDFile() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Dentry-by-ID file is broken or missing ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_RECREATEFSID);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      PRINT_ERROR_COUNT(errorCount);
-
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_BROKENFSID;
-      }
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckDirEntry>* cursor = this->database->getDirEntriesWithBrokenByIDFile(
-         FsckRepairAction_UNDEFINED);
-
-      FsckDirEntry* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         PRINT_ERROR(
-            "Entry ID: " + currentElement->getID() + "; Entry Name: " + currentElement->getName(),
-            askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already acquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for directory entry with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairDirEntriesWithBrokenByIDFile();
-
-      FsckTkEx::fsckOutput("");
-   }
-
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findDirEntriesWithBrokenByIDFile(),
+      &ModeCheckFS::repairDirEntryWithBrokenByIDFile, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairOrphanedDentryByIDFiles()
 {
-   // FsckErrorCode_ORPHANEDFSID
-   FsckErrorCode errorCode = FsckErrorCode_ORPHANEDFSID;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_RECREATEDENTRY,
+   };
 
-   // check for errors
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_RECREATEDENTRY);
 
-   if ( this->database->checkForAndInsertOrphanedDentryByIDFiles() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Dentry-by-ID file is present, but no corresponding dentry ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_RECREATEDENTRY);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      PRINT_ERROR_COUNT(errorCount);
-
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_ORPHANEDFSID;
-      }
-
-      PRINT_REPAIR_ACTION(repairAction);
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckFsID>* cursor = this->database->getOrphanedDentryByIDFiles(
-         FsckRepairAction_UNDEFINED);
-
-      FsckFsID* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement->getID(), filePath);
-
-         PRINT_ERROR("Entry ID: " + currentElement->getID() + "; Path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         // we need to reuse the already acquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for dentry-by-ID file with ID: "
-                  + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairOrphanedDentryByIDFiles();
-
-      FsckTkEx::fsckOutput("");
-   }
-
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findOrphanedFsIDFiles(),
+      &ModeCheckFS::repairOrphanedDentryByIDFile, prompt);
 }
 
 int64_t ModeCheckFS::checkAndRepairChunksWithWrongPermissions()
 {
-   // FsckErrorCode_CHUNKWITHWRONGPERM
-   FsckErrorCode errorCode = FsckErrorCode_CHUNKWITHWRONGPERM;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_FIXPERMISSIONS,
+   };
 
-   // check for errors
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   UserPrompter prompt(possibleActions, FsckRepairAction_FIXPERMISSIONS);
 
-   if ( this->database->checkForAndInsertChunksWithWrongPermissions() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("* Chunk has wrong permissions ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_FIXPERMISSIONS);
-
-   int64_t errorCount = this->database->countErrors(errorCode);
-
-   if ( errorCount > 0 )
-   {
-      PRINT_ERROR_COUNT(errorCount);
-
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_CHUNKWITHWRONGPERM;
-      }
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckChunk>* cursor = this->database->getChunksWithWrongPermissions(
-         FsckRepairAction_UNDEFINED);
-
-      FsckChunk* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement->getID(), filePath);
-
-         PRINT_ERROR(
-            "Chunk ID: " + currentElement->getID() + "; Target ID: "
-            + StringTk::uintToStr(currentElement->getTargetID()) + "; File path: " + filePath,
-            askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already acquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for chunk with ID: " + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairChunksWithWrongPermissions();
-
-      FsckTkEx::fsckOutput("");
-   }
-
-   return errorCount;
+   return checkAndRepairGeneric(this->database->findChunksWithWrongPermissions(),
+      &ModeCheckFS::repairChunkWithWrongPermissions, prompt);
 }
 
 // no repair at the moment
 int64_t ModeCheckFS::checkAndRepairChunksInWrongPath()
 {
-   // FsckErrorCode_CHUNKINWRONGPATH;
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_MOVECHUNK,
+   };
 
-   FsckErrorCode errorCode = FsckErrorCode_CHUNKINWRONGPATH;
+   UserPrompter prompt(possibleActions, FsckRepairAction_MOVECHUNK);
 
-   // check for errors
-   FsckTkEx::fsckOutput("* " + FsckTkEx::getErrorDesc(errorCode) + "... ", OutputOptions_FLUSH);
+   FsckTkEx::fsckOutput("* Chunk is saved in wrong path ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   if ( this->database->checkForAndInsertChunksInWrongPath() )
-      FsckTkEx::fsckOutput("Finished", OutputOptions_LINEBREAK);
-   else
-      FsckTkEx::fsckOutput("Error", OutputOptions_LINEBREAK);
+   return checkAndRepairGeneric(this->database->findChunksInWrongPath(),
+      &ModeCheckFS::repairWrongChunkPath, prompt);
+}
 
-   // set repair action
-   std::vector<FsckRepairAction> possibleActions;
-   possibleActions.push_back(FsckRepairAction_NOTHING);
-   possibleActions.push_back(FsckRepairAction_MOVECHUNK);
+int64_t ModeCheckFS::checkDuplicateInodeIDs()
+{
+   FsckTkEx::fsckOutput("* Duplicated inode IDs ...",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
 
-   int64_t errorCount = this->database->countErrors(errorCode);
+   int dummy = 0;
+   return checkAndRepairGeneric(this->database->findDuplicateInodeIDs(),
+      &ModeCheckFS::logDuplicateInodeID, dummy);
+}
 
-   if ( errorCount > 0 )
+void ModeCheckFS::logDuplicateInodeID(std::pair<db::EntryID, std::set<uint32_t> >& dups, int&)
+{
+   FsckTkEx::fsckOutput(">>> Found duplicated ID " + dups.first.str(),
+      OutputOptions_LINEBREAK | OutputOptions_NOSTDOUT);
+   for(std::set<uint32_t>::const_iterator it = dups.second.begin(), end = dups.second.end();
+         it != end; ++it)
    {
-      PRINT_ERROR_COUNT(errorCount);
-
-      bool askForAction = true;
-      FsckRepairAction repairAction = FsckRepairAction_UNDEFINED;
-
-      if ( Program::getApp()->getConfig()->getReadOnly() )
-      {
-         askForAction = false;
-      }
-      else
-      if ( Program::getApp()->getConfig()->getAutomatic() ) // repairmode is automatic
-      {
-         askForAction = false;
-         repairAction = REPAIRACTION_DEF_CHUNKINWRONGPATH;
-      }
-
-      // get only those with FsckRepairAction_UNDEFINED to prevent fsck from showing them in a
-      // second run, if user chose to ignore them
-      DBCursor<FsckChunk>* cursor = this->database->getChunksInWrongPath(
-         FsckRepairAction_UNDEFINED);
-
-      FsckChunk* currentElement = cursor->open();
-
-      while ( currentElement )
-      {
-         std::string filePath;
-         DatabaseTk::getFullPath(this->database, currentElement->getID(), filePath);
-
-         PRINT_ERROR(
-            "Entry ID: " + currentElement->getID() + "; File path: " + filePath, askForAction);
-
-         if ( askForAction )
-            repairAction = chooseAction(errorCode, possibleActions, askForAction);
-
-         PRINT_REPAIR_ACTION(repairAction);
-
-         // we need to reuse the already acquired handle; otherwise sqlite will deadlock
-         // because the handle of the cursor already holds a lock
-         if ( !this->database->setRepairAction(*currentElement, errorCode, repairAction,
-            cursor->getHandle()) )
-         {
-            this->log.logErr(
-               "Unable to set repair action for chunk with ID: " + currentElement->getID());
-         }
-
-         currentElement = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-       if (! Program::getApp()->getConfig()->getReadOnly())
-      {
-         FsckTkEx::fsckOutput("");
-         FsckTkEx::fsckOutput("Repairing now...");
-      }
-
-      // repair
-      repairWrongChunkPaths();
-
-      FsckTkEx::fsckOutput("");
+      FsckTkEx::fsckOutput("   * Found on node " + StringTk::uintToStr(*it),
+         OutputOptions_LINEBREAK | OutputOptions_NOSTDOUT);
    }
+}
 
-   return errorCount;
+int64_t ModeCheckFS::checkDuplicateChunks()
+{
+   FsckTkEx::fsckOutput("* Duplicated chunks ...", OutputOptions_FLUSH | OutputOptions_LINEBREAK);
+
+   int dummy = 0;
+   return checkAndRepairGeneric(this->database->findDuplicateChunks(),
+      &ModeCheckFS::logDuplicateChunk, dummy);
+}
+
+void ModeCheckFS::logDuplicateChunk(std::list<FsckChunk>& dups, int&)
+{
+   FsckTkEx::fsckOutput(">>> Found duplicated Chunks for ID " + dups.begin()->getID(),
+      OutputOptions_LINEBREAK | OutputOptions_NOSTDOUT);
+   for(std::list<FsckChunk>::iterator it = dups.begin(), end = dups.end();
+         it != end; ++it)
+   {
+      FsckTkEx::fsckOutput("   * Found on target " + StringTk::uintToStr(it->getTargetID() )
+         + (it->getBuddyGroupID()
+               ? ", buddy group " + StringTk::uintToStr(it->getBuddyGroupID() )
+               : "")
+         + " in path " + it->getSavedPath()->getPathAsStr(),
+         OutputOptions_LINEBREAK | OutputOptions_NOSTDOUT);
+   }
 }
 
 void ModeCheckFS::checkAndRepair()
@@ -1818,2250 +714,780 @@ void ModeCheckFS::checkAndRepair()
 
    Config* cfg = Program::getApp()->getConfig();
 
-   // we want to check more than once if errors in the DB were fixed, because this could lead to
-   // new errros in the checks we already did before
-   // BUT: to prevent endless loops (in case we missed something) we try a maximum of
-   // MAX_CHECK_CYCLES
-   int64_t errorCount;
-   int maxRetries = MAX_CHECK_CYCLES;
-   int retry = 0;
+   int64_t errorCount = 0;
 
-   do
+   errorCount += checkDuplicateInodeIDs();
+   errorCount += checkDuplicateChunks();
+
+   if(errorCount)
    {
-      retry++;
-      errorCount = 0;
-      // for each error code present the errors and repair
+      FsckTkEx::fsckOutput("Found errors beegfs-fsck cannot fix. Please consult the log for "
+         "more information.", OutputOptions_LINEBREAK);
+      return;
+   }
 
-      checkAndRepairMissingTargets();
+   errorCount += checkAndRepairFilesWithMissingTargets();
+   errorCount += checkAndRepairOrphanedDentryByIDFiles();
+   errorCount += checkAndRepairDirEntriesWithBrokeByIDFile();
+   errorCount += checkAndRepairChunksInWrongPath();
+   errorCount += checkAndRepairWrongInodeOwner();
+   errorCount += checkAndRepairWrongOwnerInDentry();
+   errorCount += checkAndRepairOrphanedContDir();
+   errorCount += checkAndRepairOrphanedDirInode();
+   errorCount += checkAndRepairOrphanedFileInode();
+   errorCount += checkAndRepairDanglingDentry();
+   errorCount += checkAndRepairOrphanedChunk();
+   errorCount += checkAndRepairMissingContDir();
+   errorCount += checkAndRepairWrongFileAttribs();
+   errorCount += checkAndRepairWrongDirAttribs();
 
-      errorCount += checkAndRepairFilesWithMissingTargets();
-      errorCount += checkAndRepairOrphanedDentryByIDFiles();
-      errorCount += checkAndRepairDirEntriesWithBrokeByIDFile();
-      errorCount += checkAndRepairChunksInWrongPath();
-      errorCount += checkAndRepairWrongInodeOwner();
-      errorCount += checkAndRepairWrongOwnerInDentry();
-      errorCount += checkAndRepairOrphanedContDir();
-      errorCount += checkAndRepairOrphanedDirInode();
-      errorCount += checkAndRepairOrphanedFileInode();
-      errorCount += checkAndRepairOrphanedChunk();
-      errorCount += checkAndRepairDanglingDentry();
-      errorCount += checkAndRepairMissingContDir();
-      errorCount += checkAndRepairWrongFileAttribs();
-      errorCount += checkAndRepairWrongDirAttribs();
+   if ( cfg->getQuotaEnabled())
+   {
+      errorCount += checkAndRepairChunksWithWrongPermissions();
+   }
 
-      if ( cfg->getQuotaEnabled())
-      {
-         errorCount += checkAndRepairChunksWithWrongPermissions();
-      }
+   if ( cfg->getReadOnly() )
+   {
+      FsckTkEx::fsckOutput(
+         "Found " + StringTk::int64ToStr(errorCount)
+            + " errors. Detailed information can also be found in "
+            + Program::getApp()->getConfig()->getLogOutFile() + ".",
+         OutputOptions_ADDLINEBREAKBEFORE | OutputOptions_LINEBREAK);
+      return;
+   }
 
-      if ( cfg->getReadOnly() )
-      {
-         FsckTkEx::fsckOutput(
-            "Found " + StringTk::int64ToStr(errorCount)
-               + " errors. Detailed information can also be found in "
-               + Program::getApp()->getConfig()->getLogOutFile() + ".",
-            OutputOptions_ADDLINEBREAKBEFORE | OutputOptions_LINEBREAK);
-         break;
-      }
-
-      if ( errorCount > 0 )
-      {
-         if ( retry < maxRetries )
-         {
-            FsckTkEx::fsckOutput(
-               ">>> Found " + StringTk::int64ToStr(errorCount)
-            + " errors; Re-running check phase <<< ",
-            OutputOptions_ADDLINEBREAKBEFORE | OutputOptions_LINEBREAK);
-         }
-         else
-         {
-            FsckTkEx::fsckOutput(
-               "Found " + StringTk::int64ToStr(errorCount)
-                  + " errors, which could not be repaired now. We recommend running Fsck again.",
-               OutputOptions_ADDLINEBREAKBEFORE);
-         }
-      }
-   } while ( (errorCount > 0) && (retry < maxRetries) );
+   if(errorCount > 0)
+      FsckTkEx::fsckOutput(">>> Found " + StringTk::int64ToStr(errorCount) + " errors <<< ",
+         OutputOptions_ADDLINEBREAKBEFORE | OutputOptions_LINEBREAK);
 }
 
 //////////////////////////
 // internals      ///////
 /////////////////////////
-FsckRepairAction ModeCheckFS::chooseAction(FsckErrorCode errorCode,
-   std::vector<FsckRepairAction> possibleActions, bool& outAskNextTime)
+void ModeCheckFS::repairDanglingDirEntry(db::DirEntry& entry,
+   std::pair<UserPrompter*, UserPrompter*>& prompt)
 {
-   while ( true )
+   FsckDirEntry fsckEntry = entry;
+
+   FsckRepairAction action;
+   std::string promptText = "Entry ID: " + fsckEntry.getID() + "; Path: "
+      + this->database->getDentryTable()->getPathOf(entry);
+
+   if(fsckEntry.getEntryType() == FsckDirEntryType_DIRECTORY)
+      action = prompt.second->chooseAction(promptText);
+   else
+      action = prompt.first->chooseAction(promptText);
+
+   fsckEntry.setName(this->database->getDentryTable()->getNameOf(entry) );
+
+   FsckDirEntryList entries(1, fsckEntry);
+   FsckDirEntryList failedEntries;
+
+   NodeStore* nodes = Program::getApp()->getMetaNodes();
+
+   switch(action)
    {
-      for ( size_t i = 0; i < possibleActions.size(); i++ )
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
+
+   case FsckRepairAction_DELETEDENTRY: {
+      Node* node = nodes->referenceNode(fsckEntry.getSaveNodeID() );
+
+      MsgHelperRepair::deleteDanglingDirEntries(node, &entries, &failedEntries);
+
+      if(failedEntries.empty() )
       {
-         FsckTkEx::fsckOutput(
-            "   " + StringTk::uintToStr(i + 1) + ") "
-               + FsckTkEx::getRepairActionDesc(possibleActions[i]), OutputOptions_NOLOG |
-               OutputOptions_LINEBREAK);
+         this->database->getDentryTable()->remove(entries);
+         this->deleteFsIDsFromDB(entries);
       }
 
-      for ( size_t i = 0; i < possibleActions.size(); i++ )
-      {
-         FsckTkEx::fsckOutput(
-            "   " + StringTk::uintToStr(i + possibleActions.size() + 1) + ") "
-               + FsckTkEx::getRepairActionDesc(possibleActions[i]) + " (apply for all)",
-               OutputOptions_NOLOG | OutputOptions_LINEBREAK);
-      }
-
-      char charInput;
-      std::cin >> charInput;
-
-      unsigned input = StringTk::strToUInt(std::string(&charInput, 1));
-
-      if ( (input > 0) && (input <= possibleActions.size()) )
-      {
-         // user chose for this error
-         return possibleActions[input - 1];
-      }
-      else
-         if ( (input > possibleActions.size()) && (input <= possibleActions.size() * 2) )
-         {
-            // user chose for all errors => do not ask again
-            outAskNextTime = false;
-            FsckRepairAction repairAction = possibleActions[input - possibleActions.size() - 1];
-            this->repairActions[errorCode] = repairAction;
-            return repairAction;
-         }
+      nodes->releaseNode(&node);
+      break;
    }
 
-   return FsckRepairAction_UNDEFINED;
-}
+   case FsckRepairAction_CREATEDEFAULTDIRINODE: {
+      Node* node = nodes->referenceNode(fsckEntry.getSaveNodeID() );
 
-void ModeCheckFS::repairDanglingDirEntries()
-{
-   {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckDirEntry>* cursor = this->database->getDanglingDirEntries(
-         FsckRepairAction_NOTHING);
+      StringList inodeIDs(1, fsckEntry.getID() );
+      StringList failedCreates;
 
-      FsckDirEntry* currentEntry = cursor->open();
+      FsckDirInodeList createdInodes;
 
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_DANGLINGDENTRY,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
+      MsgHelperRepair::createDefDirInodes(node, &inodeIDs, &createdInodes);
 
-      cursor->close();
-      SAFE_DELETE(cursor);
+      this->database->getDirInodesTable()->insert(createdInodes);
+
+      nodes->releaseNode(&node);
+      break;
    }
 
-   // now take care of the other repair actions
-   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
-
-   Node* currentNode = metaNodeStore->referenceFirstNode();
-
-   // delete dentries if FsckRepairAction_DELETEDENTRY is set
-   while ( currentNode )
-   {
-      uint16_t nodeID = currentNode->getNumID();
-
-      DBCursor<FsckDirEntry>* cursor = this->database->getDanglingDirEntries(
-         FsckRepairAction_DELETEDENTRY, nodeID);
-
-      FsckDirEntryList dentries;
-
-      FsckDirEntry* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         dentries.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_DELETE_DENTRIES or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (dentries.size() >= MAX_DELETE_DENTRIES) || (!currentEntry) )
-         {
-            FsckDirEntryList failedDeletes;
-            MsgHelperRepair::deleteDanglingDirEntries(currentNode, &dentries, &failedDeletes);
-
-            FsckTkEx::removeFromList(dentries, failedDeletes);
-
-            this->deleteDanglingDirEntriesFromDB(dentries, cursor->getHandle());
-            this->deleteDirEntriesFromDB(dentries, cursor->getHandle());
-            this->deleteFsIDsFromDB(dentries, cursor->getHandle());
-            dentries.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      metaNodeStore->releaseNode(&currentNode);
-      currentNode = metaNodeStore->referenceNextNode(nodeID);
-   }
-
-   currentNode = metaNodeStore->referenceFirstNode();
-
-   // create default dir inode if FsckRepairAction_CREATEDEFAULTDIRINODE is set
-   while ( currentNode )
-   {
-      uint16_t nodeID = currentNode->getNumID();
-
-      DBCursor<FsckDirEntry>* cursor = this->database->getDanglingDirEntriesByInodeOwner(
-         FsckRepairAction_CREATEDEFAULTDIRINODE, nodeID);
-
-      StringList inodeIDs;
-      FsckDirEntryList dentries;
-
-      FsckDirEntry* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         inodeIDs.push_back(currentEntry->getID());
-         dentries.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_CREATE_DIR_INODES or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (inodeIDs.size() >= MAX_CREATE_DIR_INODES) || (!currentEntry) )
-         {
-            StringList failedCreates;
-            FsckDirInodeList createdInodes;
-            MsgHelperRepair::createDefDirInodes(currentNode, &inodeIDs, &createdInodes);
-
-            this->insertCreatedDirInodesToDB(createdInodes, cursor->getHandle());
-            this->deleteDanglingDirEntriesFromDB(dentries, cursor->getHandle());
-
-            inodeIDs.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      metaNodeStore->releaseNode(&currentNode);
-      currentNode = metaNodeStore->referenceNextNode(nodeID);
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairWrongInodeOwners()
+void ModeCheckFS::repairWrongInodeOwner(FsckDirInode& inode, UserPrompter& prompt)
 {
+   FsckRepairAction action = prompt.chooseAction("Entry ID: " + inode.getID()
+      + "; Path: "
+      + this->database->getDentryTable()->getPathOf(db::EntryID::fromStr(inode.getID() ) ) );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckDirInode>* cursor = this->database->getInodesWithWrongOwner(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckDirInode* currentEntry = cursor->open();
+   case FsckRepairAction_CORRECTOWNER: {
+      NodeStore* nodes = Program::getApp()->getMetaNodes();
+      Node* node = nodes->referenceNode(inode.getSaveNodeID() );
 
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_WRONGINODEOWNER,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
+      inode.setOwnerNodeID(inode.getSaveNodeID() );
 
-      cursor->close();
-      SAFE_DELETE(cursor);
+      FsckDirInodeList inodes(1, inode);
+      FsckDirInodeList failed;
+
+      MsgHelperRepair::correctInodeOwners(node, &inodes, &failed);
+
+      if(failed.empty() )
+         this->database->getDirInodesTable()->update(inodes);
+
+      nodes->releaseNode(&node);
+      break;
    }
 
-   // now take care of the other repair actions
-   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
-
-   Node* currentNode = metaNodeStore->referenceFirstNode();
-
-   // correct the owner if FsckRepairAction_CORRECTOWNER is set
-   while ( currentNode )
-   {
-      uint16_t nodeID = currentNode->getNumID();
-
-      FsckDirInodeList inodes;
-
-      DBCursor<FsckDirInode>* cursor = this->database->getInodesWithWrongOwner(
-         FsckRepairAction_CORRECTOWNER, nodeID);
-
-      FsckDirInode* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         // update the inode to have the right owner
-         currentEntry->setOwnerNodeID(currentEntry->getSaveNodeID());
-         inodes.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_CORRECT_OWNER or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (inodes.size() >= MAX_CORRECT_OWNER) || (!currentEntry) )
-         {
-            FsckDirInodeList failedCorrections;
-
-            MsgHelperRepair::correctInodeOwners(currentNode, &inodes, &failedCorrections);
-
-            FsckTkEx::removeFromList(inodes, failedCorrections);
-
-            this->correctAndDeleteWrongOwnerInodesFromDB(inodes, cursor->getHandle());
-            inodes.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      metaNodeStore->releaseNode(&currentNode);
-      currentNode = metaNodeStore->referenceNextNode(nodeID);
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairWrongInodeOwnersInDentry()
+void ModeCheckFS::repairWrongInodeOwnerInDentry(std::pair<db::DirEntry, uint16_t>& error,
+   UserPrompter& prompt)
 {
+   FsckDirEntry fsckEntry = error.first;
+
+   FsckRepairAction action = prompt.chooseAction("File ID: " + fsckEntry.getID()
+      + "; Path: " + this->database->getDentryTable()->getPathOf(error.first) );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckDirEntry>* cursor = this->database->getDirEntriesWithWrongOwner(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckDirEntry* currentEntry = cursor->open();
+   case FsckRepairAction_CORRECTOWNER: {
+      NodeStore* nodes = Program::getApp()->getMetaNodes();
+      Node* node = nodes->referenceNode(fsckEntry.getSaveNodeID() );
 
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_WRONGOWNERINDENTRY,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
+      fsckEntry.setName(this->database->getDentryTable()->getNameOf(error.first) );
+      fsckEntry.setEntryOwnerNodeID(error.second);
 
-      cursor->close();
-      SAFE_DELETE(cursor);
+      FsckDirEntryList dentries(1, fsckEntry);
+      FsckDirEntryList failed;
+
+      MsgHelperRepair::correctInodeOwnersInDentry(node, &dentries, &failed);
+
+      if(failed.empty() )
+         this->database->getDentryTable()->updateFieldsExceptParent(dentries);
+
+      nodes->releaseNode(&node);
+      break;
    }
 
-   // now take care of the other repair actions
-   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
-
-   Node* currentNode = metaNodeStore->referenceFirstNode();
-
-   // correct the owner if FsckRepairAction_CORRECTOWNER is set
-   while ( currentNode )
-   {
-      uint16_t nodeID = currentNode->getNumID();
-
-      DBCursor<FsckDirEntry>* cursor = this->database->getDirEntriesWithWrongOwner(
-         FsckRepairAction_CORRECTOWNER, nodeID);
-
-      FsckDirEntryList dentries;
-
-      FsckDirEntry* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         dentries.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_CORRECT_OWNER or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (dentries.size() >= MAX_CORRECT_OWNER) || (!currentEntry) )
-         {
-            FsckDirEntryList failedCorrections;
-
-            this->setCorrectInodeOwnersInDentry(dentries);
-
-            MsgHelperRepair::correctInodeOwnersInDentry(currentNode, &dentries, &failedCorrections);
-
-            FsckTkEx::removeFromList(dentries, failedCorrections);
-
-            this->correctAndDeleteWrongOwnerEntriesFromDB(dentries, cursor->getHandle());
-            dentries.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      metaNodeStore->releaseNode(&currentNode);
-      currentNode = metaNodeStore->referenceNextNode(nodeID);
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairOrphanedDirInodes()
+void ModeCheckFS::repairOrphanedDirInode(FsckDirInode& inode, UserPrompter& prompt)
 {
+   FsckRepairAction action = prompt.chooseAction("Directory ID: " + inode.getID() );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckDirInode>* cursor = this->database->getOrphanedDirInodes(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckDirInode* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_ORPHANEDDIRINODE,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-   }
-
-   // now take care of the other repair actions
-   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
-
-   // link to l+f if FsckRepairAction_LOSTANDFOUND is set
-
-   // get the node, where the lost and found directory is located
-   EntryInfo lostAndFoundInfo;
-   Node* lostAndFoundNode = MsgHelperRepair::referenceLostAndFoundOwner(&lostAndFoundInfo);
-
-   if ( !lostAndFoundNode )
-   {
-      // l+f doesn't seem to exist yet => create it
-      if ( !MsgHelperRepair::createLostAndFound(&lostAndFoundNode, lostAndFoundInfo) )
+   case FsckRepairAction_LOSTANDFOUND: {
+      if(!ensureLostAndFoundExists() )
       {
          log.logErr("Orphaned dir inodes could not be linked to lost+found, because lost+found "
             "directory could not be created");
          return;
       }
-   }
 
-   FsckDirInodeList inodes;
+      FsckDirInodeList inodes(1, inode);
+      FsckDirEntryList created;
+      FsckDirInodeList failed;
 
-   DBCursor<FsckDirInode>* cursor = this->database->getOrphanedDirInodes(
-      FsckRepairAction_LOSTANDFOUND);
+      MsgHelperRepair::linkToLostAndFound(this->lostAndFoundNode, &this->lostAndFoundInfo, &inodes,
+         &failed, &created);
 
-   FsckDirInode* currentEntry = cursor->open();
+      if(failed.empty() )
+         this->database->getDentryTable()->insert(created);
 
-   while ( currentEntry )
-   {
-      inodes.push_back(*currentEntry);
-
-      currentEntry = cursor->step();
-
-      // if the list exceeds MAX_LOST_AND_FOUND or if this was the last entry, send a message
-      // to the metadata server and correct the database
-      if ( (inodes.size() >= MAX_LOST_AND_FOUND) || (!currentEntry) )
+      // on server side, each dentry also created a dentry-by-ID file
+      FsckFsIDList createdFsIDs;
+      for(FsckDirEntryListIter iter = created.begin(); iter != created.end(); iter++)
       {
-         FsckDirEntryList createdDentries;
-         FsckDirInodeList failedInodes;
-
-         MsgHelperRepair::linkToLostAndFound(lostAndFoundNode, &lostAndFoundInfo, &inodes,
-            &failedInodes, &createdDentries);
-
-         FsckTkEx::removeFromList(inodes, failedInodes);
-
-         this->deleteOrphanedDirInodesFromDB(inodes, cursor->getHandle());
-         this->insertCreatedDirEntriesToDB(createdDentries, cursor->getHandle());
-
-         // on server side, each dentry also created a dentry-by-ID file
-         FsckFsIDList createdFsIDs;
-         for ( FsckDirEntryListIter iter = createdDentries.begin(); iter != createdDentries.end();
-            iter++ )
-         {
-            FsckFsID fsID(iter->getID(), iter->getParentDirID(), iter->getSaveNodeID(),
-               iter->getSaveDevice(), iter->getSaveInode());
-            createdFsIDs.push_back(fsID);
-         }
-
-         this->insertCreatedFsIDsToDB(createdFsIDs, cursor->getHandle());
-
-         std::string lostFoundEntryID = lostAndFoundInfo.getEntryID();
-
-         // update lost+found dir inode in DB
-         FsckDirInode* lostAndFoundInode = this->database->getDirInode(lostFoundEntryID);
-         if ( likely(lostAndFoundInode) )
-         {
-            FsckDirInodeList updateList;
-            updateList.push_back(*lostAndFoundInode);
-            this->setUpdatedDirAttribs(updateList);
-            this->updateDirInodesInDB(updateList, cursor->getHandle());
-
-            SAFE_DELETE(lostAndFoundInode);
-         }
-         else
-            log.logErr("Failed to get lostAndFoundInode: " + lostFoundEntryID);
-
-         inodes.clear();
+         FsckFsID fsID(iter->getID(), iter->getParentDirID(), iter->getSaveNodeID(),
+            iter->getSaveDevice(), iter->getSaveInode());
+         createdFsIDs.push_back(fsID);
       }
 
+      this->database->getFsIDsTable()->insert(createdFsIDs);
+      break;
    }
 
-   cursor->close();
-   SAFE_DELETE(cursor);
-
-   metaNodeStore->releaseNode(&lostAndFoundNode);
+   default:
+      throw std::runtime_error("bad repair action");
+   }
 }
 
-void ModeCheckFS::repairOrphanedFileInodes()
+void ModeCheckFS::repairOrphanedFileInode(FsckFileInode& inode, UserPrompter& prompt)
 {
+   FsckRepairAction action = prompt.chooseAction("File ID: " + inode.getID() );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckFileInode>* cursor = this->database->getOrphanedFileInodes(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckFileInode* currentEntry = cursor->open();
+   case FsckRepairAction_DELETEINODE: {
+      NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
+      Node* node = metaNodeStore->referenceNode(inode.getSaveNodeID() );
 
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_ORPHANEDFILEINODE,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
+      FsckFileInodeList inodes(1, inode);
+      StringList failed;
 
-      cursor->close();
-      SAFE_DELETE(cursor);
+      MsgHelperRepair::deleteFileInodes(node, inodes, failed);
+
+      if(failed.empty() )
+         this->database->getFileInodesTable()->remove(inodes);
+
+      metaNodeStore->releaseNode(&node);
+      break;
    }
 
-   // now take care of the other repair actions
-   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
-
-   // delete the inode if FsckRepairAction_DELETEINODE is set
-   // do this for each metadata node
-   Node* currentNode = metaNodeStore->referenceFirstNode();
-
-   while ( currentNode )
-   {
-      uint16_t nodeID = currentNode->getNumID();
-      FsckFileInodeList inodes;
-
-      DBCursor<FsckFileInode>* cursor = this->database->getOrphanedFileInodes(
-         FsckRepairAction_DELETEINODE, nodeID);
-
-      FsckFileInode* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         inodes.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_DELETE_INODE or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (inodes.size() >= MAX_DELETE_FILE_INODE) || (!currentEntry) )
-         {
-            StringList failedIDs;
-
-            MsgHelperRepair::deleteFileInodes(currentNode, inodes, failedIDs);
-
-            FsckTkEx::removeFromList(inodes, failedIDs);
-
-            this->deleteOrphanedFileInodesFromDB(inodes, cursor->getHandle());
-            this->deleteFileInodesFromDB(inodes, cursor->getHandle());
-            inodes.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      currentNode = metaNodeStore->referenceNextNode(nodeID);
+   default:
+      throw std::runtime_error("bad repair action");
    }
+}
 
+void ModeCheckFS::repairOrphanedChunk(FsckChunk& chunk, RepairChunkState& state)
+{
+   // ask for repair action only once per chunk id, not once per chunk id and node
+   if(state.lastID != chunk.getID() )
+      state.lastChunkAction = state.prompt->chooseAction("Chunk ID: " + chunk.getID() );
 
+   state.lastID = chunk.getID();
 
-   // link to l+f if FsckRepairAction_LOSTANDFOUND is set
-
-   // get the node, where the lost and found directory is located
- /*  EntryInfo lostAndFoundInfo;
-   Node* lostAndFoundNode = MsgHelperRepair::referenceLostAndFoundOwner(&lostAndFoundInfo);
-
-   if ( !lostAndFoundNode )
+   switch(state.lastChunkAction)
    {
-      // l+f doesn't seem to exist yet => create it
-      if ( !MsgHelperRepair::createLostAndFound(&lostAndFoundNode, lostAndFoundInfo) )
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
+
+   case FsckRepairAction_DELETECHUNK: {
+      FhgfsOpsErr refErr;
+      NodeStore* storageNodeStore = Program::getApp()->getStorageNodes();
+      Node* node = storageNodeStore->referenceNodeByTargetID(chunk.getTargetID(),
+         Program::getApp()->getTargetMapper(), &refErr);
+
+      if(!node)
       {
-         log.logErr("Orphaned file inodes could not be linked to lost+found, because lost+found "
-            "directory could not be created");
+         FsckTkEx::fsckOutput("could not get storage target "
+            + StringTk::uintToStr(chunk.getTargetID() ), OutputOptions_LINEBREAK);
          return;
       }
+
+      FsckChunkList chunks(1, chunk);
+      FsckChunkList failed;
+
+      MsgHelperRepair::deleteChunks(node, &chunks, &failed);
+
+      if(failed.empty() )
+         this->database->getChunksTable()->remove(db::EntryID::fromStr(chunk.getID() ) );
+
+      storageNodeStore->releaseNode(&node);
+      break;
    }
 
-   FsckFileInodeList inodes;
-
-   DBCursor<FsckFileInode>* cursor = this->database->getOrphanedFileInodes(
-      FsckRepairAction_LOSTANDFOUND);
-
-   FsckFileInode* currentEntry = cursor->open();
-
-   while ( currentEntry )
-   {
-      inodes.push_back(*currentEntry);
-
-      currentEntry = cursor->step();
-
-      // if the list exceeds MAX_LOST_AND_FOUND or if this was the last entry, send a message
-      // to the metadata server and correct the database
-      if ( (inodes.size() >= MAX_LOST_AND_FOUND) || (!currentEntry) )
-      {
-         FsckDirEntryList createdDentries;
-         FsckFileInodeList failedInodes;
-
-         MsgHelperRepair::linkToLostAndFound(lostAndFoundNode, &lostAndFoundInfo, &inodes,
-            &failedInodes, &createdDentries);
-
-         FsckTkEx::removeFromList(inodes, failedInodes);
-
-         this->deleteOrphanedFileInodesFromDB(inodes, cursor->getHandle());
-         this->insertCreatedDirEntriesToDB(createdDentries, cursor->getHandle());
-         inodes.clear();
-      }
-   }
-
-   cursor->close();
-   SAFE_DELETE(cursor);
-
-   metaNodeStore->releaseNode(&lostAndFoundNode); */
-}
-
-void ModeCheckFS::repairOrphanedChunks()
-{
-   {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckChunk>* cursor = this->database->getOrphanedChunks(FsckRepairAction_NOTHING);
-
-      FsckChunk* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_ORPHANEDCHUNK,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-   }
-
-   // now take care of the other repair actions
-   App* app = Program::getApp();
-   NodeStore* storageNodeStore = app->getStorageNodes();
-
-   Node* currentNode = storageNodeStore->referenceFirstNode();
-
-   // delete the chunk if FsckRepairAction_DELETECHUNK is set
-   while ( currentNode )
-   {
-      uint16_t nodeID = currentNode->getNumID();
-
-      UInt16List targetIDs;
-      app->getTargetMapper()->getTargetsByNode(nodeID, targetIDs);
-
-      for ( UInt16ListIter targetIter = targetIDs.begin(); targetIter != targetIDs.end();
-         targetIter++ )
-      {
-
-         DBCursor<FsckChunk>* cursor = this->database->getOrphanedChunks(
-            FsckRepairAction_DELETECHUNK, *targetIter);
-
-         FsckChunkList chunks;
-
-         FsckChunk* currentEntry = cursor->open();
-
-         while ( currentEntry )
-         {
-            chunks.push_back(*currentEntry);
-
-            currentEntry = cursor->step();
-
-            // if the list exceeds MAX_DELETE_CHUNK or if this was the last entry, send a message
-            // to the metadata server and correct the database
-            if ( (chunks.size() >= MAX_DELETE_CHUNK) || (!currentEntry) )
-            {
-               FsckChunkList failedDeletes;
-
-               MsgHelperRepair::deleteChunks(currentNode, &chunks, &failedDeletes);
-
-               FsckTkEx::removeFromList(chunks, failedDeletes);
-
-               this->deleteOrphanedChunksFromDB(chunks, cursor->getHandle());
-               this->deleteChunksFromDB(chunks, cursor->getHandle());
-               chunks.clear();
-            }
-         }
-
-         cursor->close();
-         SAFE_DELETE(cursor);
-
-      }
-
-      storageNodeStore->releaseNode(&currentNode);
-      currentNode = storageNodeStore->referenceNextNode(nodeID);
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairMissingContDirs()
+void ModeCheckFS::repairMissingContDir(FsckDirInode& inode, UserPrompter& prompt)
 {
+   FsckRepairAction action = prompt.chooseAction("Directory ID: " + inode.getID()
+      + "; Path: "
+      + this->database->getDentryTable()->getPathOf(db::EntryID::fromStr(inode.getID() ) ) );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckDirInode>* cursor = this->database->getInodesWithoutContDir(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckDirInode* currentEntry = cursor->open();
+   case FsckRepairAction_CREATECONTDIR: {
+      NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
+      Node* node = metaNodeStore->referenceNode(inode.getSaveNodeID() );
 
-      while ( currentEntry )
+      FsckDirInodeList inodes(1, inode);
+      StringList failed;
+
+      MsgHelperRepair::createContDirs(node, &inodes, &failed);
+
+      if(failed.empty() )
       {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_MISSINGCONTDIR,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
+         // create a list of cont dirs from dir inode
+         FsckContDirList contDirs(1,
+            FsckContDir(inode.getID(), inode.getSaveNodeID() ) );
 
-      cursor->close();
-      SAFE_DELETE(cursor);
-   }
-
-   // now take care of the other repair actions
-   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
-
-   Node* node = metaNodeStore->referenceFirstNode();
-
-   while ( node )
-   {
-      uint16_t nodeID = node->getNumID();
-
-      { // FsckRepairAction_CREATECONTDIR
-        // create an empty content directory if FsckRepairAction_CREATECONTDIR is set
-         FsckDirInodeList inodes;
-
-         DBCursor<FsckDirInode>* cursor = this->database->getInodesWithoutContDir(
-            FsckRepairAction_CREATECONTDIR, nodeID);
-
-         FsckDirInode* currentEntry = cursor->open();
-
-         while ( currentEntry )
-         {
-            inodes.push_back(*currentEntry);
-
-            currentEntry = cursor->step();
-
-            // if the list exceeds MAX_CREATE_CONT_DIR or if this was the last entry, send a message
-            // to the metadata server and correct the database
-            if ( (inodes.size() >= MAX_CREATE_CONT_DIR) || (!currentEntry) )
-            {
-               StringList failedCreates;
-
-               MsgHelperRepair::createContDirs(node, &inodes, &failedCreates);
-
-               FsckTkEx::removeFromList(inodes, failedCreates);
-
-               this->insertCreatedContDirsToDB(inodes, cursor->getHandle());
-               this->deleteMissingContDirsFromDB(inodes, cursor->getHandle());
-
-               inodes.clear();
-            }
-         }
-
-         cursor->close();
-         SAFE_DELETE(cursor);
+         this->database->getContDirsTable()->insert(contDirs);
       }
 
       metaNodeStore->releaseNode(&node);
-      node = metaNodeStore->referenceNextNode(nodeID);
+      break;
+   }
+
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairOrphanedContDirs()
+void ModeCheckFS::repairOrphanedContDir(FsckContDir& dir, UserPrompter& prompt)
 {
+   FsckRepairAction action = prompt.chooseAction("Directory ID: " + dir.getID() );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckContDir>* cursor = this->database->getOrphanedContDirs(FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckContDir* currentEntry = cursor->open();
+   case FsckRepairAction_CREATEDEFAULTDIRINODE: {
+      NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
+      Node* node = metaNodeStore->referenceNode(dir.getSaveNodeID() );
 
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_ORPHANEDCONTDIR,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
+      FsckContDirList contDirs(1, dir);
+      StringList inodeIDs(1, dir.getID() );
 
-      cursor->close();
-      SAFE_DELETE(cursor);
-   }
+      FsckDirInodeList createdInodes;
+      MsgHelperRepair::createDefDirInodes(node, &inodeIDs, &createdInodes);
 
-   // now take care of the other repair actions
-   App* app = Program::getApp();
-   NodeStore* metaNodeStore = app->getMetaNodes();
-
-   Node* node = metaNodeStore->referenceFirstNode();
-
-   while ( node )
-   {
-      uint16_t nodeID = node->getNumID();
-
-      // create default dir inode if FsckRepairAction_CREATEDEFAULTDIRINODE is set
-      DBCursor<FsckContDir>* cursor = this->database->getOrphanedContDirs(
-         FsckRepairAction_CREATEDEFAULTDIRINODE, nodeID);
-
-      FsckContDirList contDirs;
-      StringList inodeIDs;
-
-      FsckContDir* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         contDirs.push_back(*currentEntry);
-         inodeIDs.push_back(currentEntry->getID());
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_CREATE_DIR_INODES or if this was the last entry, send a
-         // message to the metadata server and correct the database
-         if ( (contDirs.size() >= MAX_CREATE_DIR_INODES) || (!currentEntry) )
-         {
-            StringList failedCreates;
-            FsckDirInodeList createdInodes;
-            MsgHelperRepair::createDefDirInodes(node, &inodeIDs, &createdInodes);
-
-            this->insertCreatedDirInodesToDB(createdInodes, cursor->getHandle());
-            this->deleteOrphanedContDirsFromDB(contDirs, cursor->getHandle());
-
-            contDirs.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
+      this->database->getDirInodesTable()->insert(createdInodes);
 
       metaNodeStore->releaseNode(&node);
-      node = metaNodeStore->referenceNextNode(nodeID);
+      break;
+   }
+
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairWrongFileAttribs()
+void ModeCheckFS::repairWrongFileAttribs(std::pair<FsckFileInode, checks::InodeAttribs>& error,
+   UserPrompter& prompt)
 {
+   FsckRepairAction action = prompt.chooseAction("File ID: " + error.first.getID() + "; Path: "
+      + this->database->getDentryTable()->getPathOf(db::EntryID::fromStr(error.first.getID() ) ) );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckFileInode>* cursor = this->database->getInodesWithWrongFileAttribs(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckFileInode* currentEntry = cursor->open();
+   case FsckRepairAction_UPDATEATTRIBS: {
+      NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
+      Node* node = metaNodeStore->referenceNode(error.first.getSaveNodeID() );
 
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_WRONGFILEATTRIBS,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
+      FsckFileInodeList inodes(1, error.first);
+      FsckFileInodeList failed;
 
-      cursor->close();
-      SAFE_DELETE(cursor);
-   }
+      // update the file attribs in the inode objects (even though they may not be used
+      // on the server side, we need updated values here to update the DB
+      error.first.setFileSize(error.second.size);
+      error.first.setNumHardLinks(error.second.nlinks);
 
-   // now take care of the other repair actions
-   App* app = Program::getApp();
-   NodeStore* metaNodeStore = app->getMetaNodes();
+      MsgHelperRepair::updateFileAttribs(node, &inodes, &failed);
 
-   Node* node = metaNodeStore->referenceFirstNode();
-
-   while ( node )
-   {
-      uint16_t nodeID = node->getNumID();
-
-      // update attribs if FsckRepairAction_UPDATEATTRIBS is set
-      DBCursor<FsckFileInode>* cursor = this->database->getInodesWithWrongFileAttribs(
-         FsckRepairAction_UPDATEATTRIBS, nodeID);
-
-      FsckFileInodeList inodes;
-
-      FsckFileInode* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         inodes.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_UPDATE_FILE_ATTRIBS or if this was the last entry, send a
-         // message to the metadata server and correct the database
-         if ( (inodes.size() >= MAX_UPDATE_FILE_ATTRIBS) || (!currentEntry) )
-         {
-            FsckFileInodeList failedUpdates;
-
-            // update the file attribs in the inode objects (even though they may not be used
-            // on the server side, we need updated values here to update the DB
-            this->setUpdatedFileAttribs(inodes);
-
-            MsgHelperRepair::updateFileAttribs(node, &inodes, &failedUpdates);
-
-            FsckTkEx::removeFromList(inodes, failedUpdates);
-
-            this->updateFileInodesInDB(inodes, cursor->getHandle());
-            this->deleteFileInodesWithWrongAttribsFromDB(inodes, cursor->getHandle());
-
-            inodes.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
+      if(failed.empty() )
+         this->database->getFileInodesTable()->update(inodes);
 
       metaNodeStore->releaseNode(&node);
-      node = metaNodeStore->referenceNextNode(nodeID);
+      break;
+   }
+
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairWrongDirAttribs()
+void ModeCheckFS::repairWrongDirAttribs(std::pair<FsckDirInode, checks::InodeAttribs>& error,
+   UserPrompter& prompt)
 {
+   std::string filePath = this->database->getDentryTable()->getPathOf(
+      db::EntryID::fromStr(error.first.getID() ) );
+   FsckRepairAction action = prompt.chooseAction("Directory ID: " + error.first.getID()
+      + "; Path: " + filePath);
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckDirInode>* cursor = this->database->getInodesWithWrongDirAttribs(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckDirInode* currentEntry = cursor->open();
+   case FsckRepairAction_UPDATEATTRIBS: {
+      NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
+      Node* node = metaNodeStore->referenceNode(error.first.getSaveNodeID() );
 
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_WRONGDIRATTRIBS,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
+      FsckDirInodeList inodes(1, error.first);
+      FsckDirInodeList failed;
 
-      cursor->close();
-      SAFE_DELETE(cursor);
-   }
+      // update the file attribs in the inode objects (even though they may not be used
+      // on the server side, we need updated values here to update the DB
+      error.first.setSize(error.second.size);
+      error.first.setNumHardLinks(error.second.nlinks);
 
-   // now take care of the other repair actions
-   App* app = Program::getApp();
-   NodeStore* metaNodeStore = app->getMetaNodes();
+      MsgHelperRepair::updateDirAttribs(node, &inodes, &failed);
 
-   Node* node = metaNodeStore->referenceFirstNode();
-
-   while ( node )
-   {
-      uint16_t nodeID = node->getNumID();
-
-      // update attribs if FsckRepairAction_UPDATEATTRIBS is set
-      DBCursor<FsckDirInode>* cursor = this->database->getInodesWithWrongDirAttribs(
-         FsckRepairAction_UPDATEATTRIBS, nodeID);
-
-      FsckDirInodeList inodes;
-
-      FsckDirInode* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         inodes.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_UPDATE_FILE_ATTRIBS or if this was the last entry, send a
-         // message to the metadata server and correct the database
-         if ( (inodes.size() >= MAX_UPDATE_FILE_ATTRIBS) || (!currentEntry) )
-         {
-            FsckDirInodeList failedUpdates;
-
-            // update the file attribs in the inode objects (even though they may not be used
-            // on the server side, we need updated values here to update the DB
-            this->setUpdatedDirAttribs(inodes);
-
-            MsgHelperRepair::updateDirAttribs(node, &inodes, &failedUpdates);
-
-            FsckTkEx::removeFromList(inodes, failedUpdates);
-
-            this->updateDirInodesInDB(inodes, cursor->getHandle());
-            this->deleteDirInodesWithWrongAttribsFromDB(inodes, cursor->getHandle());
-
-            inodes.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
+      if(failed.empty() )
+         this->database->getDirInodesTable()->update(inodes);
 
       metaNodeStore->releaseNode(&node);
-      node = metaNodeStore->referenceNextNode(nodeID);
+      break;
+   }
+
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairMissingTargets()
+void ModeCheckFS::repairFileWithMissingTargets(db::DirEntry& entry, UserPrompter& prompt)
 {
+   FsckDirEntry fsckEntry = entry;
+
+   FsckRepairAction action = prompt.chooseAction("Entry ID: " + fsckEntry.getID()
+      + "; Path: " + this->database->getDentryTable()->getPathOf(entry) );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckTargetID>* cursor = this->database->getMissingStripeTargets(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      return;
 
-      FsckTargetID* currentEntry = cursor->open();
+   case FsckRepairAction_DELETEFILE: {
+      NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
+      Node* node = metaNodeStore->referenceNode(fsckEntry.getSaveNodeID() );
 
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_MISSINGTARGET,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
+      fsckEntry.setName(this->database->getDentryTable()->getNameOf(entry) );
 
-      cursor->close();
-      SAFE_DELETE(cursor);
+      FsckDirEntryList dentries(1, fsckEntry);
+      FsckDirEntryList failed;
+
+      MsgHelperRepair::deleteFiles(node, &dentries, &failed);
+
+      if(failed.empty() )
+         this->deleteFilesFromDB(dentries);
+
+      metaNodeStore->releaseNode(&node);
+      break;
    }
 
-   // now take care of the other repair actions
-   // change the target IDs if FsckRepairAction_CHANGETARGET is set
-
-   // get a list of existing target IDs
-   App* app = Program::getApp();
-   TargetMapper* targetMapper = app->getTargetMapper();
-   UInt16List existingTargets;
-   UInt16List mappedNodes;
-   targetMapper->getMappingAsLists(existingTargets, mappedNodes);
-
-   // get a list of existing buddy group IDs
-   MirrorBuddyGroupMapper* buddyGroupMapper = app->getMirrorBuddyGroupMapper();
-   UInt16List existingBuddyGroups;
-   MirrorBuddyGroupList mappedGroups;
-   buddyGroupMapper->getMappingAsLists(existingBuddyGroups, mappedGroups);
-
-   // put together maps, from which the user can later choose the targets and buddy groups
-   std::map<unsigned, uint16_t> possibleTargetChoices;
-   int index = 1;
-   for ( UInt16ListIter existingTargetsIter = existingTargets.begin();
-      existingTargetsIter != existingTargets.end(); existingTargetsIter++, index++ )
-   {
-      possibleTargetChoices[index] = *existingTargetsIter;
-   }
-
-   std::map<unsigned, uint16_t> possibleBuddyGroupChoices;
-   index = 1;
-   for ( UInt16ListIter existingBuddyGroupsIter = existingBuddyGroups.begin();
-      existingBuddyGroupsIter != existingBuddyGroups.end(); existingBuddyGroupsIter++, index++ )
-   {
-      possibleBuddyGroupChoices[index] = *existingBuddyGroupsIter;
-   }
-
-   // get all targets with this repair action set
-   FsckTargetIDList missingTargetIDs;
-   this->database->getMissingStripeTargets(&missingTargetIDs, FsckRepairAction_CHANGETARGET);
-
-   // for each target, ask the user for an "exchange target"
-   for ( FsckTargetIDListIter targetIDIter = missingTargetIDs.begin();
-      targetIDIter != missingTargetIDs.end(); targetIDIter++ )
-   {
-      uint16_t id = targetIDIter->getID();
-      FsckTargetIDType  fsckTargetIDType = targetIDIter->getTargetIDType();
-
-      std::map<unsigned, uint16_t>* possibleChoicesPtr;
-      if (fsckTargetIDType == FsckTargetIDType_BUDDYGROUP)
-      {
-         FsckTkEx::fsckOutput("Change buddy group ID: " + StringTk::uintToStr(id));
-         FsckTkEx::fsckOutput("Please choose from the following existing buddy group IDs :");
-
-         possibleChoicesPtr = &possibleBuddyGroupChoices;
-      }
-      else
-      {
-         FsckTkEx::fsckOutput("Change target ID: " + StringTk::uintToStr(id));
-         FsckTkEx::fsckOutput("Please choose from the following existing target IDs :");
-
-         possibleChoicesPtr = &possibleTargetChoices;
-      }
-
-      unsigned input = '0';
-
-      while ( possibleChoicesPtr->find(input) == possibleChoicesPtr->end() )
-      {
-         for ( std::map<unsigned, uint16_t>::iterator iter = possibleChoicesPtr->begin();
-            iter != possibleChoicesPtr->end(); iter++, index++ )
-         {
-            FsckTkEx::fsckOutput(
-               StringTk::uintToStr(iter->first) + ") " + StringTk::uintToStr(iter->second));
-         }
-
-         char charInput;
-         std::cin >> charInput;
-
-         input = StringTk::strToUInt(std::string(&charInput, 1));
-      }
-
-      uint16_t newTargetID = possibleChoicesPtr->at(input);
-
-      // do the actual work; for each MDS, get all inodes
-      NodeStoreServers* metaNodes = app->getMetaNodes();
-      Node* node = metaNodes->referenceFirstNode();
-
-      while ( node )
-      {
-         uint16_t nodeID = node->getNumID();
-
-         DBCursor<FsckFileInode>* inodeCursor = this->database->getFileInodesWithTarget(nodeID,
-            *targetIDIter);
-
-         FsckFileInode* currentInode = inodeCursor->open();
-
-         FsckFileInodeList inodes;
-         while ( currentInode )
-         {
-            inodes.push_back(*currentInode);
-            currentInode = inodeCursor->step();
-
-            // if MAX_CHANGE_STRIPE_TARGETS is reached send the message to MDS (because we do not
-            // want to exhaust message limits)
-            if ( (inodes.size() == MAX_CHANGE_STRIPE_TARGET) || (!currentInode) )
-            {
-               FsckFileInodeList failedInodes;
-               MsgHelperRepair::changeStripeTarget(node, &inodes, targetIDIter->getID(),
-                  newTargetID, &failedInodes);
-               // change the values in DB
-               FsckTkEx::removeFromList(inodes, failedInodes);
-               this->database->replaceStripeTarget(targetIDIter->getID(), newTargetID, &inodes,
-                  inodeCursor->getHandle());
-
-               // clear the inodes for next loop
-               inodes.clear();
-            }
-         }
-
-         // TODO: do the same with dirInodes
-         inodeCursor->close();
-         SAFE_DELETE(inodeCursor);
-
-         metaNodes->releaseNode(&node);
-         node = metaNodes->referenceNextNode(nodeID);
-      }
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairFilesWithMissingTargets()
+void ModeCheckFS::repairDirEntryWithBrokenByIDFile(db::DirEntry& entry, UserPrompter& prompt)
 {
+   FsckDirEntry fsckEntry = entry;
+
+   FsckRepairAction action = prompt.chooseAction("Entry ID: " + fsckEntry.getID()
+      + "; Path: " + this->database->getDentryTable()->getPathOf(entry) );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckDirEntry>* cursor = this->database->getFilesWithMissingStripeTargets(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckDirEntry* currentEntry = cursor->open();
+   case FsckRepairAction_RECREATEFSID: {
+      NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
+      Node* node = metaNodeStore->referenceNode(fsckEntry.getSaveNodeID() );
 
-      while ( currentEntry )
+      fsckEntry.setName(this->database->getDentryTable()->getNameOf(entry) );
+
+      FsckDirEntryList dentries(1, fsckEntry);
+      FsckDirEntryList failed;
+
+      MsgHelperRepair::recreateFsIDs(node, &dentries, &failed);
+
+      if(failed.empty() )
       {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_FILEWITHMISSINGTARGET,
-            cursor->getHandle());
-         currentEntry = cursor->step();
+         // create a FsID list from the dentry
+         FsckFsIDList idList(1,
+            FsckFsID(fsckEntry.getID(), fsckEntry.getParentDirID(), fsckEntry.getSaveNodeID(),
+               fsckEntry.getSaveDevice(), fsckEntry.getSaveInode() ) );
+
+         this->database->getFsIDsTable()->insert(idList);
       }
 
-      cursor->close();
-      SAFE_DELETE(cursor);
+      metaNodeStore->releaseNode(&node);
+      break;
    }
 
-   // now take care of the other repair actions
-   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
-
-   Node* currentNode = metaNodeStore->referenceFirstNode();
-
-   // delete the file if FsckRepairAction_CORRECTOWNER is set
-   while ( currentNode )
-   {
-      uint16_t nodeID = currentNode->getNumID();
-
-      DBCursor<FsckDirEntry>* cursor = this->database->getFilesWithMissingStripeTargets(
-         FsckRepairAction_DELETEFILE, nodeID);
-
-      FsckDirEntryList dentries;
-
-      FsckDirEntry* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         dentries.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_DELETE_FILES or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (dentries.size() >= MAX_DELETE_FILES) || (!currentEntry) )
-         {
-            FsckDirEntryList failedDeletes;
-
-            MsgHelperRepair::deleteFiles(currentNode, &dentries, &failedDeletes);
-
-            FsckTkEx::removeFromList(dentries, failedDeletes);
-
-            this->deleteFilesWithMissingTargetFromDB(dentries, cursor->getHandle());
-            this->deleteFilesFromDB(dentries, cursor->getHandle());
-            dentries.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      metaNodeStore->releaseNode(&currentNode);
-      currentNode = metaNodeStore->referenceNextNode(nodeID);
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairDirEntriesWithBrokenByIDFile()
+void ModeCheckFS::repairOrphanedDentryByIDFile(FsckFsID& id, UserPrompter& prompt)
 {
+   FsckRepairAction action = prompt.chooseAction("Entry ID: " + id.getID() + "; Path: "
+      + this->database->getDentryTable()->getPathOf(db::EntryID::fromStr(id.getID() ) ) );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckDirEntry>* cursor = this->database->getDirEntriesWithBrokenByIDFile(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckDirEntry* currentEntry = cursor->open();
+   case FsckRepairAction_RECREATEDENTRY: {
+      NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
+      Node* node = metaNodeStore->referenceNode(id.getSaveNodeID() );
 
-      while ( currentEntry )
+      FsckFsIDList fsIDs(1, id);
+      FsckFsIDList failed;
+      FsckDirEntryList createdDentries;
+      FsckFileInodeList createdInodes;
+
+      MsgHelperRepair::recreateDentries(node, &fsIDs, &failed, &createdDentries, &createdInodes);
+
+      if(failed.empty() )
       {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_BROKENFSID,
-            cursor->getHandle());
-         currentEntry = cursor->step();
+         this->database->getDentryTable()->insert(createdDentries);
+         this->database->getFileInodesTable()->insert(createdInodes);
       }
 
-      cursor->close();
-      SAFE_DELETE(cursor);
+      metaNodeStore->releaseNode(&node);
+      break;
    }
 
-   // now take care of the other repair actions
-   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
-
-   Node* currentNode = metaNodeStore->referenceFirstNode();
-
-   // recreate the file if FsckRepairAction_RECREATEFSID is set
-   while ( currentNode )
-   {
-      uint16_t nodeID = currentNode->getNumID();
-
-      DBCursor<FsckDirEntry>* cursor = this->database->getDirEntriesWithBrokenByIDFile(
-         FsckRepairAction_RECREATEFSID, nodeID);
-
-      FsckDirEntryList dentries;
-
-      FsckDirEntry* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         dentries.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_RECREATEFSIDS or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (dentries.size() >= MAX_RECREATEFSIDS) || (!currentEntry) )
-         {
-            FsckDirEntryList failedEntries;
-
-            MsgHelperRepair::recreateFsIDs(currentNode, &dentries, &failedEntries);
-
-            FsckTkEx::removeFromList(dentries, failedEntries);
-
-            this->deleteDirEntriesWithBrokenByIDFileFromDB(dentries, cursor->getHandle());
-            this->updateFsIDsInDB(dentries, cursor->getHandle());
-            dentries.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      metaNodeStore->releaseNode(&currentNode);
-      currentNode = metaNodeStore->referenceNextNode(nodeID);
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairOrphanedDentryByIDFiles()
+void ModeCheckFS::repairChunkWithWrongPermissions(std::pair<FsckChunk, FsckFileInode>& error,
+   UserPrompter& prompt)
 {
+   FsckRepairAction action = prompt.chooseAction("Chunk ID: " + error.first.getID()
+      + "; Target ID: " + StringTk::uintToStr(error.first.getTargetID()) + "; File path: "
+      + this->database->getDentryTable()->getPathOf(db::EntryID::fromStr(error.first.getID() ) ) );
+
+   switch(action)
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckFsID>* cursor = this->database->getOrphanedDentryByIDFiles(
-         FsckRepairAction_NOTHING);
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      FsckFsID* currentEntry = cursor->open();
+   case FsckRepairAction_FIXPERMISSIONS: {
+      NodeStore* nodeStore = Program::getApp()->getStorageNodes();
+      TargetMapper* targetMapper = Program::getApp()->getTargetMapper();
 
-      while ( currentEntry )
-      {
-         this->database->addIgnoreErrorCode(*currentEntry, FsckErrorCode_ORPHANEDFSID,
-            cursor->getHandle());
-         currentEntry = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-   }
-
-   // now take care of the other repair actions
-   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
-
-   Node* currentNode = metaNodeStore->referenceFirstNode();
-
-   // FsckRepairAction_RECREATEDENTRY
-   while ( currentNode )
-   {
-      uint16_t nodeID = currentNode->getNumID();
-
-      DBCursor<FsckFsID>* cursor = this->database->getOrphanedDentryByIDFiles(
-         FsckRepairAction_RECREATEDENTRY, nodeID);
-
-      FsckFsIDList fsIDs;
-
-      FsckFsID* currentEntry = cursor->open();
-
-      while ( currentEntry )
-      {
-         fsIDs.push_back(*currentEntry);
-
-         currentEntry = cursor->step();
-
-         // if the list exceeds MAX_RECREATEDENTRIES or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (fsIDs.size() >= MAX_RECREATEDENTRIES) || (!currentEntry) )
-         {
-            FsckFsIDList failedEntries;
-            FsckDirEntryList createdDentries;
-            FsckFileInodeList createdInodes;
-
-            MsgHelperRepair::recreateDentries(currentNode, &fsIDs, &failedEntries, &createdDentries,
-               &createdInodes);
-
-            ListTk::removeFromList(fsIDs, failedEntries);
-
-            this->deleteOrphanedDentryByIDFilesFromDB(fsIDs, cursor->getHandle());
-            this->insertCreatedDirEntriesToDB(createdDentries, cursor->getHandle());
-            this->insertCreatedFileInodesToDB(createdInodes, cursor->getHandle());
-            fsIDs.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-
-      metaNodeStore->releaseNode(&currentNode);
-      currentNode = metaNodeStore->referenceNextNode(nodeID);
-   }
-}
-
-void ModeCheckFS::repairChunksWithWrongPermissions()
-{
-   {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckChunk>* cursor = this->database->getChunksWithWrongPermissions(
-         FsckRepairAction_NOTHING);
-
-      FsckChunk* currentChunk = cursor->open();
-
-      while ( currentChunk )
-      {
-         this->database->addIgnoreErrorCode(*currentChunk, FsckErrorCode_CHUNKWITHWRONGPERM,
-            cursor->getHandle());
-         currentChunk = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
-   }
-
-   // now take care of the other repair actions
-   NodeStore* nodeStore = Program::getApp()->getStorageNodes();
-   TargetMapper* targetMapper = Program::getApp()->getTargetMapper();
-   UInt16List targetIDs;
-   UInt16List nodeIDs;
-
-   targetMapper->getMappingAsLists(targetIDs, nodeIDs);
-
-   // FsckRepairAction_FIXPERMISSIONS
-   UInt16ListIter targetIDsIter = targetIDs.begin();
-   UInt16ListIter nodeIDsIter = nodeIDs.begin();
-   for ( ; targetIDsIter != targetIDs.end(); targetIDsIter++, nodeIDsIter++ )
-   {
-      uint16_t nodeID = *nodeIDsIter;
-      uint16_t targetID = *targetIDsIter;
-
-      DBCursor<FsckChunk>* cursor = this->database->getChunksWithWrongPermissions(
-         FsckRepairAction_FIXPERMISSIONS, targetID);
-
-      FsckChunkList chunkList;
       // we will need the PathInfo later to send the SetAttr message and we don't have it in the
       // chunk
-      PathInfoList pathInfoList;
+      PathInfoList pathInfoList(1, *error.second.getPathInfo() );
 
-      FsckChunk* currentChunk = cursor->open();
+      // set correct permissions
+      error.first.setUserID(error.second.getUserID() );
+      error.first.setGroupID(error.second.getGroupID() );
 
-      while ( currentChunk )
-      {
-         FsckFileInode* inode = this->database->getFileInode(currentChunk->getID());
+      FsckChunkList chunkList(1, error.first);
+      FsckChunkList failed;
 
-         // set correct permissions
-         if ( inode )
-         {
-            currentChunk->setUserID(inode->getUserID());
-            currentChunk->setGroupID(inode->getGroupID());
+      Node* storageNode = nodeStore->referenceNode(
+         targetMapper->getNodeID(error.first.getTargetID() ) );
+      MsgHelperRepair::fixChunkPermissions(storageNode, chunkList, pathInfoList, failed);
+      nodeStore->releaseNode(&storageNode);
 
-            chunkList.push_back(*currentChunk);
+      if(failed.empty() )
+         this->database->getChunksTable()->update(chunkList);
 
-            // we will need the PathInfo later to send the SetAttr message
-            pathInfoList.push_back(*(inode->getPathInfo()));
+      break;
+   }
 
-            SAFE_DELETE(inode);
-         }
-         else
-         {
-            log.logErr(
-               "Cannot fix chunk permissions. Unable to find inode for chunk. chunkID: "
-                  + currentChunk->getID());
-         }
-
-         currentChunk = cursor->step();
-
-         // if the list exceeds MAX_FIXPERMISSIONS or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (chunkList.size() >= MAX_FIXPERMISSIONS) || (!currentChunk) )
-         {
-            FsckChunkList failedChunks;
-
-            Node* storageNode = nodeStore->referenceNode(nodeID);
-            MsgHelperRepair::fixChunkPermissions(storageNode, chunkList, pathInfoList,
-               failedChunks);
-            nodeStore->releaseNode(&storageNode);
-
-            ListTk::removeFromList(chunkList, failedChunks);
-
-            this->deleteChunksWithWrongPermissionsFromDB(chunkList, cursor->getHandle());
-            this->updateChunksInDB(chunkList, cursor->getHandle());
-            chunkList.clear();
-            pathInfoList.clear();
-         }
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::repairWrongChunkPaths()
+void ModeCheckFS::repairWrongChunkPath(std::pair<FsckChunk, FsckFileInode>& error,
+   UserPrompter& prompt)
 {
+   if(error.first.getBuddyGroupID() )
    {
-      //if the user choose not to do anything ignore the entries for future iterations of fsck
-      DBCursor<FsckChunk>* cursor = this->database->getChunksInWrongPath(
-         FsckRepairAction_NOTHING);
+      std::string moveToPath = DatabaseTk::calculateExpectedChunkPath(error.first.getID(),
+         error.second.getPathInfo()->getOrigUID(),
+         error.second.getPathInfo()->getOrigParentEntryID(),
+         error.second.getPathInfo()->getFlags() );
 
-      FsckChunk* currentChunk = cursor->open();
-
-      while ( currentChunk )
-      {
-         this->database->addIgnoreErrorCode(*currentChunk, FsckErrorCode_CHUNKINWRONGPATH,
-            cursor->getHandle());
-         currentChunk = cursor->step();
-      }
-
-      cursor->close();
-      SAFE_DELETE(cursor);
+      FsckTkEx::fsckOutput("Chunk file " + error.first.getSavedPath()->getPathAsStr()
+         + " on target " + StringTk::uintToStr(error.first.getTargetID() )
+         + " belongs to a mirror group. The file was expected in " + moveToPath
+         + ". Manual intervention is required to repair this error.", OutputOptions_LINEBREAK);
+      return;
    }
 
-   // now take care of the other repair actions
-   NodeStore* nodeStore = Program::getApp()->getStorageNodes();
-   TargetMapper* targetMapper = Program::getApp()->getTargetMapper();
-   UInt16List targetIDs;
-   UInt16List nodeIDs;
+   FsckRepairAction action = prompt.chooseAction("Entry ID: " + error.first.getID()
+      + "; File path: "
+      + this->database->getDentryTable()->getPathOf(db::EntryID::fromStr(error.first.getID() ) ) );
 
-   targetMapper->getMappingAsLists(targetIDs, nodeIDs);
-
-   // FsckRepairAction_MOVECHUNK
-   UInt16ListIter targetIDsIter = targetIDs.begin();
-   UInt16ListIter nodeIDsIter = nodeIDs.begin();
-   for ( ; targetIDsIter != targetIDs.end(); targetIDsIter++, nodeIDsIter++ )
+   switch(action)
    {
-      uint16_t nodeID = *nodeIDsIter;
-      uint16_t targetID = *targetIDsIter;
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
 
-      DBCursor<FsckChunk>* cursor = this->database->getChunksInWrongPath(
-         FsckRepairAction_MOVECHUNK, targetID);
+   case FsckRepairAction_MOVECHUNK: {
+      NodeStore* nodeStore = Program::getApp()->getStorageNodes();
+      TargetMapper* targetMapper = Program::getApp()->getTargetMapper();
 
-      FsckChunkList chunkList;
-      StringList moveToList;
+      Node* storageNode = nodeStore->referenceNode(
+         targetMapper->getNodeID(error.first.getTargetID() ) );
 
-      FsckChunk* currentChunk = cursor->open();
+      std::string moveToPath = DatabaseTk::calculateExpectedChunkPath(error.first.getID(),
+         error.second.getPathInfo()->getOrigUID(),
+         error.second.getPathInfo()->getOrigParentEntryID(),
+         error.second.getPathInfo()->getFlags() );
 
-      while ( currentChunk )
+      if(MsgHelperRepair::moveChunk(storageNode, error.first, moveToPath, false) )
       {
-         FsckFileInode* inode = this->database->getFileInode(currentChunk->getID());
-
-         if ( inode )
-         {
-            std::string moveToPath = DatabaseTk::calculateExpectedChunkPath(currentChunk->getID(),
-               inode->getPathInfo()->getOrigUID(), inode->getPathInfo()->getOrigParentEntryID(),
-               inode->getPathInfo()->getFlags());
-            moveToList.push_back(moveToPath);
-
-            chunkList.push_back(*currentChunk);
-
-            SAFE_DELETE(inode);
-         }
-         else
-         {
-            log.logErr(
-               "Cannot move chunk. Unable to find inode for chunk. chunkID: "
-                  + currentChunk->getID());
-         }
-
-         currentChunk = cursor->step();
-
-         // if the list exceeds MAX_MOVECHUNKS or if this was the last entry, send a message
-         // to the metadata server and correct the database
-         if ( (chunkList.size() >= MAX_MOVECHUNKS) || (!currentChunk) )
-         {
-            FsckChunkList failedChunks;
-
-            Node* storageNode = nodeStore->referenceNode(nodeID);
-            // NOTE: chunkList gets modified inside! (set correct path)
-            MsgHelperRepair::moveChunks(storageNode, chunkList, moveToList, failedChunks);
-            nodeStore->releaseNode(&storageNode);
-
-            ListTk::removeFromList(chunkList, failedChunks);
-
-            this->deleteChunksInWrongPathFromDB(chunkList, cursor->getHandle());
-            this->updateChunksInDB(chunkList, cursor->getHandle());
-            chunkList.clear();
-            moveToList.clear();
-         }
+         FsckChunkList chunks(1, error.first);
+         this->database->getChunksTable()->update(chunks);
+         break;
       }
 
-      cursor->close();
-      SAFE_DELETE(cursor);
-   }
-}
+      // chunk file exists at the correct location
+      FsckTkEx::fsckOutput("Chunk file for " + error.first.getID()
+         + " already exists at the correct location. ", OutputOptions_NONE);
 
-void ModeCheckFS::setCorrectInodeOwnersInDentry(FsckDirEntryList& dentries)
-{
-   for ( FsckDirEntryListIter dentryIter = dentries.begin(); dentryIter != dentries.end();
-      dentryIter++ )
-   {
-      std::string entryID = dentryIter->getID();
-      std::string name = dentryIter->getName();
-      std::string parentID = dentryIter->getParentDirID();
-      uint16_t entryOwner = dentryIter->getEntryOwnerNodeID();
-      uint16_t inodeOwner = dentryIter->getInodeOwnerNodeID();
-      FsckDirEntryType entryType = dentryIter->getEntryType();
-      bool hasInlinedInode = dentryIter->getHasInlinedInode();
-      uint16_t saveNodeID = dentryIter->getSaveNodeID();
-      int saveDevice = dentryIter->getSaveDevice();
-      uint64_t saveInode = dentryIter->getSaveInode();
-
-      // try to get the inode owner
-      if ( FsckDirEntryType_ISDIR(entryType))
+      if(Program::getApp()->getConfig()->getAutomatic() )
       {
-         FsckDirInode* dirInode = this->database->getDirInode(entryID);
+         FsckTkEx::fsckOutput("Will not attempt automatic repair.", OutputOptions_LINEBREAK);
+         break;
+      }
 
-         if ( dirInode )
-         {
-            inodeOwner = dirInode->getSaveNodeID();
-            SAFE_DELETE(dirInode);
-         }
-         else
-            log.log(Log_WARNING,
-               "Unable to find inode owner for directory entry; EntryID: " + entryID);
+      char chosen = 0;
+
+      while(chosen != 'y' && chosen != 'n')
+      {
+         FsckTkEx::fsckOutput("Move anyway? (y/n) ", OutputOptions_NONE);
+
+         std::string line;
+         std::getline(std::cin, line);
+
+         if(line.size() == 1)
+            chosen = line[0];
+      }
+
+      if(chosen != 'y')
+         break;
+
+      if(MsgHelperRepair::moveChunk(storageNode, error.first, moveToPath, true) )
+      {
+         FsckChunkList chunks(1, error.first);
+         this->database->getChunksTable()->update(chunks);
       }
       else
       {
-         FsckFileInode* fileInode = this->database->getFileInode(entryID);
-
-         if ( fileInode )
-         {
-            inodeOwner = fileInode->getSaveNodeID();
-            SAFE_DELETE(fileInode);
-         }
-         else
-            log.log(Log_WARNING,
-               "Unable to find inode owner for directory entry; EntryID: " + entryID);
+         FsckTkEx::fsckOutput("Repair failed, see log file for more details.",
+            OutputOptions_LINEBREAK);
       }
 
-      dentryIter->update(entryID, name, parentID, entryOwner, inodeOwner, entryType,
-         hasInlinedInode, saveNodeID, saveDevice, saveInode);
+      break;
+   }
+
+   default:
+      throw std::runtime_error("bad repair action");
    }
 }
 
-void ModeCheckFS::correctAndDeleteWrongOwnerInodesFromDB(FsckDirInodeList& inodes,
-   DBHandle* dbHandle)
+void ModeCheckFS::deleteFsIDsFromDB(FsckDirEntryList& dentries)
 {
-   // first correct the inodes in the normal database, correct owner must already be set in
-   // inodes!
-   this->updateDirInodesInDB(inodes, dbHandle);
-
-   // now delete the errors
-   FsckDirInode failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteInodesWithWrongOwner(inodes, failedDelete, errorCode,
-      dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete directory inode with wrong owner; entryID: " + failedDelete.getID()
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::correctAndDeleteWrongOwnerEntriesFromDB(FsckDirEntryList& dentries,
-   DBHandle* dbHandle)
-{
-   {
-      // first correct the dentries in the normal database, correct owner must already be set in
-      // dentries!
-
-      FsckDirEntry failedUpdate;
-      int errorCode;
-      bool updateRes = this->database->updateDirEntries(dentries, failedUpdate, errorCode,
-         dbHandle);
-
-      if ( !updateRes )
-      {
-         log.log(1,
-            "Failed to update dirEntry; name: " + failedUpdate.getName() + "; parentID: "
-               + failedUpdate.getParentDirID() + "; sqlite error code: "
-               + StringTk::intToStr(errorCode));
-         throw FsckDBException(
-            "Error while inserting dir entries to database. Please see log for more information.");
-      }
-   }
-
-   {
-      // now delete the errors
-      FsckDirEntry failedDelete;
-      int errorCode;
-      bool delRes = this->database->deleteDirEntriesWithWrongOwner(dentries, failedDelete,
-         errorCode, dbHandle);
-      if ( !delRes )
-      {
-         log.log(1,
-            "Failed to delete directory entry with wrong owner; name: " + failedDelete.getName()
-               + "; parentID: " + failedDelete.getParentDirID() + "; sqlite error code: "
-               + StringTk::intToStr(errorCode));
-         /*
-          * NOTE: we do not throw an exception here, because fsck run is still correct.
-          * An error here will just lead to a faulty error count displayed to the user
-          */
-      }
-   }
-}
-
-void ModeCheckFS::setUpdatedFileAttribs(FsckFileInodeList& inodes)
-{
-   for ( FsckFileInodeListIter inodeIter = inodes.begin(); inodeIter != inodes.end(); inodeIter++ )
-   {
-      { // update fileSize
-         int64_t fileSize = 0;
-
-         DBCursor<FsckChunk>* cursor = this->database->getChunks(inodeIter->getID(), true);
-         FsckChunk* currentChunk = cursor->open();
-
-         // set filesize
-         // TODO: this does not work for sparse files!
-         while ( currentChunk )
-         {
-            fileSize += currentChunk->getFileSize();
-            currentChunk = cursor->step();
-         }
-
-         cursor->close();
-         SAFE_DELETE(cursor);
-
-         inodeIter->setFileSize(fileSize);
-
-      }
-
-      { // set number of hardlinks
-         DBCursor<FsckDirEntry>* cursor = this->database->getDirEntries(inodeIter->getID());
-         unsigned numLinks = 0;
-
-         FsckDirEntry* currentEntry = cursor->open();
-
-         while ( currentEntry )
-         {
-            numLinks++;
-            currentEntry = cursor->step();
-         }
-
-         inodeIter->setNumHardLinks(numLinks);
-
-         cursor->close();
-         SAFE_DELETE(cursor);
-      }
-   }
-}
-
-void ModeCheckFS::setUpdatedDirAttribs(FsckDirInodeList& inodes)
-{
-   for ( FsckDirInodeListIter inodeIter = inodes.begin(); inodeIter != inodes.end(); inodeIter++ )
-   {
-      { // update size (i.e. subentry count) + number of links (do this in one step, because
-        // otherwise 2 iterations over nearly the same result set were needed
-         DBCursor<FsckDirEntry>* cursor = this->database->getDirEntriesByParentID(
-            inodeIter->getID());
-         int64_t size = 0;
-         unsigned numLinks = 2; // num links is at least 2
-
-         FsckDirEntry* currentEntry = cursor->open();
-
-         while ( currentEntry )
-         {
-            size++;
-
-            // if entry is a directory, also increment numLinks
-            if ( FsckDirEntryType_ISDIR(currentEntry->getEntryType()))
-               numLinks++;
-
-            currentEntry = cursor->step();
-         }
-
-         inodeIter->setNumHardLinks(numLinks);
-         inodeIter->setSize(size);
-
-         cursor->close();
-         SAFE_DELETE(cursor);
-      }
-
-      { // set number of hardlinks
-
-      }
-   }
-}
-
-void ModeCheckFS::deleteDirEntriesFromDB(FsckDirEntryList& dentries, DBHandle* dbHandle)
-{
-   FsckDirEntry failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteDirEntries(dentries, failedDelete, errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete directory entry; name: " + failedDelete.getName() + "; parentID: "
-            + failedDelete.getParentDirID() + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while delete directory entries from database. Please see log for more "
-            "information.");
-   }
-}
-
-void ModeCheckFS::deleteFsIDsFromDB(FsckDirEntryList& dentries, DBHandle* dbHandle)
-{
-   FsckFsID failedDelete;
-   int errorCode;
-
    // create the fsID list
    FsckFsIDList fsIDs;
 
    for ( FsckDirEntryListIter iter = dentries.begin(); iter != dentries.end(); iter++ )
    {
       FsckFsID fsID(iter->getID(), iter->getParentDirID(), iter->getSaveNodeID(),
-         iter->getSaveInode(), iter->getSaveInode());
+         iter->getSaveDevice(), iter->getSaveInode());
       fsIDs.push_back(fsID);
    }
 
-   bool delRes = this->database->deleteFsIDs(fsIDs, failedDelete, errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete fs-id file; entryID: " + failedDelete.getID() + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while deleting fs-id files from database. Please see log for more "
-            "information.");
-   }
+   this->database->getFsIDsTable()->remove(fsIDs);
 }
 
-void ModeCheckFS::deleteFileInodesFromDB(FsckFileInodeList& fileInodes, DBHandle* dbHandle)
+void ModeCheckFS::deleteFilesFromDB(FsckDirEntryList& dentries)
 {
-   FsckFileInode failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteFileInodes(fileInodes, failedDelete, errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete file inode; entryID: " + failedDelete.getID() + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while deleting file inodes from database. Please see log for more "
-            "information.");
-   }
-}
-
-void ModeCheckFS::deleteDirInodesFromDB(FsckDirInodeList& dirInodes, DBHandle* dbHandle)
-{
-   FsckDirInode failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteDirInodes(dirInodes, failedDelete, errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete dir inode; entryID: " + failedDelete.getID() + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while deleting dir inodes from database. Please see log for more "
-            "information.");
-   }
-}
-
-void ModeCheckFS::deleteChunksFromDB(FsckChunkList& chunks, DBHandle* dbHandle)
-{
-   FsckChunk failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteChunks(chunks, failedDelete, errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete chunk; chunkID: " + failedDelete.getID() + "; targetID: "
-            + StringTk::uintToStr(failedDelete.getTargetID()) + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      throw FsckDBException("Error while deleting chunk from database. Please see log for more "
-         "information.");
-   }
-}
-
-void ModeCheckFS::deleteFilesFromDB(FsckDirEntryList& dentries, DBHandle* dbHandle)
-{
-   // create inodes an chunks from the dentries
-   FsckFileInodeList inodes;
-   FsckChunkList chunks;
-
    for ( FsckDirEntryListIter dentryIter = dentries.begin(); dentryIter != dentries.end();
       dentryIter++ )
    {
-      FsckFileInode* inode = this->database->getFileInode(dentryIter->getID());
+      std::pair<bool, db::FileInode> inode = this->database->getFileInodesTable()->get(
+         dentryIter->getID() );
 
-      if ( inode )
+      if(inode.first)
       {
-         inodes.push_back(*inode);
-
-         for ( UInt16VectorIter targetIter = inode->getStripeTargets()->begin();
-            targetIter != inode->getStripeTargets()->end(); targetIter++ )
-         {
-            FsckChunk* chunk = this->database->getChunk(inode->getID(), *targetIter);
-            if ( chunk )
-            {
-               chunks.push_back(*chunk);
-               SAFE_DELETE(chunk);
-            }
-         }
-
-         SAFE_DELETE(inode);
+         this->database->getFileInodesTable()->remove(inode.second.id);
+         this->database->getChunksTable()->remove(inode.second.id);
       }
    }
 
-   // delete the chunks
-   this->deleteChunksFromDB(chunks, dbHandle);
-
-   // delete the inodes
-   this->deleteFileInodesFromDB(inodes, dbHandle);
-
-   // delete the dentries
-   this->deleteDirEntriesFromDB(dentries, dbHandle);
+   this->database->getDentryTable()->remove(dentries);
 
    // delete the dentry-by-id files
-   this->deleteFsIDsFromDB(dentries, dbHandle);
+   this->deleteFsIDsFromDB(dentries);
 }
 
-void ModeCheckFS::deleteDanglingDirEntriesFromDB(FsckDirEntryList& dentries, DBHandle* dbHandle)
+bool ModeCheckFS::ensureLostAndFoundExists()
 {
-   FsckDirEntry failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteDanglingDirEntries(dentries, failedDelete, errorCode,
-      dbHandle);
-   if ( !delRes )
+   this->lostAndFoundNode = MsgHelperRepair::referenceLostAndFoundOwner(&this->lostAndFoundInfo);
+
+   if(!this->lostAndFoundNode)
    {
-      log.log(1,
-         "Failed to delete dangling directory entry; name: " + failedDelete.getName()
-            + "; parentID: " + failedDelete.getParentDirID() + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
+      if(!MsgHelperRepair::createLostAndFound(&this->lostAndFoundNode, this->lostAndFoundInfo) )
+         return false;
    }
+
+   std::pair<bool, FsckDirInode> dbLaF = this->database->getDirInodesTable()->get(
+      this->lostAndFoundInfo.getEntryID() );
+
+   if(dbLaF.first)
+      this->lostAndFoundInode.reset(new FsckDirInode(dbLaF.second) );
+
+   return true;
 }
 
-void ModeCheckFS::deleteOrphanedDirInodesFromDB(FsckDirInodeList& inodes, DBHandle* dbHandle)
+void ModeCheckFS::releaseLostAndFound()
 {
-   FsckDirInode failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteOrphanedInodes(inodes, failedDelete, errorCode, dbHandle);
-   if ( !delRes )
+   if(!this->lostAndFoundNode)
+      return;
+
+   if(this->lostAndFoundInode)
    {
-      log.log(1,
-         "Failed to delete orphaned dir inode; entryID: " + failedDelete.getID()
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteOrphanedFileInodesFromDB(FsckFileInodeList& inodes, DBHandle* dbHandle)
-{
-   FsckFileInode failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteOrphanedInodes(inodes, failedDelete, errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete orphaned file inode; entryID: " + failedDelete.getID()
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteOrphanedChunksFromDB(FsckChunkList& chunks, DBHandle* dbHandle)
-{
-   FsckChunk failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteOrphanedChunks(chunks, failedDelete, errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete orphaned chunk; entryID: " + failedDelete.getID() + "; targetID: "
-            + StringTk::uintToStr(failedDelete.getTargetID()) + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteMissingContDirsFromDB(FsckDirInodeList& inodes, DBHandle* dbHandle)
-{
-   FsckDirInode failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteMissingContDirs(inodes, failedDelete, errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete missing content directory; entryID: " + failedDelete.getID()
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteOrphanedContDirsFromDB(FsckContDirList& contDirs, DBHandle* dbHandle)
-{
-   FsckContDir failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteOrphanedContDirs(contDirs, failedDelete, errorCode,
-      dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete orphaned content directory; entryID: " + failedDelete.getID()
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteFileInodesWithWrongAttribsFromDB(FsckFileInodeList& inodes,
-   DBHandle* dbHandle)
-{
-   FsckFileInode failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteInodesWithWrongAttribs(inodes, failedDelete, errorCode,
-      dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete file inode with wrong attributes; entryID: " + failedDelete.getID()
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteDirInodesWithWrongAttribsFromDB(FsckDirInodeList& inodes,
-   DBHandle* dbHandle)
-{
-   FsckDirInode failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteInodesWithWrongAttribs(inodes, failedDelete, errorCode,
-      dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete directory inode with wrong attributes; entryID: " + failedDelete.getID()
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteFilesWithMissingTargetFromDB(FsckDirEntryList& dentries, DBHandle* dbHandle)
-{
-   FsckDirEntry failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteFilesWithMissingStripeTargets(dentries, failedDelete,
-      errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete directory entry with missing target; name: " + failedDelete.getName()
-            + "; parentID: " + failedDelete.getParentDirID() + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteDirEntriesWithBrokenByIDFileFromDB(FsckDirEntryList& dentries,
-   DBHandle* dbHandle)
-{
-   FsckDirEntry failedDelete;
-   int errorCode;
-   bool delRes = this->database->deleteDirEntriesWithBrokenByIDFile(dentries, failedDelete,
-      errorCode, dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete directory entry with broken by-id file; name: " + failedDelete.getName()
-            + "; parentID: " + failedDelete.getParentDirID() + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteOrphanedDentryByIDFilesFromDB(FsckFsIDList& fsIDs, DBHandle* dbHandle)
-{
-   FsckFsID failedDelete;
-   int errorCode;
-
-   bool delRes = this->database->deleteOrphanedDentryByIDFiles(fsIDs, failedDelete, errorCode,
-      dbHandle);
-
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete orphaned by-id file; entryID: " + failedDelete.getID()
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteChunksWithWrongPermissionsFromDB(FsckChunkList& chunks, DBHandle* dbHandle)
-{
-   FsckChunk failedDelete;
-   int errorCode;
-
-   bool delRes = this->database->deleteChunksWithWrongPermissions(chunks, failedDelete, errorCode,
-      dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete chunk with wrong permission; entryID: " + failedDelete.getID()
-            + "; targetID: " + StringTk::uintToStr(failedDelete.getTargetID())
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::deleteChunksInWrongPathFromDB(FsckChunkList& chunks, DBHandle* dbHandle)
-{
-   FsckChunk failedDelete;
-   int errorCode;
-
-   bool delRes = this->database->deleteChunksInWrongPath(chunks, failedDelete, errorCode,
-      dbHandle);
-   if ( !delRes )
-   {
-      log.log(1,
-         "Failed to delete chunk in wrong path; entryID: " + failedDelete.getID()
-            + "; targetID: " + StringTk::uintToStr(failedDelete.getTargetID())
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      /*
-       * NOTE: we do not throw an exception here, because fsck run is still correct.
-       * An error here will just lead to a faulty error count displayed to the user
-       */
-   }
-}
-
-void ModeCheckFS::insertCreatedDirInodesToDB(FsckDirInodeList& dirInodes, DBHandle* dbHandle)
-{
-   FsckDirInode failedInsert;
-   int errorCode;
-
-   bool insertRes = this->database->insertDirInodes(dirInodes, failedInsert, errorCode, dbHandle);
-   if ( !insertRes )
-   {
-      log.log(Log_CRITICAL, "Failed to insert newly created dir inode to database. "
-         "entryID: " + failedInsert.getID());
-      log.log(Log_CRITICAL, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-
-      throw FsckDBException(
-         "Could not insert newly created dir inode. Database consistency cannot be "
-            "guaranteed.");
-   }
-}
-
-void ModeCheckFS::insertCreatedFileInodesToDB(FsckFileInodeList& fileInodes, DBHandle* dbHandle)
-{
-   FsckFileInode failedInsert;
-   int errorCode;
-
-   bool insertRes = this->database->insertFileInodes(fileInodes, failedInsert, errorCode, dbHandle);
-   if ( !insertRes )
-   {
-      log.log(Log_CRITICAL, "Failed to insert newly created file inode to database. "
-         "entryID: " + failedInsert.getID());
-      log.log(Log_CRITICAL, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-
-      throw FsckDBException(
-         "Could not insert newly created file inode. Database consistency cannot be "
-            "guaranteed.");
-   }
-}
-
-void ModeCheckFS::insertCreatedDirEntriesToDB(FsckDirEntryList& dirEntries, DBHandle* dbHandle)
-{
-   FsckDirEntry failedInsert;
-   int errorCode;
-
-   bool insertRes = this->database->insertDirEntries(dirEntries, failedInsert, errorCode, dbHandle);
-   if ( !insertRes )
-   {
-      log.log(Log_CRITICAL, "Failed to insert newly created directory entry to database. "
-         "entryID: " + failedInsert.getID());
-      log.log(Log_CRITICAL, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-
-      throw FsckDBException(
-         "Could not insert newly created directory entry. Database consistency cannot be "
-            "guaranteed.");
-   }
-}
-
-void ModeCheckFS::insertCreatedFsIDsToDB(FsckFsIDList& fsIDs, DBHandle* dbHandle)
-{
-   FsckFsID failedInsert;
-   int errorCode;
-
-   bool insertRes = this->database->insertFsIDs(fsIDs, failedInsert, errorCode, dbHandle);
-   if ( !insertRes )
-   {
-      log.log(Log_CRITICAL, "Failed to insert newly created dentry-by-ID file to database. "
-         "entryID: " + failedInsert.getID());
-      log.log(Log_CRITICAL, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-
-      throw FsckDBException(
-         "Could not insert newly created dentry-by-ID file. Database consistency cannot be "
-            "guaranteed.");
-   }
-}
-
-void ModeCheckFS::insertCreatedContDirsToDB(FsckDirInodeList& dirInodes, DBHandle* dbHandle)
-{
-   FsckContDir failedInsert;
-   int errorCode;
-
-   // create a list of cont dirs from dir inode list
-   FsckContDirList contDirs;
-   for ( FsckDirInodeListIter iter = dirInodes.begin(); iter != dirInodes.end(); iter++ )
-   {
-      FsckContDir contDir(iter->getID(), iter->getSaveNodeID());
-      contDirs.push_back(contDir);
+      FsckDirInodeList updates(1, *this->lostAndFoundInode);
+      this->database->getDirInodesTable()->update(updates);
    }
 
-   bool insertRes = this->database->insertContDirs(contDirs, failedInsert, errorCode, dbHandle);
-   if ( !insertRes )
-   {
-      log.log(Log_CRITICAL, "Failed to insert newly created contents directory to database. "
-         "entryID: " + failedInsert.getID());
-      log.log(Log_CRITICAL, "SQLite Error was error code " + StringTk::intToStr(errorCode));
+   NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
 
-      throw FsckDBException(
-         "Could not insert newly created contents directory. Database consistency cannot be "
-            "guaranteed.");
-   }
-}
-
-void ModeCheckFS::updateFileInodesInDB(FsckFileInodeList& inodes, DBHandle* dbHandle)
-{
-   FsckFileInode failedUpdate;
-   int errorCode;
-
-   bool updateRes = this->database->updateFileInodes(inodes, failedUpdate, errorCode, dbHandle);
-
-   if ( !updateRes )
-   {
-      log.log(1,
-         "Failed to update file inode ; entryID: " + failedUpdate.getID() + "; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while updating file inodes to database. Please see log for more information.");
-   }
-}
-
-void ModeCheckFS::updateDirInodesInDB(FsckDirInodeList& inodes, DBHandle* dbHandle)
-{
-   FsckDirInode failedUpdate;
-   int errorCode;
-   bool updateRes = this->database->updateDirInodes(inodes, failedUpdate, errorCode, dbHandle);
-
-   if ( !updateRes )
-   {
-      log.log(1,
-         "Failed to update directory inode ; entryID: " + failedUpdate.getID()
-            + "; sqlite error code: " + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while updating directory inodes to database. Please see log for more information.");
-   }
-}
-
-/*
- * this function does not do an update in the SQL "UPDATE" sense. It deletes entries (if they exist)
- * and creates new ones. This is because we do not know if the entries existed (and were faulty)
- * or not
- */
-void ModeCheckFS::updateFsIDsInDB(FsckDirEntryList& dirEntries, DBHandle* dbHandle)
-{
-   // create a FsID list from the dentries
-   FsckFsIDList idList;
-
-   for ( FsckDirEntryListIter iter = dirEntries.begin(); iter != dirEntries.end(); iter++ )
-   {
-      FsckFsID fsID(iter->getID(), iter->getParentDirID(), iter->getSaveNodeID(),
-         iter->getSaveDevice(), iter->getSaveInode());
-      idList.push_back(fsID);
-   }
-
-   FsckFsID failedDelete; // is ignored
-   int errorCode;
-   this->database->deleteFsIDs(idList, failedDelete, errorCode, dbHandle);
-
-   FsckFsID failedInsert;
-   bool insertRes = this->database->insertFsIDs(idList, failedInsert, errorCode, dbHandle);
-   if ( !insertRes )
-   {
-      log.log(Log_CRITICAL, "Failed to update dentry-by-ID file to database. "
-         "entryID: " + failedInsert.getID());
-      log.log(Log_CRITICAL, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-
-      throw FsckDBException(
-         "Could not update dentry-by-ID file. Database consistency cannot be guaranteed.");
-   }
-}
-
-void ModeCheckFS::updateChunksInDB(FsckChunkList& chunks, DBHandle* dbHandle)
-{
-   FsckChunk failedUpdate;
-   int errorCode;
-
-   bool updateRes = this->database->updateChunks(chunks, failedUpdate, errorCode, dbHandle);
-
-   if ( !updateRes )
-   {
-      log.log(1,
-         "Failed to update chunk ; entryID: " + failedUpdate.getID() + "; targetID: "
-            + StringTk::uintToStr(failedUpdate.getTargetID()) + +"; sqlite error code: "
-            + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while updating directory inodes to database. Please see log for more information.");
-   }
+   metaNodeStore->releaseNode(&this->lostAndFoundNode);
+   this->lostAndFoundInode.reset();
 }

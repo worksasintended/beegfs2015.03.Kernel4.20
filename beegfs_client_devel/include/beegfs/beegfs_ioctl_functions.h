@@ -8,6 +8,12 @@
 #include <fcntl.h>
 
 
+#define BEEGFS_API_MAJOR_VERSION 1 // major version number of the API, different major version
+                                   // are  incompatible
+#define BEEGFS_API_MINOR_VERSION 0 // minor version number of the API, the minor versions of the
+                                   // same major version are backward compatible
+
+
 static inline bool beegfs_getConfigFile(int fd, char** outCfgFile);
 static inline bool beegfs_getRuntimeConfigFile(int fd, char** outCfgFile);
 static inline bool beegfs_testIsBeeGFS(int fd);
@@ -18,6 +24,8 @@ static inline bool beegfs_getStripeTarget(int fd, uint16_t targetIndex, uint16_t
    uint16_t* outNodeNumID, char** outNodeStrID);
 static inline bool beegfs_createFile(int fd, const char* filename, mode_t mode,
    unsigned numtargets, unsigned chunksize);
+static inline bool beegfs_api_version_check(const unsigned required_major_version,
+   const unsigned required_minor_version);
 
 
 /**
@@ -216,5 +224,23 @@ bool beegfs_createFile(int fd, const char* filename, mode_t mode, unsigned numta
    return true;
 }
 
+/**
+ * Checks if the required API version of the application is compatible to current API version
+ *
+ * @param required_major_version the required major API version of the user application
+ * @param required_minor_version the required minor API version of the user application
+ * @return true if the required version and the API version are compatible, if not false is returned
+ */
+bool beegfs_api_version_check(const unsigned required_major_version,
+   const unsigned required_minor_version)
+{
+   if(required_major_version != BEEGFS_API_MAJOR_VERSION)
+      return false;
+
+   if(required_minor_version > BEEGFS_API_MINOR_VERSION)
+      return false;
+
+   return true;
+}
 
 #endif /* __BEEGFS_IOCTL_FUNCTIONS_H__ */

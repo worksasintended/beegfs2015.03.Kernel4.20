@@ -9,14 +9,17 @@
 #include <program/Program.h>
 
 
-RetrieveFsIDsWork::RetrieveFsIDsWork(Node* node, SynchronizedCounter* counter,
-   unsigned hashDirStart, unsigned hashDirEnd) : Work()
+RetrieveFsIDsWork::RetrieveFsIDsWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
+   unsigned hashDirStart, unsigned hashDirEnd)
+    : Work(),
+      log("RetrieveFsIDsWork"),
+      node(node),
+      counter(counter),
+      hashDirStart(hashDirStart),
+      hashDirEnd(hashDirEnd),
+      table(db->getFsIDsTable() ),
+      bulkHandle(table->newBulkHandle() )
 {
-   log.setContext("RetrieveFsIDsWork");
-   this->node = node;
-   this->counter = counter;
-   this->hashDirStart = hashDirStart;
-   this->hashDirEnd = hashDirEnd;
 }
 
 RetrieveFsIDsWork::~RetrieveFsIDsWork()
@@ -71,6 +74,7 @@ void RetrieveFsIDsWork::doWork()
                char *respBuf = NULL;
                NetMessage *respMsg = NULL;
 
+               // TODO: Buddy Mirror
                RetrieveFsIDsMsg retrieveFsIDsMsg(hashDirNum, currentContDirID,
                   RETRIEVE_FSIDS_PACKET_SIZE, hashDirOffset, contDirOffset);
 
@@ -95,9 +99,7 @@ void RetrieveFsIDsWork::doWork()
                   // were read, there is nothing left on the server
                   resultCount = fsIDs.size();
 
-                  // insert all fsIDs to the buffer and, if MAX_BUFFER_SIZE is reached, flush
-                  if ( this->bufferFsIDs.add(fsIDs) > MAX_BUFFER_SIZE )
-                     this->flushFsIDs();
+                  this->table->insert(fsIDs, this->bulkHandle);
 
                   SAFE_FREE(respBuf);
                   SAFE_DELETE(respMsg);
@@ -116,9 +118,6 @@ void RetrieveFsIDsWork::doWork()
             } while ( resultCount > 0 );
          }
       }
-
-      // flush remaining entries in buffers
-      this->flushFsIDs();
    }
    else
    {
@@ -126,32 +125,4 @@ void RetrieveFsIDsWork::doWork()
       log.logErr("Requested node does not exist");
       throw FsckException("Requested node does not exist");
    }
-}
-
-void RetrieveFsIDsWork::flushFsIDs()
-{
-   FsckFsID failedInsert;
-   int errorCode;
-   bool success = this->bufferFsIDs.flush(failedInsert, errorCode);
-
-   if ( !success )
-   {
-      log.log(1, "Failed to insert fsID: " + failedInsert.getID());
-      log.log(1, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-      throw FsckDBException(
-         "Error while inserting fsID entries to database. Please see log for more information.");
-   }
-   /*   FsckFsIDListIter failedInsertsIter;
-      IntListIter errorCodesIter;
-      for ( failedInsertsIter = failedInserts.begin(), errorCodesIter = errorCodes.begin();
-         failedInsertsIter != failedInserts.end(); failedInsertsIter++, errorCodesIter++ )
-      {
-         std::string id = (*failedInsertsIter).getID();
-         int errorCode = *errorCodesIter;
-         log.log(1, "Failed to insert fsID: " + id);
-         log.log(1, "SQLite Error was error code " + StringTk::intToStr(errorCode));
-      }
-      throw HardFsckException(
-         "Error while inserting fsID entries to database. Please see log for more information.");
-   } */
 }

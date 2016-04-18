@@ -2,17 +2,11 @@
 #define DATAFETCHER_H_
 
 #include <common/components/worker/queue/MultiWorkQueue.h>
+#include <common/nodes/Node.h>
 #include <common/toolkit/SynchronizedCounter.h>
 #include <database/FsckDB.h>
 
 #define DATAFETCHER_OUTPUT_INTERVAL_MS 2000
-
-#define DATAFETCHER_FETCHMODE_DIRENTRIES        1
-#define DATAFETCHER_FETCHMODE_INODES            2
-#define DATAFETCHER_FETCHMODE_CHUNKS            4
-/* #define DATAFETCHER_FETCHMODE_MIRROR_CHUNKS     8 */
-#define DATAFETCHER_FETCHMODE_ALL               7
-
 
 class DataFetcher
 {
@@ -27,14 +21,15 @@ class DataFetcher
       AtomicUInt64 numChunksFound;
 
    public:
-      DataFetcher();
-      virtual ~DataFetcher();
+      DataFetcher(FsckDB& db);
 
-      bool execute(unsigned short fetchMode = DATAFETCHER_FETCHMODE_ALL);
+      bool execute();
 
    private:
       SynchronizedCounter finishedPackages;
       unsigned generatedPackages;
+
+      std::list<std::set<FsckTargetID> > usedTargets;
 
       void retrieveDirEntries(NodeList* nodeList);
       void retrieveInodes(NodeList* nodeList);

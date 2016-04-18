@@ -323,16 +323,15 @@ void MsgHelperRepair::deleteChunks(Node* node, FsckChunkList* chunks, FsckChunkL
 Node* MsgHelperRepair::referenceLostAndFoundOwner(EntryInfo* outLostAndFoundEntryInfo)
 {
    const char* logContext = "MsgHelperRepair (referenceLostAndFoundOwner)";
+   App* app = Program::getApp();
 
 // find owner node
    Path path(META_LOSTANDFOUND_PATH);
    path.setAbsolute(true);
 
-   NodeStore* metaNodes = Program::getApp()->getMetaNodes();
-
    Node* ownerNode = NULL;
 
-   FhgfsOpsErr findRes = MetadataTk::referenceOwner(&path, false, metaNodes, &ownerNode,
+   FhgfsOpsErr findRes = MetadataTk::referenceOwner(&path, false, app->getMetaNodes(), &ownerNode,
       outLostAndFoundEntryInfo);
 
    if ( findRes != FhgfsOpsErr_SUCCESS )
@@ -348,10 +347,9 @@ bool MsgHelperRepair::createLostAndFound(Node** outReferencedNode,
    EntryInfo& outLostAndFoundEntryInfo)
 {
    const char* logContext = "MsgHelperRepair (createLostAndFound)";
-
+   App* app = Program::getApp();
+   NodeStore* metaNodes = app->getMetaNodes();
    bool retVal = false;
-
-   NodeStore* metaNodes = Program::getApp()->getMetaNodes();
 
    // get root owner node and entryInfo
    Node* rootNode = NULL;
@@ -359,8 +357,8 @@ bool MsgHelperRepair::createLostAndFound(Node** outReferencedNode,
    // rootPath.setAbsolute(true);
    EntryInfo rootEntryInfo;
 
-   FhgfsOpsErr findRes = MetadataTk::referenceOwner(&rootPath, false, metaNodes, &rootNode,
-      &rootEntryInfo);
+   FhgfsOpsErr findRes = MetadataTk::referenceOwner(&rootPath, false, metaNodes,
+      &rootNode, &rootEntryInfo);
 
    if ( findRes != FhgfsOpsErr_SUCCESS )
    {
@@ -855,72 +853,63 @@ void MsgHelperRepair::fixChunkPermissions(Node* node, FsckChunkList& chunkList,
 }
 
 /*
- * NOTE: chunkList gets modified! (new savedPath is set)
+ * NOTE: chunk gets modified! (new savedPath is set)
  */
-// TODO Christian: this has to work with buddy mirroring
-void MsgHelperRepair::moveChunks(Node* node, FsckChunkList& chunkList, StringList& moveToList,
-   FsckChunkList& failedChunks)
+bool MsgHelperRepair::moveChunk(Node* node, FsckChunk& chunk, const std::string& moveTo,
+   bool allowOverwrite)
 {
-   /*
    const char* logContext = "MsgHelperRepair (moveChunks)";
+   bool result;
 
-   if (chunkList.size() != moveToList.size())
+   // can't handle mirrored chunks automatically. doing so would require knowledge of where the
+   // chunk is on the secondary, whether the chunk should *actually be missing*, and a host of
+   // other things. manual intervention is required to fix this.
+   if(chunk.getBuddyGroupID() != 0)
+      return false;
+
+   bool commRes;
+   char *respBuf = NULL;
+   NetMessage *respMsg = NULL;
+
+   std::string chunkID = chunk.getID();
+   std::string chunkPath = chunk.getSavedPath()->getPathAsStr();
+   std::string moveToPath = moveTo;
+
+   MoveChunkFileMsg moveChunkFileMsg(chunkID, chunk.getTargetID(), 0, chunkPath, moveToPath, false);
+
+   commRes = MessagingTk::requestResponse(node, &moveChunkFileMsg,
+      NETMSGTYPE_MoveChunkFileResp, &respBuf, &respMsg);
+
+   if ( commRes )
    {
-      // this must be a programming error
-      LogContext(logContext).logErr(
-         "Failed to move chunks. Size of lists does not equal!");
-      return;
-   }
+      MoveChunkFileRespMsg* moveChunkFileRespMsg = (MoveChunkFileRespMsg*) respMsg;
 
-   FsckChunkListIter chunkIter = chunkList.begin();
-   StringListIter moveToIter = moveToList.begin();
-   for (; chunkIter != chunkList.end(); chunkIter++, moveToIter++)
-   {
-      bool commRes;
-      char *respBuf = NULL;
-      NetMessage *respMsg = NULL;
+      result = moveChunkFileRespMsg->getValue() == FhgfsOpsErr_SUCCESS;
 
-      std::string chunkID = chunkIter->getID();
-      uint16_t targetID = chunkIter->getTargetID();
-      uint16_t buddyGroupID = chunkIter->getBuddyGroupID();
-      std::string oldPath = chunkIter->getSavedPath()->getPathAsStr();
-      std::string newPath = *moveToIter;
-      bool overwriteExisting = false;
-
-      MoveChunkFileMsg moveChunkFileMsg(chunkID, targetID, mirroredFrom, oldPath, newPath,
-         overwriteExisting);
-
-      commRes = MessagingTk::requestResponse(node, &moveChunkFileMsg,
-         NETMSGTYPE_MoveChunkFileResp, &respBuf, &respMsg);
-
-      if ( commRes )
+      if(!result)
       {
-         MoveChunkFileRespMsg* moveChunkFileRespMsg = (MoveChunkFileRespMsg*) respMsg;
-
-         if (moveChunkFileRespMsg->getValue() != FhgfsOpsErr_SUCCESS)
-         {
-            LogContext(logContext).logErr(
-               "Failed to move chunk. chunkID: " + chunkID + "; targetID: "
-                  + StringTk::uintToStr(targetID) + "; fromPath: " + oldPath + "; toPath: "
-                  + newPath);
-
-            failedChunks.push_back(*chunkIter);
-         }
+         LogContext(logContext).logErr(
+            "Failed to move chunk. chunkID: " + chunk.getID() + "; targetID: "
+               + StringTk::uintToStr(chunk.getTargetID() ) + "; fromPath: "
+               + chunk.getSavedPath()->getPathAsStr() + "; toPath: "
+               + moveTo);
       }
       else
       {
-         LogContext(logContext).logErr("Communication error occured with node: " + node->getID());
-
-         failedChunks.push_back(*chunkIter);
+         // set newPath in chunk
+         chunk.setSavedPath(Path(moveTo));
       }
-
-      // set newPath in chunk
-      chunkIter->setSavedPath(Path(newPath));
-
-      SAFE_FREE(respBuf);
-      SAFE_DELETE(respMsg);
    }
-   */
+   else
+   {
+      LogContext(logContext).logErr("Communication error occured with node: " + node->getID());
+      result = false;
+   }
+
+   SAFE_FREE(respBuf);
+   SAFE_DELETE(respMsg);
+
+   return result;
 }
 
 void MsgHelperRepair::deleteFileInodes(Node* node, FsckFileInodeList& inodes,

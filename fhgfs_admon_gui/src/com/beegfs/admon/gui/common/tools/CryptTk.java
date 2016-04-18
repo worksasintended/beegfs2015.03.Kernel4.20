@@ -42,7 +42,7 @@ public class CryptTk
       {
          if (i % 32 == 0 && i != 0)
          {
-            sb.append("\n");
+            sb.append(System.lineSeparator());
          }
          s = Integer.toHexString(bytes[i]);
          if (s.length() < 2)

@@ -8,6 +8,7 @@ BEEGFS_OPENTK_PATH ?= ../../beegfs_opentk_lib/
 BEEGFS_THIRDPARTY_PATH ?= ../../beegfs_thirdparty/
 BEEGFS_ONLINE_CFG_PATH ?= ../../beegfs_ctl
 BEEGFS_FSCK_PATH ?= ../../beegfs_fsck
+BEEGFS_FSCK_LEGACY_PATH ?= ../../beegfs_fsck_legacy
 BEEGFS_JAVA_LIB_PATH ?= ../../beegfs_java_lib
 
 ifneq ($(BEEGFS_VERSION),)
@@ -19,7 +20,7 @@ BEEGFS_EXTRA_FLAGS += 'BEEGFS_DEBUG=$(BEEGFS_DEBUG)'
 endif
 
 
-all: beegfs_ctl beegfs_fsck beegfs_java_lib
+all: beegfs_ctl beegfs_fsck beegfs_fsck_legacy beegfs_java_lib
 
 beegfs_ctl:
 	$(MAKE) BEEGFS_COMMON_PATH=$(BEEGFS_COMMON_PATH) 	\
@@ -37,6 +38,14 @@ beegfs_fsck:
 		-C $(BEEGFS_FSCK_PATH)/build
 	cp $(BEEGFS_FSCK_PATH)/build/beegfs-fsck .
 
+beegfs_fsck_legacy:
+	$(MAKE) BEEGFS_COMMON_PATH=$(BEEGFS_COMMON_PATH) 	\
+		BEEGFS_OPENTK_PATH=$(BEEGFS_OPENTK_PATH) 	\
+		BEEGFS_THIRDPARTY_PATH=$(BEEGFS_THIRDPARTY_PATH) \
+		$(EXTRA_FLAGS) $(BEEGFS_EXTRA_FLAGS) 	\
+		-C $(BEEGFS_FSCK_LEGACY_PATH)/build
+	cp $(BEEGFS_FSCK_LEGACY_PATH)/build/beegfs-fsck-legacy .
+
 beegfs_java_lib:
 	$(MAKE) -C $(BEEGFS_JAVA_LIB_PATH)/build
 	cp $(BEEGFS_JAVA_LIB_PATH)/build/libjbeegfs.so $(BEEGFS_JAVA_LIB_PATH)/build/jbeegfs.jar .
@@ -44,6 +53,7 @@ beegfs_java_lib:
 clean:
 	$(MAKE) -C $(BEEGFS_ONLINE_CFG_PATH)/build clean
 	$(MAKE) -C $(BEEGFS_FSCK_PATH)/build clean
+	$(MAKE) -C $(BEEGFS_FSCK_LEGACY_PATH)/build clean
 #	$(MAKE) -C $(BEEGFS_JAVA_LIB_PATH)/build clean
 	
 	rm -f beegfs-ctl

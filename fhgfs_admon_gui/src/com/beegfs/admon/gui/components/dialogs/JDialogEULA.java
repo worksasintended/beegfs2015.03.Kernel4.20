@@ -42,7 +42,7 @@ public class JDialogEULA extends javax.swing.JDialog
          String line = in.readLine();
          while (line != null)
          {
-            jTextAreaEula.append(line + "\n");
+            jTextAreaEula.append(line + System.lineSeparator());
             line = in.readLine();
          }
       }

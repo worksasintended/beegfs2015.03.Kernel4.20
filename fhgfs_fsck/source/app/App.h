@@ -99,7 +99,6 @@ class App : public AbstractApp
 
       ModificationEventHandler* modificationEventHandler;
 
-      FsckDB* database;
       TestRunner* testRunner;
 
       Mode* runMode;
@@ -185,11 +184,6 @@ class App : public AbstractApp
          return localNode;
       }
 
-      FsckDB* getDatabase()
-      {
-         return database;
-      }
-
       MultiWorkQueue* getWorkQueue()
       {
          return workQueue;
@@ -218,6 +212,11 @@ class App : public AbstractApp
       ModificationEventHandler* getModificationEventHandler()
       {
          return modificationEventHandler;
+      }
+
+      void setModificationEventHandler(ModificationEventHandler* handler)
+      {
+         modificationEventHandler = handler;
       }
 };
 

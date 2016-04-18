@@ -13,12 +13,12 @@ BEEGFS_OPENTK_PATH     ?= ../../beegfs_opentk_lib/
 BEEGFS_THIRDPARTY_PATH ?= ../../beegfs_thirdparty/
 BEEGFS_AUTO_CXX11_SCRIPT_PATH ?= $(BEEGFS_COMMON_PATH)/build/check-cxx-for-c++11.sh
 CPPUNIT_INC_PATH      ?= $(BEEGFS_THIRDPARTY_PATH)/source/cppunit_install/usr/local/include
-SQLITE_INC_PATH       ?= $(BEEGFS_THIRDPARTY_PATH)/source/sqlite/
+BOOST_INC_PATH        ?= $(BEEGFS_THIRDPARTY_PATH)/source/boost/
 
 CXX = g++
 CXXFLAGS = -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 \
 	-I../source -I$(BEEGFS_OPENTK_PATH)/include -I$(BEEGFS_COMMON_PATH)/source \
-	-I$(CPPUNIT_INC_PATH) -isystem $(SQLITE_INC_PATH) \
+   -I$(CPPUNIT_INC_PATH) -isystem $(BOOST_INC_PATH) \
 	-pthread -Wall -fmessage-length=0 -fno-strict-aliasing \
 	-Wunused-variable -Woverloaded-virtual -Wextra -Wno-unused-parameter \
 	-ggdb3 $(USER_CXXFLAGS)
@@ -27,8 +27,7 @@ CXXFLAGS_DEBUG = -O0 -ggdb3 \
 	-DBEEGFS_DEBUG -DDEBUG_READWRITE -DDEBUG_MUTEX_LOCKING -DDEBUG_REFCOUNT \
 	-DDEBUG_BACKTRACE -DLOG_DEBUG_MESSAGES
 
-THIRTPARTY_LIBS = $(BEEGFS_THIRDPARTY_PATH)/build/libcppunit.a \
-		  $(BEEGFS_THIRDPARTY_PATH)/build/libsqlite3.a 
+THIRTPARTY_LIBS = $(BEEGFS_THIRDPARTY_PATH)/build/libcppunit.a
 
 LDFLAGS = -L$(BEEGFS_COMMON_PATH)/build -L$(BEEGFS_OPENTK_PATH)/build \
 	-L$(BEEGFS_THIRDPARTY_PATH)/build -pthread -lbeegfs-common -rdynamic -lbeegfs-opentk -lrt \

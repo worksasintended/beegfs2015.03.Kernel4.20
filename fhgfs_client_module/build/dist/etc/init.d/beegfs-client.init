@@ -257,6 +257,7 @@ case "$1" in
          mnt=`echo $line | awk '{print $1}'`
          cfg=`echo $line | awk '{print $2}'`
          fstype=`echo $line | awk '{print $3}'`
+         extra_mount_opts=`echo $line | awk '{print $4}'`
 
          if [ -z "$mnt" -o -z "$cfg" ]; then
             echo "Invalid config line: \"$line\""
@@ -278,9 +279,13 @@ case "$1" in
 
          set -e
 
-         # mkdir required for admon
-         if [ ! -e ${mnt} ]; then mkdir -p ${mnt}; fi 
-            mount -t ${fstype} beegfs_nodev ${mnt} -ocfgFile=${cfg},_netdev,${SELINUX_OPT}
+         # mkdir required for admon-based installation
+         if [ ! -e ${mnt} ]; then
+            mkdir -p ${mnt}
+         fi
+
+         mount -t ${fstype} beegfs_nodev ${mnt} \
+            -ocfgFile=${cfg},_netdev,${SELINUX_OPT},${extra_mount_opts}
       done
 
       RETVAL=$?

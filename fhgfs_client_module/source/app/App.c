@@ -520,8 +520,12 @@ fhgfs_bool __App_initInodeOperations(App* this)
    this->fileInodeOps->setattr     = FhgfsOps_setattr;
 
    this->symlinkInodeOps->readlink    = generic_readlink; // default is fine for us currently
+#ifdef KERNEL_HAS_GET_LINK
+   this->symlinkInodeOps->get_link    = FhgfsOps_get_link;
+#else
    this->symlinkInodeOps->follow_link = FhgfsOps_follow_link;
    this->symlinkInodeOps->put_link    = FhgfsOps_put_link;
+#endif
    this->symlinkInodeOps->getattr     = FhgfsOps_getattr;
    this->symlinkInodeOps->permission  = FhgfsOps_permission;
    this->symlinkInodeOps->setattr     = FhgfsOps_setattr;

@@ -3,11 +3,12 @@
 
 #include <common/nodes/MirrorBuddyGroupMapper.h>
 #include <common/nodes/TargetStateStore.h>
+#include <common/nodes/Node.h>
 
 class MgmtdTargetStateStore : public TargetStateStore
 {
    public:
-      MgmtdTargetStateStore();
+      MgmtdTargetStateStore(NodeType nodeType);
       void setConsistencyStatesFromLists(const UInt16List& targetIDs,
          const UInt8List& consistencyStates, bool setOnline);
       FhgfsOpsErr changeConsistencyStatesFromLists(const UInt16List& targetIDs,
@@ -32,6 +33,8 @@ class MgmtdTargetStateStore : public TargetStateStore
       TargetIDSet targetsToResync;
       bool targetsToResyncSetDirty;
       std::string targetsToResyncStorePath;
+
+      NodeType nodeType; // Meta node state store or storage target state store.
 
    public:
       // getters & setters
@@ -92,6 +95,32 @@ class MgmtdTargetStateStore : public TargetStateStore
          }
 
          safeLock.unlock(); // U N L O C K
+
+         return res;
+      }
+
+      /**
+       * @returns an std::string that contains either "Storage target" or "Metadata node" depending
+       *          on the nodeType of this state store.
+       */
+      std::string nodeTypeStr(bool uppercase)
+      {
+         std::string res;
+         switch (this->nodeType)
+         {
+            case NODETYPE_Storage:
+               res = "storage target";
+               break;
+            case NODETYPE_Meta:
+               res = "metadata node";
+               break;
+            default:
+               res = "node";
+               break;
+         }
+
+         if (uppercase)
+            res[0] = ::toupper(res[0]);
 
          return res;
       }

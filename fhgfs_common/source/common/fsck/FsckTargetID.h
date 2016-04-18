@@ -39,15 +39,18 @@ class FsckTargetID
          return targetIDType;
       }
 
-      bool operator< (const FsckTargetID& other)
+      bool operator< (const FsckTargetID& other) const
       {
          if (id < other.id)
             return true;
-         else
-            return false;
+
+         if (id == other.id && targetIDType < other.targetIDType)
+            return true;
+
+         return false;
       }
 
-      bool operator== (const FsckTargetID& other)
+      bool operator== (const FsckTargetID& other) const
       {
          if (id != other.id)
             return false;

@@ -38,6 +38,18 @@ OFED_HAS_SET_SERVICE_TYPE = $(shell \
 #
 # OFED_HAS_SET_SERVICE_TYPE Detection [END]
 
+# kernels >=v4.4 expect a netns argument for rdma_create_id
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -qs "struct rdma_cm_id \*rdma_create_id.struct net \*net," \
+      ${OFED_DETECTION_PATH}/rdma/rdma_cm.h \
+      && echo "-DOFED_HAS_NETNS")
+
+# kernels >=v4.4 split up ib_send_wr into a lot of other structs
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -qs -F "struct ib_atomic_wr {" \
+      ${OFED_DETECTION_PATH}/rdma/ib_verbs.h \
+      && echo "-DOFED_SPLIT_WR")
+
 endif # BEEGFS_OPENTK_IBVERBS
 
 ########### OFED PART [END] ###########

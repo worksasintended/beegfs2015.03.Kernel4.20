@@ -15,10 +15,7 @@
 #include <common/threading/PThread.h>
 #include <common/toolkit/NodesTk.h>
 #include <common/toolkit/MessagingTk.h>
-#include <database/DBHandle.h>
 #include <toolkit/FsckDefinitions.h>
-
-#include <sqlite3.h>
 
 /* OutputOption Flags for fsckOutput */
 #define OutputOptions_NONE                0
@@ -43,21 +40,16 @@
 
 /*
  * calculating with:
- * DirEntry    265 Byte
- * FileInode   410 Byte
- * DirInode    85 Byte
- * ContDir     30 Byte
- * chunk       60 Byte
+ * DirEntry    76+256+28 Byte (space for dentry + longest name + one index)
+ * FileInode   96 Byte    |
+ * DirInode    56 Byte    # only the larger of these two counts, even though files are inlined
+ * ContDir     16 Byte
+ * FsID        40 Byte
+ * chunk       88 Byte
  *
  */
-#define NEEDED_DISKSPACE_META_INODE 675
-#define NEEDED_DISKSPACE_STORAGE_INODE 60
-
-#define TABLE_NAME_ERROR(errorCode) \
-   ( std::string("error_") + FsckTkEx::getErrorDesc(errorCode, true) )
-
-#define TABLE_NAME_REPAIR(repairAction) \
-   ( std::string("repair_") + FsckTkEx::getRepairActionDesc(repairAction, true) )
+#define NEEDED_DISKSPACE_META_INODE 512
+#define NEEDED_DISKSPACE_STORAGE_INODE 88
 
 class FsckTkEx
 {
@@ -79,27 +71,9 @@ class FsckTkEx
       // print the progress meter which goes round and round (-\|/-)
       static void progressMeter();
 
-      static bool compareFsckDirEntryLists(FsckDirEntryList* listA, FsckDirEntryList* listB);
-      static bool compareFsckFileInodeLists(FsckFileInodeList* listA, FsckFileInodeList* listB);
-      static bool compareFsckDirInodeLists(FsckDirInodeList* listA, FsckDirInodeList* listB);
-      static bool compareFsckChunkLists(FsckChunkList* listA, FsckChunkList* listB);
-      static bool compareFsckContDirLists(FsckContDirList* listA, FsckContDirList* listB);
-      static bool compareFsckFsIDLists(FsckFsIDList* listA, FsckFsIDList* listB);
-      static bool compareUInt16Lists(UInt16List* listA, UInt16List* listB);
-
-      static void removeFromList(FsckDirEntryList& list, FsckDirEntryList& removeList);
-      static void removeFromList(FsckDirInodeList& list, FsckDirInodeList& removeList);
-      static void removeFromList(FsckDirInodeList& list, StringList& removeList);
-      static void removeFromList(FsckFileInodeList& list, FsckFileInodeList& removeList);
-      static void removeFromList(FsckFileInodeList& list, StringList& removeList);
-      static void removeFromList(FsckChunkList& list, FsckChunkList& removeList);
-      static void removeFromList(FsckChunkList& list, StringList& removeList);
-      static void removeFromList(StringList& list, StringList& removeList);
-
       static int64_t calcNeededSpace();
       static bool checkDiskSpace(Path& dbPath);
 
-      static std::string getErrorDesc(FsckErrorCode errorCode, bool shortDesc = false);
       static std::string getRepairActionDesc(FsckRepairAction repairAction, bool shortDesc = false);
 
       static bool startModificationLogging(NodeStore* metaNodes, Node* localNode);
@@ -122,27 +96,6 @@ class FsckTkEx
       static void fsckOutput(std::string text)
       {
          fsckOutput(text, OutputOptions_LINEBREAK);
-      }
-
-      /*
-       * remove all elements from removeList in list by ID
-       */
-      template<typename T>
-      static void removeFromListByID(std::list<T>& list, StringList removeList)
-      {
-         for ( StringListIter removeIter = removeList.begin(); removeIter != removeList.end();
-            removeIter++ )
-         {
-            typename std::list<T>::iterator iter;
-            for ( iter = list.begin(); iter != list.end(); iter++ )
-            {
-               if ( removeIter->compare(iter->getID()) == 0 )
-               {
-                  list.erase(iter);
-                  break;
-               }
-            }
-         }
       }
 };
 

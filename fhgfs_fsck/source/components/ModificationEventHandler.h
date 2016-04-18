@@ -3,7 +3,7 @@
 
 #include <common/fsck/FsckModificationEvent.h>
 #include <common/threading/Condition.h>
-#include <database/FsckDB.h>
+#include <database/FsckDBTable.h>
 
 
 #define MODHANDLER_MAXSIZE_EVENTLIST      50000
@@ -12,15 +12,15 @@
 class ModificationEventHandler: public PThread
 {
    public:
-      ModificationEventHandler();
-      virtual ~ModificationEventHandler();
+      ModificationEventHandler(FsckDBModificationEventsTable& table);
 
       virtual void run();
 
       bool add(UInt8List& eventTypeList, StringList& entryIDList);
 
    private:
-      FsckDB* database;
+      FsckDBModificationEventsTable* table;
+
       FsckModificationEventList bufferList;
 
       Mutex bufferListMutex;
@@ -32,7 +32,13 @@ class ModificationEventHandler: public PThread
       Mutex eventsFlushedMutex;
       Condition eventsFlushedCond;
 
-      void flush(FsckModificationEventList& flushList);
+   public:
+      void stop()
+      {
+         selfTerminate();
+         eventsAddedCond.signal();
+         join();
+      }
 };
 
 #endif /* MODIFICATIONEVENTHANDLER_H */

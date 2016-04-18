@@ -4,16 +4,21 @@ package com.beegfs.admon.gui.common.enums;
 public enum UpdateDataTypeEnum
 {
    HOSTS_MGMTD("Add management hosts", "Import management hosts from file",
-      "Please choose the file to import.\n\n The file must contain one host per line."),
+      "Please choose the file to import." + System.lineSeparator() + System.lineSeparator() +
+      "The file must contain one host per line."),
    HOSTS_META("Add metadata hosts", "Import metadata hosts from file",
-      "Please choose the file to import.\n\n The file must contain one host per line."),
+      "Please choose the file to import." + System.lineSeparator() + System.lineSeparator() +
+      "The file must contain one host per line."),
    HOSTS_STORAGE("Add storage hosts", "Import storage hosts from file",
-      "Please choose the file to import.\n\n The file must contain one host per line."),
+      "Please choose the file to import." + System.lineSeparator() + System.lineSeparator() +
+      "The file must contain one host per line."),
    HOSTS_CLIENT("Add client hosts", "Import client hosts from file",
-      "Please choose the file to import.\n\n The file must contain one host per line."),
+      "Please choose the file to import." + System.lineSeparator() + System.lineSeparator() +
+      "The file must contain one host per line."),
    QUOTA("Add quota limits", "Import quota limits from file",
-      "Please choose the file to import.\n\n A csv file is requires each line is a user or a " +
-      "group.\n Line format: ID/name,size limit,inode limit");
+      "Please choose the file to import." + System.lineSeparator() + System.lineSeparator() +
+      "A csv file is requires each line is a user or a group." + System.lineSeparator() +
+      "Line format: ID/name,size limit,inode limit");
 
    private final String title;
    private final String fileCooserTitle;

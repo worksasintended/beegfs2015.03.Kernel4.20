@@ -25,7 +25,7 @@ public class StatusPanel extends javax.swing.JPanel
          String message = text.substring(text.indexOf(']') + 2);
          if (!jTextPaneStatus.getText().contains(message))
          {
-            jTextPaneStatus.setText(jTextPaneStatus.getText() + text + "\n");
+            jTextPaneStatus.setText(jTextPaneStatus.getText() + text + System.lineSeparator());
             jTextPaneStatus.setBackground(new Color(255, 61, 81));
             jTextPaneStatus.revalidate();
             this.revalidate();
@@ -41,7 +41,7 @@ public class StatusPanel extends javax.swing.JPanel
    {
       if (!jTextPaneStatus.getText().contains(text))
       {
-         jTextPaneStatus.setText(jTextPaneStatus.getText() + text + "\n");
+         jTextPaneStatus.setText(jTextPaneStatus.getText() + text + System.lineSeparator());
          jTextPaneStatus.setBackground(new Color(255, 61, 81));
          jTextPaneStatus.revalidate();
          this.revalidate();

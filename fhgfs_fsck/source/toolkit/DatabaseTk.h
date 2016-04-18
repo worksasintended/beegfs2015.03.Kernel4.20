@@ -10,13 +10,12 @@
 #include <common/fsck/FsckModificationEvent.h>
 #include <common/fsck/FsckTargetID.h>
 
-#include <sqlite3.h>
-
-#define DATABASE_MAINSCHEMANAME "beegfsfsck"
-
-const char* const dbSchemas[] =
-   { "dirEntries", "fileInodes", "dirInodes", "chunks", "contDirs", "fsIDs", "usedTargets",
-      "modificationEvents", "errors"};
+#include <database/Chunk.h>
+#include <database/ContDir.h>
+#include <database/DirEntry.h>
+#include <database/DirInode.h>
+#include <database/FileInode.h>
+#include <database/FsID.h>
 
 class FsckDB;
 
@@ -56,48 +55,8 @@ class DatabaseTk
       static void createDummyFsckFsIDs(uint amount, FsckFsIDList* outList);
       static void createDummyFsckFsIDs(uint from, uint amount, FsckFsIDList* outList);
 
-      static void createFsckDirEntryFromRow(sqlite3_stmt* stmt, FsckDirEntry *outEntry,
-         unsigned colShift=0);
-      static void createFsckFileInodeFromRow(sqlite3_stmt* stmt, FsckFileInode *outInode,
-         unsigned colShift=0);
-      static void createFsckDirInodeFromRow(sqlite3_stmt* stmt, FsckDirInode *outInode,
-         unsigned colShift=0);
-      static void createFsckChunkFromRow(sqlite3_stmt* stmt, FsckChunk *outChunk,
-         unsigned colShift=0);
-      static void createFsckContDirFromRow(sqlite3_stmt* stmt, FsckContDir *outContDir,
-         unsigned colShift=0);
-      static void createFsckFsIDFromRow(sqlite3_stmt* stmt, FsckFsID *outFsID,
-         unsigned colShift=0);
-      static void createFsckModificationEventFromRow(sqlite3_stmt* stmt,
-         FsckModificationEvent *outModificationEvent, unsigned colShift=0);
-      static void createFsckTargetIDFromRow(sqlite3_stmt* stmt, FsckTargetID *outTargetID,
-         unsigned colShift);
-
-      static void createObjectFromRow(sqlite3_stmt* stmt, FsckDirEntry* outObject,
-         unsigned colShift=0);
-      static void createObjectFromRow(sqlite3_stmt* stmt, FsckFileInode* outObject,
-         unsigned colShift=0);
-      static void createObjectFromRow(sqlite3_stmt* stmt, FsckDirInode* outObject,
-         unsigned colShift=0);
-      static void createObjectFromRow(sqlite3_stmt* stmt, FsckChunk* outObject,
-         unsigned colShift=0);
-      static void createObjectFromRow(sqlite3_stmt* stmt, FsckContDir* outObject,
-         unsigned colShift=0);
-      static void createObjectFromRow(sqlite3_stmt* stmt, FsckFsID* outObject,
-         unsigned colShift=0);
-      static void createObjectFromRow(sqlite3_stmt* stmt, FsckModificationEvent* outObject,
-         unsigned colShift=0);
-      static void createObjectFromRow(sqlite3_stmt* stmt, FsckTargetID* outObject,
-         unsigned colShift=0);
-
-      static bool getFullPath(FsckDB* db, FsckDirEntry* dirEntry, std::string& outPath);
-      static bool getFullPath(FsckDB* db, std::string id, std::string& outPath);
-
       static std::string calculateExpectedChunkPath(std::string entryID, unsigned origParentUID,
          std::string origParentEntryID, int pathInfoFlags);
-
-      static bool removeDatabaseFiles(const std::string& databasePath);
-      static bool databaseFilesExist(const std::string& databasePath);
 };
 
 #endif /* DATABASETK_H_ */

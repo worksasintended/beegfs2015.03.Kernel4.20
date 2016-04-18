@@ -34,7 +34,6 @@ App::App(int argc, char** argv)
    this->ackStore = NULL;
    this->netMessageFactory = NULL;
    this->dgramListener = NULL;
-   this->database = NULL;
    this->modificationEventHandler = NULL;
    this->testRunner = NULL;
    this->runMode = NULL;
@@ -48,8 +47,6 @@ App::~App()
 
    workersDelete();
 
-   SAFE_DELETE(this->modificationEventHandler);
-   SAFE_DELETE(this->database);
    SAFE_DELETE(this->dgramListener);
    SAFE_DELETE(this->allowedInterfaces);
    SAFE_DELETE(this->netMessageFactory);
@@ -277,10 +274,6 @@ void App::initDataObjects(int argc, char** argv)
    this->workQueue = new MultiWorkQueue();
    this->ackStore = new AcknowledgmentStore();
 
-   // NOTE: database is constructed here, but inside the modes, database->init() must be called
-   const std::string databasePath = this->cfg->getDatabasePath();
-   this->database = new FsckDB(databasePath);
-
    initLocalNodeInfo();
 
    registerSignalHandler();
@@ -326,8 +319,6 @@ void App::initComponents()
 
    this->internodeSyncer = new InternodeSyncer();
 
-   this->modificationEventHandler = new ModificationEventHandler();
-
    workersInit();
 
    this->log->log(Log_DEBUG, "Components initialized.");
@@ -344,8 +335,6 @@ void App::startComponents()
 
    internodeSyncer->start();
 
-   this->modificationEventHandler->start();
-
    workersStart();
 
    PThread::unblockInterruptSignals(); // main app thread may receive SIGINT/SIGTERM
@@ -359,7 +348,6 @@ void App::stopComponents()
    //    lead to a deadlock (when calling from signal handler)
    workersStop();
 
-   this->modificationEventHandler->selfTerminate();
    this->internodeSyncer->selfTerminate();
 
    if ( dgramListener )
@@ -376,7 +364,6 @@ void App::joinComponents()
    log->log(4, "Joining component threads...");
 
    this->internodeSyncer->join();
-   this->modificationEventHandler->join();
 
    /* (note: we need one thread for which we do an untimed join, so this should be a quite reliably
       terminating thread) */

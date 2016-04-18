@@ -46,6 +46,12 @@ void GetQuotaInfoWork::mergeOrInsertNewQuotaData(QuotaDataList* inList)
    }
 
    lock.unlock();                                                       // U N L O C K
+
+   if(*this->result != 0)
+   {
+      LogContext("GetQuotaInfo").log(Log_WARNING, "Invalid QuotaData from target: " +
+        StringTk::uintToStr(this->cfg.cfgTargetNumID));
+   }
 }
 
 void GetQuotaInfoWork::process(char* bufIn, unsigned bufInLen, char* bufOut, unsigned bufOutLen)
@@ -65,9 +71,6 @@ void GetQuotaInfoWork::process(char* bufIn, unsigned bufInLen, char* bufOut, uns
       &respBuf, &respMsg);
    if(!commRes)
    {
-      std::cerr << "Failed to communicate with node: " << storageNode->getTypedNodeID()
-         << std::endl;
-
       // error value 1 or TargetNumID depends on target selection mode
       if(this->cfg.cfgTargetSelection != GETQUOTACONFIG_ALL_TARGETS_ONE_REQUEST)
          *this->result = this->cfg.cfgTargetNumID;

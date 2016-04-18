@@ -13,6 +13,7 @@ BEEGFS_COMMON_PATH=${BEEGFS_COMMON_PATH:-`readlink -f ../../beegfs_common`}
 BEEGFS_THIRDPARTY_PATH=${BEEGFS_THIRDPARTY_PATH:-`readlink -f ../../beegfs_thirdparty`}
 BEEGFS_ONLINE_CFG_PATH=${BEEGFS_ONLINE_CFG_PATH:-`readlink -f ../../beegfs_ctl`}
 BEEGFS_FSCK_PATH=${BEEGFS_FSCK_PATH:-`readlink -f ../../beegfs_fsck`}
+BEEGFS_FSCK_LEGACY_PATH=${BEEGFS_FSCK_LEGACY_PATH:-`readlink -f ../../beegfs_fsck_legacy`}
 
 CHANGELOG="debian/changelog"
 RULES="debian/rules"
@@ -31,6 +32,7 @@ sed \
 	-e "s#__BEEGFS_THIRDPARTY_PATH__#$BEEGFS_THIRDPARTY_PATH#g"	\
 	-e "s#__BEEGFS_ONLINE_CFG_PATH__#$BEEGFS_ONLINE_CFG_PATH#g" 	\
 	-e "s#__BEEGFS_FSCK_PATH__#$BEEGFS_FSCK_PATH#g" 		\
+	-e "s#__BEEGFS_FSCK_LEGACY_PATH__#$BEEGFS_FSCK_LEGACY_PATH#g" 	\
 	-e "s/__BEEGFS_VERSION__/$BEEGFS_VERSION/g"   			\
 	-e "s/__VER__/$VER/g"						\
 	-e "s/__RELEASE_STR__/$RELEASE_STR/g"				\

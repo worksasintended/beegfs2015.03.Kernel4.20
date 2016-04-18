@@ -162,7 +162,7 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
             for (String error : errors)
             {
                errorStr.append(error);
-               errorStr.append("\n");
+               errorStr.append(System.lineSeparator());
             }
 
             JOptionPane.showMessageDialog(null, errorStr, "Errors occured",
@@ -280,7 +280,7 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
             for (String error : errors)
             {
                errorStr.append(error);
-               errorStr.append("\n");
+               errorStr.append(System.lineSeparator());
             }
             JOptionPane.showMessageDialog(null, errorStr, "Errors occured",
                     JOptionPane.ERROR_MESSAGE);
