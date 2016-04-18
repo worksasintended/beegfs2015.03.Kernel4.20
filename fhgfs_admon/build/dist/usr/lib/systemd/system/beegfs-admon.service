@@ -1,7 +1,7 @@
 [Unit]
 Description=Start BeeGFS Admon
 Requires=network-online.target
-After=network-online.target
+After=network-online.target zfs.target
 
 [Service]
 ExecStart=/etc/init.d/beegfs-admon start

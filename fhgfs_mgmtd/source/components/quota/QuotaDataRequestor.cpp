@@ -28,6 +28,13 @@ bool QuotaDataRequestor::requestQuota(QuotaDataMapForTarget* outQuotaData,
          System::getAllGroupIDs(&this->cfg.cfgIDList, true);
    }
 
+   //remove all duplicated IDs, the list::unique() needs a sorted list
+   if(this->cfg.cfgIDList.size() > 0)
+   {
+      this->cfg.cfgIDList.sort();
+      this->cfg.cfgIDList.unique();
+   }
+
    Node* mgmtNode = mgmtNodes->referenceFirstNode();
 
    if (mgmtNode == NULL)
