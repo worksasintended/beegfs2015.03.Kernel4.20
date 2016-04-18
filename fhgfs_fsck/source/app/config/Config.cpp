@@ -195,6 +195,8 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw (Invalid
       IGNORE_CONFIG_CLIENT_VALUE("sysSessionCheckOnClose")
       IGNORE_CONFIG_CLIENT_VALUE("sysTargetOfflineTimeoutSecs")
       IGNORE_CONFIG_CLIENT_VALUE("sysInodeIDStyle")
+      IGNORE_CONFIG_CLIENT_VALUE("sysACLsEnabled")
+      IGNORE_CONFIG_CLIENT_VALUE("sysXAttrsEnabled")
       IGNORE_CONFIG_CLIENT_VALUE("tuneDirSubentryCacheValidityMS")
       IGNORE_CONFIG_CLIENT_VALUE("tuneFileSubentryCacheValidityMS")
       if(testConfigMapKeyMatch(iter, "sysForcedRoot", addDashes) )
