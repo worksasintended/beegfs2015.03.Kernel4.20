@@ -117,6 +117,15 @@ FhgfsOpsErr MsgHelperXAttr::getxattr(EntryInfo* entryInfo, const std::string& na
       metaStore->releaseDir(parentID);
    }
 
+   if (inOutSize > 60*1024) // Attribute might be too large for NetMessage.
+   {
+      // Note: This can happen if it was set with an older version of the client which did not
+      //       include the size check.
+      retVal = FhgfsOpsErr_INTERNAL;
+      inOutSize = 0;
+      outValue.clear();
+   }
+
    return retVal;
 }
 

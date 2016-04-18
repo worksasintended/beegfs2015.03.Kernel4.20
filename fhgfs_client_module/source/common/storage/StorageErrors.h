@@ -61,6 +61,7 @@ enum FhgfsOpsErr
    FhgfsOpsErr_RANGE                   =    27, // corresponds to ERANGE (needed for xattrs)
    FhgfsOpsErr_NODATA                  =    28, // corresponds to ENODATA==ENOATTR (xattr not found)
    FhgfsOpsErr_NOTSUPP                 =    29, // corresponds to EOPNOTSUPP
+   FhgfsOpsErr_TOOLONG                 =    30, // corresponds to E2BIG (needed for xattrs)
 };
 typedef enum FhgfsOpsErr FhgfsOpsErr;
 

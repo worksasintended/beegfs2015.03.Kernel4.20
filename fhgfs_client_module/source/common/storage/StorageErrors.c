@@ -43,6 +43,7 @@ struct FhgfsOpsErrListEntry const __FHGFSOPS_ERRLIST[] =
    {"Numerical result out of range", ERANGE}, // FhgfsOpsErr_RANGE
    {"No data available", ENODATA}, // FhgfsOpsErr_NODATA
    {"Operation not supported", EOPNOTSUPP}, // FhgfsOpsErr_NOTSUPP
+   {"Argument list too long", E2BIG}, // FhgfsOpsErr_TOOLONG
    {NULL, 0}
 };
 

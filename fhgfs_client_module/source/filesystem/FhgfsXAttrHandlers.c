@@ -8,6 +8,7 @@
 #include "FhgfsXAttrHandlers.h"
 
 #define FHGFS_XATTR_USER_PREFIX "user."
+#define FHGFS_XATTR_SECURITY_PREFIX "security."
 
 
 #ifdef KERNEL_HAS_POSIX_GET_ACL
@@ -81,7 +82,14 @@ static int FhgfsXAttrSetACL(struct dentry *dentry, const char *name, const void 
    if(value)
       return FhgfsOps_setxattr(dentry, attrName, value, size, flags);
    else // value == NULL: Remove the ACL extended attribute.
-      return FhgfsOps_removexattr(dentry, attrName);
+   {
+      int removeRes = FhgfsOps_removexattr(dentry, attrName);
+      if (removeRes == 0 || removeRes == -ENODATA) // If XA didn't exist anyway, return 0.
+         return 0;
+      else
+         return removeRes;
+   }
+
 }
 
 /**
@@ -191,6 +199,85 @@ int FhgfsXAttr_setUser(struct inode* inode, const char* name, const void* value,
    return res;
 }
 
+/**
+ * The get-function which is used for all the security.* xattrs.
+ */
+#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+int FhgfsXAttr_getSecurity(struct dentry* dentry, const char* name, void* value, size_t size,
+      int handler_flags)
+#else
+int FhgfsXAttr_getSecurity(struct inode* inode, const char* name, void* value, size_t size)
+#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+{
+   FhgfsOpsErr res;
+   char* prefixedName = os_kmalloc(strlen(name) + sizeof(FHGFS_XATTR_SECURITY_PREFIX) );
+   // Note: strlen does not count the terminating '\0', but sizeof does. So we have space for
+   // exactly one '\0' which coincidally is just what we need.
+
+#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+   FhgfsOpsHelper_logOpDebug(FhgfsOps_getApp(dentry->d_sb), dentry, NULL, __func__,
+      "(name: %s; size: %u)", name, size);
+#else
+   FhgfsOpsHelper_logOpDebug(FhgfsOps_getApp(inode->i_sb), NULL, inode, __func__,
+      "(name: %s; size: %u)", name, size);
+#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+
+   // add name prefix which has been removed by the generic function
+   if(!prefixedName)
+      return -ENOMEM;
+
+   strcpy(prefixedName, FHGFS_XATTR_SECURITY_PREFIX);
+   strcpy(prefixedName + sizeof(FHGFS_XATTR_SECURITY_PREFIX) - 1, name); // sizeof-1 to remove '\0'
+
+#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+   res = FhgfsOps_getxattr(dentry, prefixedName, value, size);
+#else
+   res = FhgfsOps_getxattr(inode, prefixedName, value, size);
+#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+
+   kfree(prefixedName);
+   return res;
+}
+
+/**
+ * The set-function which is used for all the security.* xattrs.
+ */
+#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+int FhgfsXAttr_setSecurity(struct dentry* dentry, const char* name, const void* value, size_t size,
+   int flags, int handler_flags)
+#else
+int FhgfsXAttr_setSecurity(struct inode* inode, const char* name, const void* value, size_t size,
+   int flags)
+#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+{
+   FhgfsOpsErr res;
+   char* prefixedName = os_kmalloc(strlen(name) + sizeof(FHGFS_XATTR_SECURITY_PREFIX) );
+
+
+#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+   FhgfsOpsHelper_logOpDebug(FhgfsOps_getApp(dentry->d_sb), dentry, NULL, __func__,
+      "(name: %s)", name);
+#else
+   FhgfsOpsHelper_logOpDebug(FhgfsOps_getApp(inode->i_sb), NULL, inode, __func__,
+      "(name: %s)", name);
+#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+
+   // add name prefix which has been removed by the generic function
+   if(!prefixedName)
+      return -ENOMEM;
+   strcpy(prefixedName, FHGFS_XATTR_SECURITY_PREFIX);
+   strcpy(prefixedName + sizeof(FHGFS_XATTR_SECURITY_PREFIX) - 1, name); // sizeof-1 to remove '\0'
+
+#ifdef KERNEL_HAS_DENTRY_XATTR_HANDLER
+   res = FhgfsOps_setxattr(dentry, prefixedName, value, size, flags);
+#else
+   res = FhgfsOps_setxattr(inode, prefixedName, value, size, flags);
+#endif // KERNEL_HAS_DENTRY_XATTR_HANDLER
+
+   kfree(prefixedName);
+   return res;
+}
+
 #ifdef KERNEL_HAS_POSIX_GET_ACL
 const struct xattr_handler fhgfs_xattr_acl_access_handler =
 {
@@ -223,6 +310,14 @@ struct xattr_handler fhgfs_xattr_user_handler =
    .get    = FhgfsXAttr_getUser,
 };
 
+struct xattr_handler fhgfs_xattr_security_handler =
+{
+   .prefix = FHGFS_XATTR_SECURITY_PREFIX,
+   .list   = NULL,
+   .set    = FhgfsXAttr_setSecurity,
+   .get    = FhgfsXAttr_getSecurity,
+};
+
 #ifdef KERNEL_HAS_POSIX_GET_ACL
 #ifdef KERNEL_HAS_CONST_XATTR_HANDLER
 const struct xattr_handler* fhgfs_xattr_handlers[] =
@@ -233,6 +328,7 @@ struct xattr_handler* fhgfs_xattr_handlers[] =
    &fhgfs_xattr_acl_access_handler,
    &fhgfs_xattr_acl_default_handler,
    &fhgfs_xattr_user_handler,
+   &fhgfs_xattr_security_handler,
    NULL
 };
 #endif // KERNEL_HAS_POSIX_GET_ACL
@@ -244,6 +340,7 @@ struct xattr_handler* fhgfs_xattr_handlers_noacl[] =
 #endif // KERNEL_HAS_CONST_XATTR_HANDLER
 {
    &fhgfs_xattr_user_handler,
+   &fhgfs_xattr_security_handler,
    NULL
 };
 

@@ -2288,6 +2288,13 @@ extern FhgfsOpsErr FhgfsOpsRemoting_setXAttr(App* app, const EntryInfo* entryInf
    NodeStoreEx* nodes = App_getMetaNodes(app);
    Node* node;
 
+
+   if (strlen(name) > 245) // The attribute name is too long (if the server side prefix is added).
+      return FhgfsOpsErr_RANGE;
+
+   if (size > 60*1024) // The attribute itself is too large and would not fit into a single NetMsg.
+      return FhgfsOpsErr_TOOLONG;
+
    node = NodeStoreEx_referenceNode(nodes, entryInfo->ownerNodeID);
    if(unlikely(!node) )
    {
@@ -2365,7 +2372,7 @@ extern FhgfsOpsErr FhgfsOpsRemoting_getXAttr(App* app, const EntryInfo* entryInf
 
    // connect & communicate
    requestRes = MessagingTk_requestResponseRetryAutoIntr(app, node, (NetMessage*)&requestMsg,
-         NETMSGTYPE_GetXAttrResp, &respBuf, &respMsg);
+      NETMSGTYPE_GetXAttrResp, &respBuf, &respMsg);
 
    NodeStoreEx_releaseNode(nodes, &node);
 

@@ -109,6 +109,12 @@ def parseConfigFiles(file, verbose):
             sys.stdout.write(replaceFhgfsByBeeGFS(line) )
          else:
             sys.stdout.write(line)
+      elif line.startswith("connTcpOnlyFilterFile"):
+         lineSplit = line.split("=")
+         if lineSplit[1].strip().startswith(FHGFS_CONF_DIR):
+            sys.stdout.write(replaceFhgfsByBeeGFS(line) )
+         else:
+            sys.stdout.write(line)
       elif line.startswith("logStdFile"):
          sys.stdout.write(replaceFhgfsByBeeGFS(line) )
       elif line.startswith("databaseFile"):

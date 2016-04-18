@@ -519,6 +519,7 @@ fhgfs_bool _Config_applyConfigMap(Config* this, fhgfs_bool enableException)
          this->tuneInodeBlockBits = StringTk_strToUInt(valueStr);
       else
       IGNORE_CONFIG_VALUE("tuneInodeBlockSize") // auto-generated based on tuneInodeBlockBits
+      IGNORE_CONFIG_VALUE("tuneMaxClientMirrorSize") // was removed, kept here for compat
       if(!os_strcmp(keyStr, "tuneEarlyCloseResponse") )
          this->tuneEarlyCloseResponse = StringTk_strToBool(valueStr);
       else
