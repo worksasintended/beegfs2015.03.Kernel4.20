@@ -255,7 +255,7 @@ deploy_meta()
    install_package "$hostline" "BeeGFS Meta Server" beegfs-meta $outFile $failedFile
    if [ $? -eq 0 ]
    then 
-     bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-meta.conf
+     bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-meta.conf ${outFile}
      if [ $? -ne 0 ]
      then
         echo "Can not write configuration file: /etc/beegfs/beegfs-meta.conf on host: ${host}" >> $outFile
@@ -292,7 +292,7 @@ deploy_storage()
    install_package "$hostline" "BeeGFS Storage Server" beegfs-storage $outFile $failedFile
    if [ $? -eq 0 ]
    then 
-     bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-storage.conf
+     bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-storage.conf ${outFile}
      if [ $? -ne 0 ]
      then
         echo "Can not write configuration file: /etc/beegfs/beegfs-storage.conf on host: ${host}" >> $outFile
@@ -329,7 +329,7 @@ deploy_mgmtd()
    install_package "$hostline" "BeeGFS Management Daemon" beegfs-mgmtd $outFile $failedFile
    if [ $? -eq 0 ]
    then 
-     bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-mgmtd.conf
+     bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-mgmtd.conf ${outFile}
      if [ $? -ne 0 ]
      then
         echo "Can not write configuration file: /etc/beegfs/beegfs-mgmtd.conf on host: ${host}" >> $outFile
@@ -370,7 +370,7 @@ deploy_client()
    install_package "$hostline" "BeeGFS Helper Daemon" beegfs-helperd $outFile $failedFile  
    if [ $? -eq 0 ]
    then 
-     bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-helperd.conf
+     bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-helperd.conf ${outFile}
      if [ $? -ne 0 ]
      then
         echo "Can not write configuration file: /etc/beegfs/beegfs-helperd.conf on host: ${host}" >> $outFile
@@ -443,7 +443,7 @@ deploy_client()
    cmd="rm -f /var/lib/beegfs/client/force-auto-build"
    eval ssh $sshParameter ${host} \"$cmd\" >> ${outFile} 2>&1
 
-   bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-client.conf
+   bash ${dirname}/setup.write_config.sh ${host} /etc/beegfs/beegfs-client.conf ${outFile}
    if [ $? -ne 0 ]
    then
       echo "Can not write configuration file: /etc/beegfs/beegfs-client.conf on host: ${host}" >> $outFile
@@ -451,7 +451,7 @@ deploy_client()
       return 1
    fi
 
-   bash ${dirname}/setup.write_mounts.sh ${host}
+   bash ${dirname}/setup.write_mounts.sh ${host} ${outFile}
    if [ $? -ne 0 ]
    then
       echo "Can not write configuration file: /etc/beegfs/beegfs-mounts.conf on host: ${host}" >> $outFile
