@@ -102,7 +102,8 @@ class StorageTk
       static void getChunkDirChunkFilePath(const PathInfo* pathInfo, std::string entryID,
          bool hasOrigFeature, PathVec& outChunkDirPath, std::string& outCompleteChunkFilePathStr);
 
-      static bool rmDirContentsRec(int fd, std::string& relativeDirPath);
+      static bool rmDirContentsRec(int fd, std::string relativeDirPath);
+      static bool rmDirContentsRec(std::string& absoluteDirPath);
 
    private:
       StorageTk() {}
@@ -135,6 +136,31 @@ class StorageTk
          int statRes = faccessat(dirfd, relativePath.c_str(), F_OK, 0);
 
          return statRes ? false : true;
+      }
+
+      /*
+       * check if a path contains anything
+       *
+       * @return true if path has any contents, false if not or if it is not a dir or doesn't exist
+       */
+      static bool pathHasChildren(const std::string& path)
+      {
+         bool retVal;
+         struct dirent *d;
+
+         DIR *dir = opendir(path.c_str());
+
+         if (dir == NULL) // not a directory or doesn't exist
+           return false;
+
+         if  ((d = readdirFilteredEx(dir, true, false)) != NULL)
+            retVal = true; // something is there
+         else
+            retVal = false;
+
+         closedir(dir);
+
+         return retVal;
       }
 
       /**

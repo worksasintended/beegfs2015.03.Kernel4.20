@@ -1,81 +1,50 @@
 package com.beegfs.admon.gui.common.nodes;
 
 import com.beegfs.admon.gui.common.enums.NodeTypesEnum;
-import java.util.ArrayList;
 
 public class TypedNodes extends Nodes
 {
-   private final static int INITIAL_CAPACITY = 10;
-
-   private final ArrayList<Node> nodes;
    private final NodeTypesEnum nodeType;
 
    public TypedNodes(NodeTypesEnum nodeType)
    {
-      nodes = new ArrayList<>(INITIAL_CAPACITY);
+      super();
       this.nodeType = nodeType;
+   }
+
+   public NodeTypesEnum getNodeType()
+   {
+      return this.nodeType;
    }
 
    public boolean contains(String nodeID)
    {
-      for (Node tmpNode : nodes)
-      {
-         if (nodeID.equals(tmpNode.getNodeID()))
-         {
-           return true;
-         }
-      }
-      return false;
+      return super.contains(nodeID, nodeType);
    }
 
    public boolean contains(int nodeNumID)
    {
-      for (Node tmpNode : nodes)
-      {
-         if (nodeNumID == tmpNode.getNodeNumID())
-         {
-           return true;
-         }
-      }
-      return false;
+      return super.contains(nodeNumID, nodeType);
    }
 
    public Node getNode(String nodeID)
    {
-      for (Node node : nodes)
-      {
-         if (node.getNodeID().equals(nodeID))
-         {
-           return node;
-         }
-      }
-      return null;
+      return super.getNode(nodeID, nodeType);
    }
 
    public Node getNode(int nodeNumID)
    {
-      for (Node node : nodes)
-      {
-         if (node.getNodeNumID() == nodeNumID)
-         {
-            return node;
-         }
-      }
-      return null;
+      return super.getNode(nodeNumID, nodeType);
    }
 
    public Nodes getNodes(String group)
    {
-      Nodes groupNodes = new Nodes();
-
-      for (Node node : nodes)
-      {
-         if (node.getGroup().equals(group))
-         {
-            groupNodes.add(node);
-         }
-      }
-      return groupNodes;
+      return super.getNodes(group, nodeType);
+   }
+   
+   public Nodes getClonedNodes(String group) throws CloneNotSupportedException
+   {
+      return super.getClonedNodes(group, nodeType);
    }
 
    @Override
@@ -86,141 +55,32 @@ public class TypedNodes extends Nodes
          return false;
       }
       
-      if (!nodes.contains(node))
-      {
-         return nodes.add(node);
-      }
-      else
-      {
-         return true;
-      }
-   }
-
-   @Override
-   public boolean addOrUpdateNode(Node node)
-   {
-      if (this.nodeType != node.getType())
-      {
-         return false;
-      }
-      
-      if (nodes.contains(node))
-      {
-         Node tmpNode = this.getNode(node.getNodeNumID(), node.getType());
-         tmpNode.setNodeID(node.getNodeID());
-         tmpNode.setNodeNumID(node.getNodeNumID());
-         tmpNode.setGroup(node.getGroup());
-         tmpNode.setType(node.getType());
-         return true;
-      }
-      else
-      {
-         return this.add(node);
-      }
+      return super.add(node);
    }
 
    @Override
    public boolean addNodes(Nodes nodeList)
    {
-      boolean retVal = true;
-      boolean oneFound = false;
-
       for(Node node : nodeList)
       {
-         if (nodes.add(node))
+         if (this.nodeType != node.getType())
          {
-            oneFound = true;
+            return false;
          }
-         else
-         {
-            retVal = false;
-            oneFound = true;
-         }
+
+         return super.add(node);
       }
 
-      if (!oneFound)
-      {
-         retVal = false;
-      }
-
-      return retVal;
-   }
-
-   @Override
-   public boolean addOrUpdateNodes(Nodes nodeList)
-   {
-      boolean retVal = true;
-      boolean oneFound = false;
-
-      for(Node node : nodeList)
-      {
-         if (this.addOrUpdateNode(node))
-         {
-            oneFound = true;
-         }
-         else
-         {
-            retVal = false;
-            oneFound = true;
-         }
-      }
-
-      if (!oneFound)
-      {
-         retVal = false;
-      }
-
-      return retVal;
+      return true;
    }
    
    public boolean remove(String nodeID)
    {
-      for (Node node : nodes)
-      {
-         if (node.getNodeID().equals(nodeID))
-         {
-            return nodes.remove(node);
-         }
-      }
-      return false;
+      return super.remove(nodeID, nodeType);
    }
 
    public boolean remove(int nodeNumID)
    {
-      for (Node node : nodes)
-      {
-         if (node.getNodeNumID() == nodeNumID)
-         {
-            return nodes.remove(node);
-         }
-      }
-      return false;
-   }
-
-   @Override
-   public boolean removeNodes(Nodes nodeList)
-   {
-      boolean retVal = true;
-      boolean oneFound = false;
-
-      for (Node node : nodeList)
-      {
-         if (nodes.remove(node))
-         {
-            oneFound = true;
-         }
-         else
-         {
-            retVal = false;
-            oneFound = true;
-         }
-      }
-
-      if (!oneFound)
-      {
-         retVal = false;
-      }
-
-      return retVal;
+      return super.remove(nodeNumID, nodeType);
    }
 }

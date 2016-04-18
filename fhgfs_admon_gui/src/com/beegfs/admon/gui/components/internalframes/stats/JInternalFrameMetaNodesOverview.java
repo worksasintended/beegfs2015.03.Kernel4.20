@@ -33,11 +33,11 @@ import javax.swing.ImageIcon;
 public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
         implements JInternalFrameInterface
 {
+   private static final Logger LOGGER = Logger.getLogger(
+      JInternalFrameMetaNodesOverview.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-   private static final int DEFAULT_TRACE_COUNT = 1;
 
-   private static final Logger logger = Logger.getLogger(
-           JInternalFrameMetaNodesOverview.class.getCanonicalName());
+   private static final int DEFAULT_TRACE_COUNT = 1;
 
    private transient MetaNodesOverviewUpdateThread updateThread;
    private final String group;
@@ -95,8 +95,10 @@ public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
 
    private class MetaNodesOverviewUpdateThread extends UpdateThread
    {
-      private static final int DEFAULT_PARAMETER_COUNT = 1;
       private static final String THREAD_NAME = "MetaOverview";
+
+      private static final int DEFAULT_PARAMETER_COUNT = 1;
+
       private final String xmlPage;
       private final HashMap<String, String> parameters;
 
@@ -150,7 +152,7 @@ public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
                {
                   if(!gotData.await(10, TimeUnit.SECONDS))
                   {
-                     logger.log(Level.FINEST, "No update from server!");
+                     LOGGER.log(Level.FINEST, "No update from server!");
                   }
                }
                finally
@@ -206,11 +208,15 @@ public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
             }
             catch (CommunicationException e)
             {
-               logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+               LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+               {
+                  e,
+                  true
+               });
             }
             catch (java.lang.NullPointerException | java.lang.InterruptedException npe)
             {
-               logger.log(Level.FINEST, "Internal error.", npe);
+               LOGGER.log(Level.FINEST, "Internal error.", npe);
             }
 
          }
@@ -513,7 +519,7 @@ public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
        }
        catch (ArrayIndexOutOfBoundsException e)
        {
-          logger.log(Level.FINEST, "Internal error.", e);
+          LOGGER.log(Level.FINEST, "Internal error.", e);
        }
 }//GEN-LAST:event_jComboBoxTimeSpanActionPerformed
 
@@ -600,7 +606,11 @@ public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
       }
       catch (CommunicationException ex)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{ex, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            ex,
+            true
+         });
       }
    }
 }

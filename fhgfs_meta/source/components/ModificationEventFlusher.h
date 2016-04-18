@@ -11,11 +11,11 @@
 #include <program/Program.h>
 
 
-#define MODFLUSHER_MAXSIZE_EVENTLIST        500
-#define MODFLUSHER_SEND_AT_ONCE             10
-#define MODFLUSHER_FLUSH_MAX_INTERVAL_MS    10000
-#define WAIT_FOR_ACK_MS                     600000
-#define WAIT_FOR_ACK_RETRIES                30
+#define MODFLUSHER_MAXSIZE_EVENTLIST        10000
+#define MODFLUSHER_SEND_AT_ONCE             10    // only very few events, because msg is UDP
+#define MODFLUSHER_FLUSH_MAX_INTERVAL_MS    5000
+#define MODFLUSHER_WAIT_FOR_ACK_MS          1000
+#define MODFLUSHER_WAIT_FOR_ACK_RETRIES     100
 
 /*
  * Note: this class is only used by fsck at the moment; therefore it is designed for fsck

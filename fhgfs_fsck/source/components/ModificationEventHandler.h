@@ -11,10 +11,17 @@
 
 class ModificationEventHandler: public PThread
 {
+   public:
+      ModificationEventHandler();
+      virtual ~ModificationEventHandler();
+
+      virtual void run();
+
+      bool add(UInt8List& eventTypeList, StringList& entryIDList);
+
    private:
       FsckDB* database;
       FsckModificationEventList bufferList;
-      FsckModificationEventList bufferListCopy;
 
       Mutex bufferListMutex;
       Mutex bufferListCopyMutex;
@@ -25,14 +32,7 @@ class ModificationEventHandler: public PThread
       Mutex eventsFlushedMutex;
       Condition eventsFlushedCond;
 
-   public:
-      ModificationEventHandler();
-      virtual ~ModificationEventHandler();
-
-      virtual void run();
-
-      bool add(UInt8List& eventTypeList, StringList& entryIDList);
-      void flush();
+      void flush(FsckModificationEventList& flushList);
 };
 
 #endif /* MODIFICATIONEVENTHANDLER_H */

@@ -120,7 +120,6 @@ static inline int Config_getTuneMaxReadWriteNum(Config* this);
 static inline int Config_getTuneMaxReadWriteNodesNum(Config* this);
 static inline int Config_getTuneMsgBufSize(Config* this);
 static inline int Config_getTuneMsgBufNum(Config* this);
-static inline unsigned Config_getTuneMaxClientMirrorSize(Config* this);
 static inline unsigned Config_getTunePageCacheValidityMS(Config* this);
 static inline unsigned Config_getTuneAttribCacheValidityMS(Config* this);
 static inline unsigned Config_getTuneDirSubentryCacheValidityMS(Config* this);
@@ -152,7 +151,8 @@ static inline fhgfs_bool Config_getQuotaEnabled(Config* this);
 
 
 enum FileCacheType
-{ FILECACHETYPE_None = 0, FILECACHETYPE_Buffered = 1, FILECACHETYPE_Paged = 2 };
+{ FILECACHETYPE_None = 0, FILECACHETYPE_Buffered = 1, FILECACHETYPE_Paged = 2,
+  FILECACHETYPE_Native = 3};
 
 
 #define INODEIDSTYLE_HASH32HSIEH_STR   "hash32"
@@ -253,7 +253,6 @@ struct Config
    fhgfs_bool     tuneRefreshOnGetAttr; // fhgfs_false means don't refresh on getattr
    unsigned       tuneInodeBlockBits; // bitshift for optimal io size seen by stat() (2^n)
    unsigned       tuneInodeBlockSize; // auto-generated based on tuneInodeBlockBits
-   unsigned       tuneMaxClientMirrorSize; // writes larger than this will be mirrored by servers
    fhgfs_bool     tuneEarlyCloseResponse; // don't wait for chunk files close result
    fhgfs_bool     tuneUseGlobalAppendLocks; // fhgfs_false means local append locks
    fhgfs_bool     tuneUseBufferedAppend; // fhgfs_false disables buffering of append writes
@@ -592,11 +591,6 @@ int Config_getTuneMsgBufSize(Config* this)
 int Config_getTuneMsgBufNum(Config* this)
 {
    return this->tuneMsgBufNum;
-}
-
-unsigned Config_getTuneMaxClientMirrorSize(Config* this)
-{
-   return this->tuneMaxClientMirrorSize;
 }
 
 unsigned Config_getTunePageCacheValidityMS(Config* this)

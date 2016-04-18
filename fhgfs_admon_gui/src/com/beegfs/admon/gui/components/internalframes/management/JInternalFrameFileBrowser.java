@@ -31,10 +31,9 @@ import javax.swing.table.TableColumn;
 public class JInternalFrameFileBrowser extends javax.swing.JInternalFrame implements
         JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(
-           JInternalFrameFileBrowser.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(
+      JInternalFrameFileBrowser.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "FileBrowser";
 
    private String currentPath;
@@ -262,7 +261,7 @@ public class JInternalFrameFileBrowser extends javax.swing.JInternalFrame implem
                      }
                      catch (NumberFormatException e)
                      {
-                        logger.log(Level.FINEST, "Number format error", e);
+                        LOGGER.log(Level.FINEST, "Number format error", e);
                      }
                   }
                }
@@ -274,7 +273,7 @@ public class JInternalFrameFileBrowser extends javax.swing.JInternalFrame implem
                moreToCome = false;
                jLabelInfo.setText("");
                String msg = "Error occured while retrieving file list!";
-               logger.log(Level.SEVERE, msg, true);
+               LOGGER.log(Level.SEVERE, msg, true);
             }
             if (pathStr.isEmpty())
             {
@@ -291,7 +290,7 @@ public class JInternalFrameFileBrowser extends javax.swing.JInternalFrame implem
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication error during requesting URL: {0}",
+         LOGGER.log(Level.SEVERE, "Communication error during requesting URL: {0}",
             HttpTk.generateAdmonUrl("/XML_FileBrowser"));
          jLabelInfo.setText("");
       }

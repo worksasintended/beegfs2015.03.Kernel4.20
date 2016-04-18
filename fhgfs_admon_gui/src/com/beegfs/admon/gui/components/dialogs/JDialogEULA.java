@@ -15,9 +15,8 @@ import javax.swing.JScrollPane;
 
 public class JDialogEULA extends javax.swing.JDialog
 {
+   static final Logger LOGGER = Logger.getLogger(JDialogEULA.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
-   static final Logger logger = Logger.getLogger(JDialogEULA.class.getCanonicalName());
 
    private boolean retVal;
 
@@ -50,12 +49,12 @@ public class JDialogEULA extends javax.swing.JDialog
       catch (FileNotFoundException e)
       {
          jTextAreaEula.setText("BeeGFS EULA not found!");
-         logger.log(Level.WARNING, "BeeGFS EULA file not found.", e);
+         LOGGER.log(Level.WARNING, "BeeGFS EULA file not found.", e);
       }
       catch (IOException e)
       {
          jTextAreaEula.setText("BeeGFS EULA not readable!");
-         logger.log(Level.WARNING, "BeeGFS EULA file not readable.", e);
+         LOGGER.log(Level.WARNING, "BeeGFS EULA file not readable.", e);
       }
       finally
       {
@@ -68,7 +67,7 @@ public class JDialogEULA extends javax.swing.JDialog
          }
          catch (IOException | NullPointerException e)
          {
-            logger.log(Level.FINEST, "Could not close BeeGFS EULA file.", e);
+            LOGGER.log(Level.FINEST, "Could not close BeeGFS EULA file.", e);
          }
       }
       

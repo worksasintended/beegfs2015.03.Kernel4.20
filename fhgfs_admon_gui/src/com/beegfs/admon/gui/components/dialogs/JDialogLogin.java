@@ -17,10 +17,10 @@ import javax.swing.JOptionPane;
 
 public class JDialogLogin extends javax.swing.JDialog
 {
-   static final Logger logger = Logger.getLogger(JDialogLogin.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(JDialogLogin.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "LoginThread";
+
    private static final int LOGO_WIDHT = 80;
    private static final int LOGO_HEIGHT = 120;
    
@@ -176,7 +176,7 @@ public class JDialogLogin extends javax.swing.JDialog
           String pw = CryptTk.getMD5(jPasswordFieldPW.getPassword());
           if (doLogin(username, pw))
           { // login successful
-             logger.log(Level.INFO, "Login successful on host {0}as user {1}",
+             LOGGER.log(Level.INFO, "Login successful on host {0} as user {1}",
                 new Object[]{Main.getConfig().getAdmonHost(), username});
              this.dispose();
           }
@@ -185,7 +185,7 @@ public class JDialogLogin extends javax.swing.JDialog
              this.setVisible(false);
              JOptionPane.showMessageDialog(Main.getMainWindow(), "Passwort is incorrect!",
                      "Authentication failed", JOptionPane.ERROR_MESSAGE);
-             logger.log(Level.WARNING, "Passwort for user {0} is incorrect! Tried to login on " +
+             LOGGER.log(Level.WARNING, "Passwort for user {0} is incorrect! Tried to login on " +
                 "host {1}", new Object[]{username, Main.getConfig().getAdmonHost()});
              this.setVisible(true);
           }
@@ -198,7 +198,7 @@ public class JDialogLogin extends javax.swing.JDialog
                   + Main.getConfig().getAdmonHost() + ".",
                   "Communication Error", JOptionPane.ERROR_MESSAGE);
           this.setVisible(true);
-          logger.log(Level.SEVERE, "Communication Error", e);
+          LOGGER.log(Level.SEVERE, "Communication Error", e);
        }
        catch (WrongBackendVersionException e)
        {
@@ -208,7 +208,7 @@ public class JDialogLogin extends javax.swing.JDialog
                   + HttpTk.generateAdmonUrl("/beegfs-admon-gui.jar");
           JOptionPane.showMessageDialog(Main.getMainWindow(), errMsg, "Wrong Software Version",
                   JOptionPane.ERROR_MESSAGE);
-          logger.log(Level.SEVERE, "Wrong backend version.");
+          LOGGER.log(Level.SEVERE, "Wrong backend version.");
           this.setVisible(true);
        }
     }//GEN-LAST:event_jButtonLoginActionPerformed
@@ -332,7 +332,7 @@ public class JDialogLogin extends javax.swing.JDialog
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error", e);
+         LOGGER.log(Level.SEVERE, "Communication Error", e);
       }
 
       if (!Main.getSession().getInfoAutologinDisabled())

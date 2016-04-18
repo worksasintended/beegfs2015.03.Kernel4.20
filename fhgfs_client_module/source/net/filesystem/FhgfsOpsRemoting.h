@@ -9,6 +9,7 @@
 #include <common/toolkit/MetadataTk.h>
 #include <common/storage/StorageErrors.h>
 #include <net/filesystem/RemotingIOInfo.h>
+#include <os/iov_iter.h>
 #include <toolkit/FhgfsPage.h>
 #include <toolkit/FhgfsChunkPageVec.h>
 
@@ -65,9 +66,13 @@ extern FhgfsOpsErr FhgfsOpsRemoting_flockRangeEx(const EntryInfo* entryInfo,
    fhgfs_bool allowRetries);
 extern ssize_t FhgfsOpsRemoting_writefile(const char __user *buf, size_t size, loff_t offset,
    RemotingIOInfo* ioInfo);
+extern ssize_t FhgfsOpsRemoting_writefileVec(const struct iov_iter* iter, loff_t offset,
+   RemotingIOInfo* ioInfo);
 extern ssize_t FhgfsOpsRemoting_rwChunkPageVec(FhgfsChunkPageVec *pageVec, RemotingIOInfo* ioInfo,
    Fhgfs_RWType rwType);
 extern ssize_t FhgfsOpsRemoting_readfile(char __user *buf, size_t size, loff_t offset,
+   RemotingIOInfo* ioInfo, FhgfsInode* fhgfsInode);
+extern ssize_t FhgfsOpsRemoting_readfileVec(const struct iov_iter* iter, loff_t offset,
    RemotingIOInfo* ioInfo, FhgfsInode* fhgfsInode);
 extern FhgfsOpsErr FhgfsOpsRemoting_rename(App* app, const char* oldName, unsigned oldLen,
    DirEntryType entryType, EntryInfo* fromDirInfo, const char* newName, unsigned newLen,

@@ -20,12 +20,12 @@ void NodeListRequestor::run()
 {
    try
    {
-      log.log(4, "Component started.");
+      log.log(Log_DEBUG, "Component started.");
       registerSignalHandler();
 
       requestLoop();
 
-      log.log(4, "Component stopped.");
+      log.log(Log_DEBUG, "Component stopped.");
    }
    catch (std::exception& e)
    {

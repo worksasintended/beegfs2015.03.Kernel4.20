@@ -22,12 +22,8 @@
    FsckTkEx::fsckOutput(" - [ra: " + FsckTkEx::getRepairActionDesc(action, true) + "]", \
    OutputOptions_LINEBREAK | OutputOptions_NOSTDOUT);
 
-
 ModeCheckFS::ModeCheckFS()
 {
-   App* app = Program::getApp();
-   this->database = app->getDatabase();
-
    this->log.setContext("ModeCheckFS");
 }
 
@@ -54,11 +50,12 @@ void ModeCheckFS::printHelp()
    std::cout << std::endl;
    std::cout << "  --quotaEnabled         Enable checks for quota support." << std::endl;
    std::cout << std::endl;
-   std::cout << "  --databaseFile=<path>  Path to use for the database file. On systems with many"
+   std::cout << "  --databasePath=<path>  Path to store for the database files. On systems with "
       << std::endl;
-   std::cout << "                         files, the database can grow to a size of several GB."
+   std::cout << "                         many files, the database can grow to a size of several "
       << std::endl;
-   std::cout << "                         (Default: " << CONFIG_DEFAULT_DBFILE << ")" << std::endl;
+   std::cout << "                         100 GB." << std::endl;
+   std::cout << "                         (Default: " << CONFIG_DEFAULT_DBPATH << ")" << std::endl;
    std::cout << "  --overwriteDbFile      Overwrite an existing database file without prompt." << std::endl;
    std::cout << "  --ignoreDBDiskSpace    Ignore free disk space check for database file." << std::endl;
    std::cout << "  --logOutFile=<path>    Path to the fsck output file, which contains a copy of"
@@ -89,13 +86,25 @@ void ModeCheckFS::printHelp()
       << std::endl;
    std::cout << std::endl;
    std::cout << " Example: Check for errors, but skip repairs" << std::endl;
-   std::cout << "  $ beegfs-fsck --checkfs --readonly" << std::endl;
+   std::cout << "  $ beegfs-fsck --checkfs --runonline --readonly" << std::endl;
 }
 
 int ModeCheckFS::execute()
 {
    App* app = Program::getApp();
    Config *cfg = app->getConfig();
+   std::string databasePath = cfg->getDatabasePath();
+
+   this->database = app->getDatabase();
+
+   // check root privileges
+   if ( geteuid() && getegid() )
+   { // no root privileges
+      FsckTkEx::printVersionHeader(true, true);
+      FsckTkEx::fsckOutput("Error: beegfs-fsck requires root privileges.",
+         OutputOptions_NOLOG | OutputOptions_STDERR | OutputOptions_DOUBLELINEBREAK);
+      return APPCODE_INITIALIZATION_ERROR;
+   }
 
    if ( this->checkInvalidArgs(cfg->getUnknownConfigArgs()) )
       return APPCODE_INVALID_CONFIG;
@@ -109,10 +118,11 @@ int ModeCheckFS::execute()
    if (cfg->getNoFetch())
    {
       // check if DB file exists
-      bool dbExists = StorageTk::pathExists(cfg->getDatabaseFile());
+      bool dbExists = DatabaseTk::databaseFilesExist(databasePath);
+
       if ( !dbExists )
       {
-         std::string errStr = "Given database file does not exist.";
+         std::string errStr = "At least on database file was not found in path: " + databasePath;
 
          log.logErr(errStr);
          FsckTkEx::fsckOutput(errStr);
@@ -150,7 +160,8 @@ int ModeCheckFS::execute()
       {
          // stop modification logging
          bool eventLoggingOK = FsckTkEx::stopModificationLogging(app->getMetaNodes());
-         Program::getApp()->getModificationEventHandler()->flush();
+         // stop mod event handler (to make it flush for the last time
+         Program::getApp()->getModificationEventHandler()->selfTerminate();
 
          // if event logging is not OK (i.e. that not all events might have been processed), go
          // into read-only mode
@@ -229,11 +240,12 @@ int ModeCheckFS::initDatabase()
    Config* cfg = Program::getApp()->getConfig();
 
    // create the database path
-   Path dbPath(cfg->getDatabaseFile());
+   Path dbPath(cfg->getDatabasePath());
 
-   if ( !StorageTk::createPathOnDisk(dbPath, true) )
+   if ( !StorageTk::createPathOnDisk(dbPath, false) )
    {
-      FsckTkEx::fsckOutput("Could not create path for database file: " + cfg->getDatabaseFile());
+      FsckTkEx::fsckOutput("Could not create path for database files: " +
+         dbPath.getPathAsStr());
       return APPCODE_INITIALIZATION_ERROR;
    }
 
@@ -241,11 +253,13 @@ int ModeCheckFS::initDatabase()
    if ( !FsckTkEx::checkDiskSpace(dbPath) )
       return APPCODE_INITIALIZATION_ERROR;
 
-   // check if DB file already exists
-   if ( StorageTk::pathExists(cfg->getDatabaseFile()) && (!cfg->getOverwriteDbFile()) )
+   // check if DB file path already exists and is not empty
+   if ( StorageTk::pathExists(dbPath.getPathAsStr())
+      && StorageTk::pathHasChildren(dbPath.getPathAsStr()) && (!cfg->getOverwriteDbFile()) )
    {
-      FsckTkEx::fsckOutput("The database file " + cfg->getDatabaseFile() + " already exists.");
-      FsckTkEx::fsckOutput("If you continue now the existing file will be deleted.");
+      FsckTkEx::fsckOutput("The database path already exists: " + dbPath.getPathAsStr());
+      FsckTkEx::fsckOutput("If you continue now any existing database files in that path will be "
+         "deleted.");
 
       char input = '\0';
 
@@ -285,8 +299,8 @@ void ModeCheckFS::printHeaderInformation()
    std::string timeStr = std::string(ctime(&t));
    FsckTkEx::fsckOutput(
       "Started BeeGFS fsck in forward check mode [" + timeStr.substr(0, timeStr.length() - 1)
-         + "]\nLog will be written to " + cfg->getLogStdFile() + "\nDatabase will be saved as "
-         + cfg->getDatabaseFile(), OutputOptions_LINEBREAK | OutputOptions_HEADLINE);
+         + "]\nLog will be written to " + cfg->getLogStdFile() + "\nDatabase will be saved in "
+         + cfg->getDatabasePath(), OutputOptions_LINEBREAK | OutputOptions_HEADLINE);
 }
 
 bool ModeCheckFS::gatherData()

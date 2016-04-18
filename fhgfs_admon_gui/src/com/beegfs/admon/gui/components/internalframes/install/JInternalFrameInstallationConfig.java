@@ -42,8 +42,8 @@ import javax.swing.ListModel;
 public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame implements
    JInternalFrameUpdateableInterface
 {
-   static final Logger logger = Logger.getLogger(
-           JInternalFrameInstallationConfig.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(
+      JInternalFrameInstallationConfig.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
    private static final String THREAD_NAME = "InstallConfig";
 
@@ -67,28 +67,33 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
    @Override
    public void updateData(ArrayList<String> data, UpdateDataTypeEnum type)
    {
-      ListModel<String> listModel;
+      DefaultListModel<String> listModel;
 
-      if (type == UpdateDataTypeEnum.HOSTS_CLIENT)
+      if (null != type)
       {
-         listModel = jListRoleClient.getModel();
-      }
-      else if (type == UpdateDataTypeEnum.HOSTS_META)
-      {
-         listModel = jListRoleMeta.getModel();
+         switch (type)
+         {
+            case HOSTS_CLIENT:
+               listModel = (DefaultListModel<String>) jListRoleClient.getModel();
+               break;
+            case HOSTS_META:
+               listModel = (DefaultListModel<String>) jListRoleMeta.getModel();
+               break;
+            default:
+               listModel = (DefaultListModel<String>) jListRoleStorage.getModel();
+               break;
+         }
       }
       else
       {
-         listModel = jListRoleStorage.getModel();
+         return;
       }
-
-      DefaultListModel<String> model = (DefaultListModel<String>) listModel;
 
       for (String host : data)
        {
           if (!host.isEmpty())
           {
-             model.addElement(host);
+             listModel.addElement(host);
           }
        }
    }
@@ -371,7 +376,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
       }
    }
 
@@ -496,7 +501,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
       }
    }
 
@@ -606,7 +611,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
             }
             catch (java.lang.NullPointerException e)
             {
-               logger.log(Level.FINEST, "Internal error.", e);
+               LOGGER.log(Level.FINEST, "Internal error.", e);
             }
 
             IBCheckBox checkbox = new IBCheckBox(node);
@@ -667,7 +672,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
             }
             catch (java.lang.NullPointerException e)
             {
-               logger.log(Level.FINEST, "Internal error.", e);
+               LOGGER.log(Level.FINEST, "Internal error.", e);
             }
             pGroup5.addComponent(kIncTF);
             pGroupVertical.addComponent(kIncTF);
@@ -681,7 +686,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+            LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
          }
       }
       hGroup.addGroup(pGroup1);
@@ -767,7 +772,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
       }
       finally
       {
@@ -780,7 +785,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
          }
          catch (IOException e)
          {
-            logger.log(Level.SEVERE, "IO Error occured", e);
+            LOGGER.log(Level.SEVERE, "IO Error occured", e);
          }
       }
       return false;
@@ -857,11 +862,11 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
       }
       catch (HeadlessException e)
       {
-         logger.log(Level.SEVERE, "Internal error.", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Internal error.", new Object[]{e, true});
       }
       finally
       {
@@ -874,7 +879,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
          }
          catch (IOException e)
          {
-            logger.log(Level.SEVERE, "IO error", e);
+            LOGGER.log(Level.SEVERE, "IO error", e);
          }
       }
       return false;
@@ -940,7 +945,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
       }
       finally
       {
@@ -953,7 +958,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
          }
          catch (IOException e)
          {
-            logger.log(Level.SEVERE, "IO error", e);
+            LOGGER.log(Level.SEVERE, "IO error", e);
          }
       }
       return false;
@@ -974,7 +979,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
       }
       catch (InterruptedException | CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Couldn't parse XML-data from the admon!", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Couldn't parse XML-data from the admon!", new Object[]{e, true});
       }
       return finished;
    }
@@ -2087,41 +2092,43 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
           loadIBConfig();
        }
 
-       if (index == 0)
+       switch (index)
        {
-          if (!isSavedRoles)
-          {
-             if (confirmNotSaved())
+          case 0:
+             if (!isSavedRoles)
              {
-                isSavedRoles = saveRoles();
+                if (confirmNotSaved())
+                {
+                   isSavedRoles = saveRoles();
+                }
              }
-          }
-       }
-       else if (index == 1)
-       {
-          if (!isSavedConfig)
-          {
-             if (confirmNotSaved())
+             break;
+          case 1:
+             if (!isSavedConfig)
              {
-                isSavedConfig = uploadConfig();
+                if (confirmNotSaved())
+                {
+                   isSavedConfig = uploadConfig();
+                }
              }
-          }
-       }
-       else if (index == 2)
-       {
-          if (!isSavedIB)
-          {
-             if (confirmNotSaved())
+             break;
+          case 2:
+             if (!isSavedIB)
              {
-                isSavedIB = uploadIBConfig();
+                if (confirmNotSaved())
+                {
+                   isSavedIB = uploadIBConfig();
+                   saveDefaultIBConfig = false;
+                }
+             }
+             else if (saveDefaultIBConfig)
+             {
+                uploadIBConfig();
                 saveDefaultIBConfig = false;
              }
-          }
-          else if (saveDefaultIBConfig)
-          {
-             uploadIBConfig();
-             saveDefaultIBConfig = false;
-          }
+             break;
+          default:
+             break;
        }
 
        //update last selected tab
@@ -2130,51 +2137,49 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
 
     private void jButtonReloadActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonReloadActionPerformed
        int index = jTabbedPaneTabs.getSelectedIndex();
-       if (index == 0)
+       switch (index)
        {
-          ListModel<String> listModelMeta = jListRoleMeta.getModel();
-          DefaultListModel<String> modelMeta = (DefaultListModel<String>) listModelMeta;
-          modelMeta.removeAllElements();
-
-          ListModel<String> listModelStorage = jListRoleStorage.getModel();
-          DefaultListModel<String> modelStorage = (DefaultListModel<String>) listModelStorage;
-          modelStorage.removeAllElements();
-
-          ListModel<String> listModelClient = jListRoleClient.getModel();
-          DefaultListModel<String> modelClient = (DefaultListModel<String>) listModelClient;
-          modelClient.removeAllElements();
-          loadRoles();
-          isSavedRoles = true;
-       }
-       else
-       if (index == 1)
-       {
-          loadConfig();
-          isSavedConfig = true;
-       }
-       else
-       if (index == 2)
-       {
-          loadIBConfig();
-          isSavedIB = true;
+          case 0:
+             ListModel<String> listModelMeta = jListRoleMeta.getModel();
+             DefaultListModel<String> modelMeta = (DefaultListModel<String>) listModelMeta;
+             modelMeta.removeAllElements();
+             ListModel<String> listModelStorage = jListRoleStorage.getModel();
+             DefaultListModel<String> modelStorage = (DefaultListModel<String>) listModelStorage;
+             modelStorage.removeAllElements();
+             ListModel<String> listModelClient = jListRoleClient.getModel();
+             DefaultListModel<String> modelClient = (DefaultListModel<String>) listModelClient;
+             modelClient.removeAllElements();
+             loadRoles();
+             isSavedRoles = true;
+             break;
+          case 1:
+             loadConfig();
+             isSavedConfig = true;
+             break;
+          case 2:
+             loadIBConfig();
+             isSavedIB = true;
+             break;
+          default:
+             break;
        }
 }//GEN-LAST:event_jButtonReloadActionPerformed
 
     private void jButtonSaveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonSaveActionPerformed
        int index = jTabbedPaneTabs.getSelectedIndex();
-       if (index == 0)
+       switch (index)
        {
-          isSavedRoles = saveRoles();
-       }
-       else
-       if (index == 1)
-       {
-          isSavedConfig = uploadConfig();
-       }
-       else
-       if (index == 2)
-       {
-          isSavedIB = uploadIBConfig();
+          case 0:
+             isSavedRoles = saveRoles();
+             break;
+          case 1:
+             isSavedConfig = uploadConfig();
+             break;
+          case 2:
+             isSavedIB = uploadIBConfig();
+             break;
+          default:
+             break;
        }
 }//GEN-LAST:event_jButtonSaveActionPerformed
 
@@ -2278,11 +2283,11 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
       }
       catch (IOException e)
       {
-         logger.log(Level.SEVERE, "IO error", e);
+         LOGGER.log(Level.SEVERE, "IO error", e);
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
       }
       finally
       {
@@ -2295,7 +2300,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
          }
          catch (IOException e)
          {
-            logger.log(Level.SEVERE, "IO error", e);
+            LOGGER.log(Level.SEVERE, "IO error", e);
          }
       }
       return retVal;
@@ -2303,45 +2308,42 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
 
     private void jButtonNextActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonNextActionPerformed
        int index = jTabbedPaneTabs.getSelectedIndex();
-       if (index == 0)
+       switch (index)
        {
-          /*
-           * This will be handelt by the TabStateChangedListener -> jTabbedPaneTabsStateChanged() if
-           * (!isSavedRoles) { if (confirmNotSaved()) { isSavedRoles = saveRoles(); } }
-           */
-          jTabbedPaneTabs.setSelectedIndex(1);
-       }
-       else
-       if (index == 1)
-       {
-          /*
-           * This will be handelt by the TabStateChangedListener -> jTabbedPaneTabsStateChanged() if
-           * (!isSavedConfig) { if (confirmNotSaved()) { isSavedConfig = uploadConfig(); } }
-           */
-
-          //load the input fields for the nodes
-          loadIBConfig();
-          jTabbedPaneTabs.setSelectedIndex(2);
-       }
-       else
-       if (index == 2)
-       {
-          //check if default IB config must be safed
-          if (saveDefaultIBConfig)
-          {
-             uploadIBConfig();
-             saveDefaultIBConfig = false;
-          }
-
-          //check if all changes are saved and than open the install dialog
-          checkWholeConfigSaved();
-          JInternalFrame frame = new JInternalFrameInstall();
-          if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame))
-          {
-             Main.getMainWindow().getDesktopPane().add(frame);
-             frame.setVisible(true);
-             FrameManager.addFrame((JInternalFrameInterface) frame);
-          }
+          case 0:
+             /*
+            * This will be handelt by the TabStateChangedListener -> jTabbedPaneTabsStateChanged() if
+            * (!isSavedRoles) { if (confirmNotSaved()) { isSavedRoles = saveRoles(); } }
+              */
+             jTabbedPaneTabs.setSelectedIndex(1);
+             break;
+          case 1:
+             /*
+            * This will be handelt by the TabStateChangedListener -> jTabbedPaneTabsStateChanged() if
+            * (!isSavedConfig) { if (confirmNotSaved()) { isSavedConfig = uploadConfig(); } }
+              */
+             //load the input fields for the nodes
+             loadIBConfig();
+             jTabbedPaneTabs.setSelectedIndex(2);
+             break;
+          case 2:
+             //check if default IB config must be safed
+             if (saveDefaultIBConfig)
+             {
+                uploadIBConfig();
+                saveDefaultIBConfig = false;
+             } //check if all changes are saved and than open the install dialog
+             checkWholeConfigSaved();
+             JInternalFrame frame = new JInternalFrameInstall();
+             if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame))
+             {
+                Main.getMainWindow().getDesktopPane().add(frame);
+                frame.setVisible(true);
+                FrameManager.addFrame((JInternalFrameInterface) frame);
+             }
+             break;
+          default:
+             break;
        }
     }//GEN-LAST:event_jButtonNextActionPerformed
 

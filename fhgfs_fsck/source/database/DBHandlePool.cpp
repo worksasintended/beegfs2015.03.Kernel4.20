@@ -2,11 +2,11 @@
 #include <common/threading/SafeMutexLock.h>
 #include <program/Program.h>
 
-DBHandlePool::DBHandlePool(std::string dbFilename)
+DBHandlePool::DBHandlePool(const std::string& databasePath)
 {
    Config* cfg = Program::getApp()->getConfig();
 
-   this->dbFilename = dbFilename;
+   this->databasePath = databasePath;
 
    this->openedHandles = 0;
    this->availableHandles = 0;
@@ -69,7 +69,7 @@ DBHandle* DBHandlePool::acquireHandle(bool allowWaiting)
    // no handle available, but maxHandles not reached yet => open a new handle
    openedHandles++;
 
-   dbHandle = new DBHandle(dbFilename);
+   dbHandle = new DBHandle(databasePath);
 
    handleList.push_back(dbHandle);
 

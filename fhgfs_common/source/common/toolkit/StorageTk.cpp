@@ -1026,7 +1026,23 @@ void StorageTk::getChunkDirChunkFilePath(const PathInfo* pathInfo, std::string e
    }
 }
 
-bool StorageTk::rmDirContentsRec(int fd, std::string& relativeDirPath)
+bool StorageTk::rmDirContentsRec(std::string& absoluteDirPath)
+{
+   int dirFD = open(absoluteDirPath.c_str(), O_RDONLY);
+
+   if ( dirFD == -1 )
+   {
+      LogContext(__func__).logErr(
+         "Unable to open directory fd. absoluteDirPath: " + absoluteDirPath + "; error: "
+            + System::getErrString());
+
+      return false;
+   }
+
+   return rmDirContentsRec(dirFD, "/");
+}
+
+bool StorageTk::rmDirContentsRec(int fd, std::string relativeDirPath)
 {
    bool retVal = true;
    errno = 0; // recommended by posix (readdir(3p) )

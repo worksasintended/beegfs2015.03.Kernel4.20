@@ -20,10 +20,9 @@ import javax.swing.JLabel;
 public class JInternalFrameKnownProblems extends javax.swing.JInternalFrame implements
    JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
       JInternalFrameKnownProblems.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "KnownProblems";
 
    private final transient XMLParser parser;
@@ -203,7 +202,11 @@ public class JInternalFrameKnownProblems extends javax.swing.JInternalFrame impl
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error", new Object[]
+         {
+            e,
+            true
+         });
       }
    }
 }

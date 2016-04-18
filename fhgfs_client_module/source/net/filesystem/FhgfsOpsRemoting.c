@@ -82,10 +82,6 @@ static inline const char* __FhgfsOpsRemoting_rwTypeToString(enum Fhgfs_RWType);
 static fhgfs_bool __FhgfsOpsRemoting_writefileVerify(App* app, RemotingIOInfo* ioInfo,
    WritefileState* states, unsigned numWorks, ssize_t supposedWritten, ssize_t* outWritten,
    unsigned firstTargetIndex, unsigned numStripeNodes);
-static ssize_t __FhgfsOpsRemoting_writefileStandard(const char __user *buf, size_t size,
-   loff_t offset, RemotingIOInfo* ioInfo);
-static ssize_t __FhgfsOpsRemoting_writefileClientMirrored(const char __user *buf, size_t size,
-   loff_t offset, RemotingIOInfo* ioInfo);
 static inline int64_t __FhgfsOpsRemoting_getChunkOffset(int64_t pos, unsigned chunkSize,
    size_t numNodes, size_t stripeNodeIndex);
 
@@ -1339,24 +1335,18 @@ static fhgfs_bool __FhgfsOpsRemoting_writefileVerify(App* app, RemotingIOInfo* i
    return fhgfs_true;
 }
 
-
-/**
- * Wrapper for different single-threaded parallel file write methods.
- *
- * @return number of bytes written or negative fhgfs error code
- */
 ssize_t FhgfsOpsRemoting_writefile(const char __user *buf, size_t size, loff_t offset,
    RemotingIOInfo* ioInfo)
 {
-   App* app = ioInfo->app;
-   Config* cfg = App_getConfig(app);
-   StripePattern* pattern = ioInfo->pattern;
+   struct iovec iov = {
+      .iov_base = (char*) buf,
+      .iov_len = size,
+   };
+   struct iov_iter iter;
 
-   if( (StripePattern_getPatternType(pattern) != STRIPEPATTERN_BuddyMirror) ||
-       (size > Config_getTuneMaxClientMirrorSize(cfg) ) )
-      return __FhgfsOpsRemoting_writefileStandard(buf, size, offset, ioInfo);
-   else
-      return __FhgfsOpsRemoting_writefileClientMirrored(buf, size, offset, ioInfo);
+   BEEGFS_IOV_ITER_INIT(&iter, WRITE, &iov, 1, size);
+
+   return FhgfsOpsRemoting_writefileVec(&iter, offset, ioInfo);
 }
 
 /**
@@ -1366,7 +1356,7 @@ ssize_t FhgfsOpsRemoting_writefile(const char __user *buf, size_t size, loff_t o
  *
  * @return number of bytes written or negative fhgfs error code
  */
-ssize_t __FhgfsOpsRemoting_writefileStandard(const char __user *buf, size_t size, loff_t offset,
+ssize_t FhgfsOpsRemoting_writefileVec(const struct iov_iter* iter, loff_t offset,
    RemotingIOInfo* ioInfo)
 {
    App* app = ioInfo->app;
@@ -1374,9 +1364,10 @@ ssize_t __FhgfsOpsRemoting_writefileStandard(const char __user *buf, size_t size
 
    fhgfs_bool verifyRes;
    ssize_t verifyValue;
-   ssize_t retVal = size;
-   size_t toBeWritten = size;
+   ssize_t retVal = iter->count;
+   size_t toBeWritten = iter->count;
    loff_t currentOffset = offset;
+   struct iov_iter iterCopy = *iter;
 
    sigset_t oldSignalSet;
 
@@ -1397,7 +1388,7 @@ ssize_t __FhgfsOpsRemoting_writefileStandard(const char __user *buf, size_t size
    PollSocketEx* pollSocks = (PollSocketEx*)(&states[maxNumRWNodes] ); // starts after states
    char* msgBufs = (char*)(&pollSocks[maxNumRWNodes] ); // starts after pollSocks
 
-   __FhgfsOpsRemoting_logDebugIOCall(__func__, size, offset, ioInfo, NULL);
+   __FhgfsOpsRemoting_logDebugIOCall(__func__, iter->count, offset, ioInfo, NULL);
 
    SignalTk_blockSignals(fhgfs_true, &oldSignalSet); // B L O C K _ S I G s
 
@@ -1406,6 +1397,7 @@ ssize_t __FhgfsOpsRemoting_writefileStandard(const char __user *buf, size_t size
       unsigned currentTargetIndex = pattern->getStripeTargetIndex(pattern, currentOffset);
       unsigned firstTargetIndex = currentTargetIndex;
       unsigned numWorks = 0;
+      size_t expectedWritten = 0;
 
       /* stripeset-loop: loop over one stripe set (using dynamically determined stripe target
          indices). */
@@ -1413,17 +1405,19 @@ ssize_t __FhgfsOpsRemoting_writefileStandard(const char __user *buf, size_t size
       {
          size_t currentChunkSize =
             StripePattern_getChunkEnd(pattern, currentOffset) - currentOffset + 1;
-         size_t currentWriteSize = MIN(currentChunkSize, toBeWritten);
          loff_t currentNodeLocalOffset = __FhgfsOpsRemoting_getChunkOffset(
             currentOffset, chunkSize, numStripeTargets, currentTargetIndex);
+         struct iov_iter chunkIter;
 
          maxUsedTargetIndex = MAX(maxUsedTargetIndex, (int)currentTargetIndex);
 
+         chunkIter = iterCopy;
+         iov_iter_truncate(&chunkIter, currentChunkSize);
+
          // prepare the state information
          states[numWorks] = FhgfsOpsCommKit_assignWritefileState(
-            &buf[size-toBeWritten],
+            &chunkIter,
             currentNodeLocalOffset,
-            currentWriteSize,
             UInt16Vec_at(targetIDs, currentTargetIndex),
             &msgBufs[numWorks * BEEGFS_COMMKIT_MSGBUF_SIZE] );
 
@@ -1435,9 +1429,11 @@ ssize_t __FhgfsOpsRemoting_writefileStandard(const char __user *buf, size_t size
          App_incNumRemoteWrites(app);
 
          // prepare for next loop
-         currentOffset += currentWriteSize;
-         toBeWritten -= currentWriteSize;
+         currentOffset += chunkIter.count;
+         toBeWritten -= chunkIter.count;
+         expectedWritten += chunkIter.count;
          numWorks++;
+         iov_iter_advance(&iterCopy, chunkIter.count);
          currentTargetIndex = (currentTargetIndex + 1) % numStripeTargets;
       }
 
@@ -1446,174 +1442,8 @@ ssize_t __FhgfsOpsRemoting_writefileStandard(const char __user *buf, size_t size
 
       // verify results
       verifyRes = __FhgfsOpsRemoting_writefileVerify(app, ioInfo, states, numWorks,
-         size - toBeWritten, &verifyValue, firstTargetIndex, numStripeTargets);
+         expectedWritten, &verifyValue, firstTargetIndex, numStripeTargets);
 
-      if(unlikely(!verifyRes) )
-      {
-         retVal = verifyValue;
-         break;
-      }
-
-   } // end of while-loop (write out data)
-
-   NoAllocBufferStore_addBuf(bufStore, storeBuf);
-   SignalTk_restoreSignals(&oldSignalSet); // U N B L O C K _ S I G s
-
-   AtomicInt_max(ioInfo->maxUsedTargetIndex, maxUsedTargetIndex);
-
-   return retVal;
-}
-
-/**
- * Single-threaded parallel file write for buddy-mirrored files.
- * Mirroring will be done by client.
- *
- * Note: This method is not intended to be called for non-buddy-mirrored files.
- *
- * @return number of bytes written or negative fhgfs error code
- */
-ssize_t __FhgfsOpsRemoting_writefileClientMirrored(const char __user *buf, size_t size,
-   loff_t offset, RemotingIOInfo* ioInfo)
-{
-   const char* logContext = __func__;
-
-   App* app = ioInfo->app;
-   Config* cfg = App_getConfig(app);
-   Logger* log = App_getLogger(app);
-
-   ssize_t retVal = size;
-   size_t toBeWritten = size;
-   loff_t currentOffset = offset;
-
-   sigset_t oldSignalSet;
-
-   StripePattern* pattern = ioInfo->pattern;
-   unsigned chunkSize = StripePattern_getChunkSize(pattern);
-   UInt16Vec* targetIDs = pattern->getStripeTargetIDs(pattern);
-   unsigned numStripeTargets = UInt16Vec_length(targetIDs);
-   int maxUsedTargetIndex = AtomicInt_read(ioInfo->maxUsedTargetIndex);
-
-   NoAllocBufferStore* bufStore = App_getRWStatesStore(app);
-   unsigned maxNumRWNodes = Config_getTuneMaxReadWriteNodesNum(cfg);
-   unsigned maxNumPrimaryWorks = MIN(maxNumRWNodes/2, numStripeTargets); // ("/2" for mirror work)
-
-   char* storeBuf = NoAllocBufferStore_waitForBuf(bufStore);
-
-   // partition the storeBuf
-   WritefileState* states = (WritefileState*)storeBuf; // starts at storeBuf
-   PollSocketEx* pollSocks = (PollSocketEx*)(&states[maxNumRWNodes] ); // starts after states
-   char* msgBufs = (char*)(&pollSocks[maxNumRWNodes] ); // starts after pollSocks
-
-   /* make sure we have enough work buffers configured to mirror data
-     (=> at least 2, but maxNumPrimaryWorks is already "numWorks/2") */
-   if(unlikely(maxNumPrimaryWorks < 1) )
-   {
-      Logger_logErr(log, logContext, "Invalid config: tuneMaxReadWriteNodesNum must be >= 2");
-      return -FhgfsOpsErr_INTERNAL;
-   }
-
-   __FhgfsOpsRemoting_logDebugIOCall(__func__, size, offset, ioInfo, NULL);
-
-   SignalTk_blockSignals(fhgfs_true, &oldSignalSet); // B L O C K _ S I G s
-
-   while(toBeWritten)
-   {
-      unsigned currentTargetIndex = pattern->getStripeTargetIndex(pattern, currentOffset);
-      const unsigned firstTargetIndex = currentTargetIndex;
-      unsigned numPrimaryWorks = 0;
-      unsigned numMirrorWorks = 0;
-
-      fhgfs_bool verifyRes;
-      ssize_t verifyValue;
-
-      // loop: generate primary work
-
-      while(toBeWritten && (numPrimaryWorks < maxNumPrimaryWorks) )
-      {
-         size_t currentChunkSize =
-            StripePattern_getChunkEnd(pattern, currentOffset) - currentOffset + 1;
-         size_t currentWriteSize = MIN(currentChunkSize, toBeWritten);
-         loff_t currentNodeLocalOffset = __FhgfsOpsRemoting_getChunkOffset(
-            currentOffset, chunkSize, numStripeTargets, currentTargetIndex);
-
-         maxUsedTargetIndex = MAX(maxUsedTargetIndex, (int)currentTargetIndex);
-
-         // prepare the state information
-         states[numPrimaryWorks] = FhgfsOpsCommKit_assignWritefileState(
-            &buf[size-toBeWritten],
-            currentNodeLocalOffset,
-            currentWriteSize,
-            UInt16Vec_at(targetIDs, currentTargetIndex),
-            &msgBufs[numPrimaryWorks * BEEGFS_COMMKIT_MSGBUF_SIZE] );
-
-         FhgfsOpsCommKit_setWriteFileStateFirstWriteDone(
-            BitStore_getBit(ioInfo->firstWriteDone, currentTargetIndex),
-            &states[numPrimaryWorks] );
-
-         FhgfsOpsCommKit_setWritefileStateUseServersideMirroring(fhgfs_false,
-            &states[numPrimaryWorks] );
-
-         App_incNumRemoteWrites(app);
-
-         // prepare for next loop
-         currentOffset += currentWriteSize;
-         toBeWritten -= currentWriteSize;
-         numPrimaryWorks++;
-         currentTargetIndex = (currentTargetIndex + 1) % numStripeTargets;
-      }
-
-      // loop: generate mirror work
-
-      /* note: we need a second loop for mirror work to fill the states array without holes
-        (for _writefileV2bCommunicate() ), but also without interleaving primary and mirror states
-        (for _writefileVerify() ). */
-
-      currentTargetIndex = firstTargetIndex;
-
-      for( ; numMirrorWorks < numPrimaryWorks; numMirrorWorks++)
-      {
-         unsigned currentMirrorStateIndex = numPrimaryWorks + numMirrorWorks;
-         WritefileState* currentMirrorState = &states[currentMirrorStateIndex];
-         const WritefileState* currentPrimaryState = &states[numMirrorWorks];
-
-         // prepare the mirror state information
-         *currentMirrorState = FhgfsOpsCommKit_assignWritefileState(
-            currentPrimaryState->buf,
-            currentPrimaryState->offset,
-            currentPrimaryState->size,
-            UInt16Vec_at(targetIDs, currentTargetIndex),
-            &msgBufs[currentMirrorStateIndex * BEEGFS_COMMKIT_MSGBUF_SIZE] );
-
-         FhgfsOpsCommKit_setWriteFileStateFirstWriteDone(
-            currentPrimaryState->firstWriteDoneForTarget, currentMirrorState);
-
-         FhgfsOpsCommKit_setWritefileStateUseBuddyMirrorSecond(fhgfs_true, currentMirrorState);
-         FhgfsOpsCommKit_setWritefileStateUseServersideMirroring(fhgfs_false, currentMirrorState);
-
-         // prepare for next loop
-         currentTargetIndex = (currentTargetIndex + 1) % numStripeTargets;
-      }
-
-
-      // communicate with the nodes
-
-      FhgfsOpsCommKit_writefileV2bCommunicate(app, ioInfo, states, numPrimaryWorks*2, pollSocks);
-
-
-      // check server results...
-
-      // verify primary results
-      verifyRes = __FhgfsOpsRemoting_writefileVerify(app, ioInfo, states,
-         numPrimaryWorks, size - toBeWritten, &verifyValue, firstTargetIndex, numStripeTargets);
-      if(unlikely(!verifyRes) )
-      {
-         retVal = verifyValue;
-         break;
-      }
-
-      // verify mirror results
-      verifyRes = __FhgfsOpsRemoting_writefileVerify(app, ioInfo, &states[numPrimaryWorks],
-         numPrimaryWorks, size - toBeWritten, &verifyValue, firstTargetIndex, numStripeTargets);
       if(unlikely(!verifyRes) )
       {
          retVal = verifyValue;
@@ -1766,11 +1596,26 @@ out:
 ssize_t FhgfsOpsRemoting_readfile(char __user *buf, size_t size, loff_t offset,
    RemotingIOInfo* ioInfo, FhgfsInode* fhgfsInode)
 {
+   struct iovec iov = {
+      .iov_base = (char*) buf,
+      .iov_len = size,
+   };
+   struct iov_iter iter;
+
+   BEEGFS_IOV_ITER_INIT(&iter, READ, &iov, 1, size);
+
+   return FhgfsOpsRemoting_readfileVec(&iter, offset, ioInfo, fhgfsInode);
+}
+
+ssize_t FhgfsOpsRemoting_readfileVec(const struct iov_iter* iter, loff_t offset,
+   RemotingIOInfo* ioInfo, FhgfsInode* fhgfsInode)
+{
    App* app = ioInfo->app;
    Config* cfg = App_getConfig(app);
 
-   ssize_t retVal = size;
-   size_t toBeRead = size;
+   ssize_t retVal = iter->count;
+   size_t toBeRead = iter->count;
+   struct iov_iter iterCopy = *iter;
    loff_t currentOffset = offset;
 
    sigset_t oldSignalSet;
@@ -1796,7 +1641,7 @@ ssize_t FhgfsOpsRemoting_readfile(char __user *buf, size_t size, loff_t offset,
    ssize_t usableReadSize = 0; // the amount of usable data that was received from the nodes
 
 
-   __FhgfsOpsRemoting_logDebugIOCall(__func__, size, offset, ioInfo, NULL);
+   __FhgfsOpsRemoting_logDebugIOCall(__func__, iter->count, offset, ioInfo, NULL);
 
    SignalTk_blockSignals(fhgfs_true, &oldSignalSet); // B L O C K _ S I G s
 
@@ -1815,14 +1660,17 @@ ssize_t FhgfsOpsRemoting_readfile(char __user *buf, size_t size, loff_t offset,
          size_t currentReadSize = MIN(currentChunkSize, toBeRead);
          loff_t currentNodeLocalOffset = __FhgfsOpsRemoting_getChunkOffset(
             currentOffset, chunkSize, numStripeNodes, currentTargetIndex);
+         struct iov_iter chunkIter;
 
          maxUsedTargetIndex = MAX(maxUsedTargetIndex, (int)currentTargetIndex);
 
+         chunkIter = iterCopy;
+         iov_iter_truncate(&chunkIter, currentChunkSize);
+
          // prepare the state information
          states[numWorks] = FhgfsOpsCommKit_assignReadfileState(
-            &buf[size-toBeRead],
+            &chunkIter,
             currentNodeLocalOffset,
-            currentReadSize,
             UInt16Vec_at(targetIDs, currentTargetIndex),
             &msgBufs[numWorks * BEEGFS_COMMKIT_MSGBUF_SIZE] );
 
@@ -1841,6 +1689,7 @@ ssize_t FhgfsOpsRemoting_readfile(char __user *buf, size_t size, loff_t offset,
          currentOffset += currentReadSize;
          toBeRead -= currentReadSize;
          numWorks++;
+         iov_iter_advance(&iterCopy, chunkIter.count);
          currentTargetIndex = (currentTargetIndex + 1) % numStripeNodes;
       }
 

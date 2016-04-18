@@ -26,10 +26,10 @@ import javax.swing.ImageIcon;
 public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFrame implements
         JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
       JInternalFrameStorageNodesOverview.class.getCanonicalName());
-
    private static final long serialVersionUID = 1L;
+
    private static final int DEFAULT_TRACE_COUNT = 4; // read, write, read-avg, write-avg
 
    private final String group;
@@ -99,7 +99,7 @@ public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFra
                {
                   if(!gotData.await(10, TimeUnit.SECONDS))
                   {
-                     logger.log(Level.FINEST, "No update from server!");
+                     LOGGER.log(Level.FINEST, "No update from server!");
                   }
                }
                finally
@@ -172,11 +172,15 @@ public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFra
             }
             catch (CommunicationException e)
             {
-               logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+               LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+               {
+                  e,
+                  true
+               });
             }
             catch (java.lang.NullPointerException | java.lang.InterruptedException npe)
             {
-               logger.log(Level.FINEST, "Internal error.", npe);
+               LOGGER.log(Level.FINEST, "Internal error.", npe);
             }
          }
          parser.shouldStop();
@@ -499,7 +503,7 @@ public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFra
        }
        catch (ArrayIndexOutOfBoundsException e)
        {
-          logger.log(Level.FINEST, "Internal error.", e);
+          LOGGER.log(Level.FINEST, "Internal error.", e);
        }
 }//GEN-LAST:event_jComboBoxTimeSpanActionPerformed
 
@@ -586,7 +590,11 @@ public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFra
       }
       catch (CommunicationException ex)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{ex, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            ex,
+            true
+         });
       }
    }
 }

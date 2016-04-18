@@ -344,7 +344,7 @@ void App::handleComponentException(std::exception& e)
       std::string("[SysErrnoMessage: ") + System::getErrString() + "] " +
       std::string("Exception message: ") + e.what() );
 
-   log.log(2, "Shutting down...");
+   log.log(Log_WARNING, "Shutting down...");
 
    stopComponents();
 }

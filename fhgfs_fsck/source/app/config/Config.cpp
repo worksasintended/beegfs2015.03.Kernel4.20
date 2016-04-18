@@ -78,20 +78,20 @@ void Config::loadDefaults(bool addDashes)
    configMapRedefine("debugRunIntegrationTests", "false", addDashes);
    configMapRedefine("debugRunThroughputTests", "false", addDashes);
 
-   configMapRedefine("tuneNumWorkers", "8", addDashes);
+   configMapRedefine("tuneNumWorkers", "32", addDashes);
    configMapRedefine("tunePreferredNodesFile", "", addDashes);
 
    configMapRedefine("sysForcedRoot", "0", addDashes);
 
    configMapRedefine("runDaemonized", "false", addDashes);
 
-   configMapRedefine("databaseFile", CONFIG_DEFAULT_DBFILE, addDashes);
+   configMapRedefine("databasePath", CONFIG_DEFAULT_DBPATH, addDashes);
 
    configMapRedefine("overwriteDbFile", "false", addDashes);
 
-   configMapRedefine("testDatabaseFile", CONFIG_DEFAULT_TESTDBFILE, addDashes);
+   configMapRedefine("testDatabasePath", CONFIG_DEFAULT_TESTDBPATH, addDashes);
 
-   configMapRedefine("DatabaseNumMaxConns", "4", addDashes);
+   configMapRedefine("DatabaseNumMaxConns", "16", addDashes);
 
    configMapRedefine("overrideRootMDS", "", addDashes);
 
@@ -184,7 +184,6 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw (Invalid
       IGNORE_CONFIG_CLIENT_VALUE("tuneRefreshOnGetAttr")
       IGNORE_CONFIG_CLIENT_VALUE("tuneInodeBlockBits")
       IGNORE_CONFIG_CLIENT_VALUE("tuneInodeBlockSize")
-      IGNORE_CONFIG_CLIENT_VALUE("tuneMaxClientMirrorSize")
       IGNORE_CONFIG_CLIENT_VALUE("tuneEarlyCloseResponse")
       IGNORE_CONFIG_CLIENT_VALUE("tuneUseGlobalAppendLocks")
       IGNORE_CONFIG_CLIENT_VALUE("tuneUseBufferedAppend")
@@ -205,14 +204,14 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw (Invalid
       if(testConfigMapKeyMatch(iter, "runDaemonized", addDashes) )
          runDaemonized = StringTk::strToBool(iter->second);
       else
-      if(testConfigMapKeyMatch(iter, "databaseFile", addDashes) )
-         databaseFile = iter->second;
+      if(testConfigMapKeyMatch(iter, "databasePath", addDashes) )
+         databasePath = iter->second;
       else
       if(testConfigMapKeyMatch(iter, "overwriteDbFile", addDashes) )
          overwriteDbFile = StringTk::strToBool(iter->second);
       else
-      if(testConfigMapKeyMatch(iter, "testDatabaseFile", addDashes) )
-         testDatabaseFile = iter->second;
+      if(testConfigMapKeyMatch(iter, "testDatabasePath", addDashes) )
+         testDatabasePath = iter->second;
       else
       if(testConfigMapKeyMatch(iter, "databaseNumMaxConns", addDashes) )
          databaseNumMaxConns = StringTk::strHexToUInt(iter->second);

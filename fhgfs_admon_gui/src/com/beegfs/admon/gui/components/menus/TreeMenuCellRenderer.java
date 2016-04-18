@@ -16,9 +16,8 @@ import javax.swing.tree.DefaultTreeCellRenderer;
 
 public class TreeMenuCellRenderer extends DefaultTreeCellRenderer
 {
-   static final Logger logger = Logger.getLogger(
-           TreeMenuCellRenderer.class.getCanonicalName());
-   
+   static final Logger LOGGER = Logger.getLogger(
+      TreeMenuCellRenderer.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
 
    private Color bgColor;
@@ -39,7 +38,7 @@ public class TreeMenuCellRenderer extends DefaultTreeCellRenderer
       }
       catch (IOException e)
       {
-         logger.log(Level.INFO, "IO Exception while trying to load icon", e);
+         LOGGER.log(Level.INFO, "IO Exception while trying to load icon", e);
       }
       setLeafIcon(iconImage);
    }

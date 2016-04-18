@@ -17,6 +17,7 @@
 #define FILECACHETYPE_NONE_STR      "none"
 #define FILECACHETYPE_BUFFERED_STR  "buffered"
 #define FILECACHETYPE_PAGED_STR     "paged"
+#define FILECACHETYPE_NATIVE_STR    "native"
 
 #define LOGGERTYPE_HELPERD_STR      "helperd"
 #define LOGGERTYPE_SYSLOG_STR       "syslog"
@@ -233,7 +234,6 @@ void _Config_loadDefaults(Config* this)
    _Config_configMapRedefine(this, "tuneUseGlobalFileLocks",           "false");
    _Config_configMapRedefine(this, "tuneRefreshOnGetAttr",             "false");
    _Config_configMapRedefine(this, "tuneInodeBlockBits",               "19");
-   _Config_configMapRedefine(this, "tuneMaxClientMirrorSize",          "0");
    _Config_configMapRedefine(this, "tuneEarlyCloseResponse",           "true");
    _Config_configMapRedefine(this, "tuneUseGlobalAppendLocks",         "false");
    _Config_configMapRedefine(this, "tuneUseBufferedAppend",            "true");
@@ -519,9 +519,6 @@ fhgfs_bool _Config_applyConfigMap(Config* this, fhgfs_bool enableException)
          this->tuneInodeBlockBits = StringTk_strToUInt(valueStr);
       else
       IGNORE_CONFIG_VALUE("tuneInodeBlockSize") // auto-generated based on tuneInodeBlockBits
-      if(!os_strcmp(keyStr, "tuneMaxClientMirrorSize") )
-         this->tuneMaxClientMirrorSize = StringTk_strToUInt(valueStr);
-      else
       if(!os_strcmp(keyStr, "tuneEarlyCloseResponse") )
          this->tuneEarlyCloseResponse = StringTk_strToBool(valueStr);
       else
@@ -1045,7 +1042,10 @@ void __Config_initTuneFileCacheTypeNum(Config* this)
 {
    const char* valueStr = this->tuneFileCacheType;
 
-   if(!os_strnicmp(valueStr, FILECACHETYPE_BUFFERED_STR, os_strlen(FILECACHETYPE_BUFFERED_STR) ) )
+   if(!os_strnicmp(valueStr, FILECACHETYPE_NATIVE_STR, strlen(FILECACHETYPE_NATIVE_STR) ) )
+      this->tuneFileCacheTypeNum = FILECACHETYPE_Native;
+   else
+   if(!os_strnicmp(valueStr, FILECACHETYPE_BUFFERED_STR, strlen(FILECACHETYPE_BUFFERED_STR) ) )
       this->tuneFileCacheTypeNum = FILECACHETYPE_Buffered;
    else
    if(!os_strnicmp(valueStr, FILECACHETYPE_PAGED_STR, os_strlen(FILECACHETYPE_PAGED_STR) ) )
@@ -1058,6 +1058,8 @@ const char* Config_fileCacheTypeNumToStr(FileCacheType cacheType)
 {
    switch(cacheType)
    {
+      case FILECACHETYPE_Native:
+         return FILECACHETYPE_NATIVE_STR;
       case FILECACHETYPE_Buffered:
          return FILECACHETYPE_BUFFERED_STR;
       case FILECACHETYPE_Paged:

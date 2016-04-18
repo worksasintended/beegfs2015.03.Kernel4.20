@@ -118,25 +118,15 @@ void App::runNormal()
 {
    bool componentsStarted = false;
 
-   // check root privileges
-   if ( geteuid() && getegid() )
-   { // no root privileges
-      FsckTkEx::printVersionHeader(true, true);
-      FsckTkEx::fsckOutput("Error: beegfs-fsck requires root privileges.",
-         OutputOptions_NOLOG | OutputOptions_STDERR | OutputOptions_DOUBLELINEBREAK);
-      appResult = APPCODE_INITIALIZATION_ERROR;
-      return;
-   }
-
-   initDataObjects(argc, argv);
-
    bool runModeValid = initRunMode();
-   if (!runModeValid) // runMode will have been set to Help
+   if (!runModeValid) // runMode is help; run and exit
    {
       runMode->execute();
       appResult = APPCODE_INVALID_CONFIG;
       return;
    }
+
+   initDataObjects(argc, argv);
 
    // wait for mgmtd
    if ( !cfg->getSysMgmtdHost().length() )
@@ -184,11 +174,6 @@ void App::runNormal()
                   "Fsck cannot run if one of the BeeGFS servers is newer than beegfs-fsck",
                   OutputOptions_ADDLINEBREAKBEFORE | OutputOptions_DOUBLELINEBREAK |
                   OutputOptions_STDERR);
-        /* FsckTkEx::fsckOutput(
-            "Fsck cannot run. At least one of the BeeGFS servers is newer than beegfs-fsck. "
-            "Please update beegfs-fsck to the latest version.",
-            OutputOptions_ADDLINEBREAKBEFORE | OutputOptions_DOUBLELINEBREAK |
-            OutputOptions_STDERR); */
       }
    }
    catch (InvalidConfigException& e)
@@ -236,7 +221,7 @@ void App::runUnitTests()
 }
 
 /*
- * @return true if runMode is valid, false otherwise
+ * @return true if runMode is valid and NOT the help mode
  */
 bool App::initRunMode()
 {
@@ -252,13 +237,6 @@ bool App::initRunMode()
       case RunMode_ENABLEQUOTA:
       {
          this->runMode = new ModeEnableQuota();
-         return true;
-      }
-      break;
-
-      case RunMode_HELP:
-      {
-         this->runMode = new ModeHelp();
          return true;
       }
       break;
@@ -300,7 +278,8 @@ void App::initDataObjects(int argc, char** argv)
    this->ackStore = new AcknowledgmentStore();
 
    // NOTE: database is constructed here, but inside the modes, database->init() must be called
-   this->database = new FsckDB(this->cfg->getDatabaseFile());
+   const std::string databasePath = this->cfg->getDatabasePath();
+   this->database = new FsckDB(databasePath);
 
    initLocalNodeInfo();
 

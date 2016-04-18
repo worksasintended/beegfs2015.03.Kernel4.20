@@ -210,13 +210,18 @@ void InternodeSyncer::updateNodeCapacityPools(NodeStore* nodes, NodeCapacityPool
 
    capacityReportReadLock.unlock(); // U N L O C K
 
-   DemotionFlags demotionFlags(pools->getPoolLimitsSpace(), pools->getPoolLimitsInodes(),
-      normalPoolFreeSpaceMinMax, lowPoolFreeSpaceMinMax,
-      normalPoolInodesMinMax, lowPoolInodesMinMax);
+   if (pools->getDynamicPoolsEnabled() )
+   {
+      DemotionFlags demotionFlags(pools->getPoolLimitsSpace(), pools->getPoolLimitsInodes(),
+         normalPoolFreeSpaceMinMax, lowPoolFreeSpaceMinMax,
+         normalPoolInodesMinMax, lowPoolInodesMinMax);
 
-   // Second loop: Iterate over nodes, check whether they have to be demoted
-   if(pools->getDynamicPoolsEnabled() && demotionFlags.anyFlagActive() )
-      demoteIfNecessary(pools, capacityInfos, demotionFlags);
+      // Second loop: Iterate over nodes, check whether they have to be demoted
+      if(demotionFlags.anyFlagActive() )
+         demoteIfNecessary(pools, capacityInfos, demotionFlags);
+
+      logDemotionFlags(demotionFlags, NODETYPE_Meta);
+   }
 
    // Third loop: Assign nodes to pools.
    poolsModified |= assignNodesToPools(pools, capacityInfos);
@@ -306,13 +311,18 @@ void InternodeSyncer::updateTargetCapacityPools(TargetMapper* targetMapper,
 
    // Handle dynamic pool assignments (for targets that were not assigned to fixed pools above).
 
-   DemotionFlags demotionFlags(pools->getPoolLimitsSpace(), pools->getPoolLimitsInodes(),
-      normalPoolFreeSpaceMinMax, lowPoolFreeSpaceMinMax,
-      normalPoolInodesMinMax, lowPoolInodesMinMax);
+   if (pools->getDynamicPoolsEnabled() )
+   {
+      DemotionFlags demotionFlags(pools->getPoolLimitsSpace(), pools->getPoolLimitsInodes(),
+         normalPoolFreeSpaceMinMax, lowPoolFreeSpaceMinMax,
+         normalPoolInodesMinMax, lowPoolInodesMinMax);
 
-   // Second loop: Iterate over targets, check whether they have to be demoted.
-   if (pools->getDynamicPoolsEnabled() && demotionFlags.anyFlagActive() )
-      demoteIfNecessary(pools, targetCapacityInfos, demotionFlags);
+      // Second loop: Iterate over targets, check whether they have to be demoted.
+      if (pools->getDynamicPoolsEnabled() && demotionFlags.anyFlagActive() )
+         demoteIfNecessary(pools, targetCapacityInfos, demotionFlags);
+
+      logDemotionFlags(demotionFlags, NODETYPE_Storage);
+   }
 
    // Third loop: Assign targets to pools.
    poolsModified |= assignTargetsToPools(pools, targetCapacityInfos);
@@ -447,10 +457,6 @@ template <typename P, typename L>
 void InternodeSyncer::demoteIfNecessary(P* pools, L& capacityInfos,
    const DemotionFlags& demotionFlags)
 {
-   const char* logContext = "Demote targets (dynamic limits active)";
-
-   bool poolsModified = false;
-
    for(typename L::iterator capacityInfoIter = capacityInfos.begin();
       capacityInfoIter != capacityInfos.end(); ++capacityInfoIter)
    {
@@ -468,7 +474,6 @@ void InternodeSyncer::demoteIfNecessary(P* pools, L& capacityInfos,
             || ( demotionFlags.getNormalPoolInodesFlag() && demoteNormalInodes ) )
          {
             capacityInfo.setTargetPoolType(CapacityPool_LOW);
-            poolsModified = true;
          }
       }
       else if(pool == CapacityPool_LOW)
@@ -482,14 +487,20 @@ void InternodeSyncer::demoteIfNecessary(P* pools, L& capacityInfos,
             || ( demotionFlags.getLowPoolInodesFlag() && demoteLowInodes ) )
          {
             capacityInfo.setTargetPoolType(CapacityPool_EMERGENCY);
-            poolsModified = true;
          }
       }
-
    }
+}
 
-   if(poolsModified)
-      LogContext(logContext).log(Log_WARNING,
+void InternodeSyncer::logDemotionFlags(const DemotionFlags& demotionFlags, NodeType nodeType)
+{
+   static DemotionFlags previousFlagsStorage;
+   static DemotionFlags previousFlagsMeta;
+
+   if (  ( (nodeType == NODETYPE_Storage) && (previousFlagsStorage != demotionFlags) )
+      || ( (nodeType == NODETYPE_Meta)    && (previousFlagsMeta != demotionFlags) ) )
+   {
+      LogContext("Demote targets (" + Node::nodeTypeToStr(nodeType) + ")").log(Log_NOTICE,
          "demotion NORMAL->LOW [free space]: "
          + std::string(demotionFlags.getNormalPoolSpaceFlag() ? "on" : "off") +
          " [inodes]: "
@@ -498,6 +509,12 @@ void InternodeSyncer::demoteIfNecessary(P* pools, L& capacityInfos,
          + std::string(demotionFlags.getLowPoolSpaceFlag() ? "on" : "off") +
          " [inodes]: "
          + std::string(demotionFlags.getLowPoolInodesFlag() ? "on" : "off") );
+
+      if (nodeType == NODETYPE_Storage)
+         previousFlagsStorage = demotionFlags;
+      else
+         previousFlagsMeta = demotionFlags;
+   }
 }
 
 void InternodeSyncer::updateTargetBuddyCapacityPools()

@@ -2,8 +2,10 @@ package com.beegfs.admon.gui.common.nodes;
 
 import com.beegfs.admon.gui.common.enums.NodeTypesEnum;
 
-public class Node
+public class Node implements Cloneable
 {
+   public final static String DEFAULT_GROUP = "Default";
+
    public static String getNodeIDFromTypedNodeID(String typedNodeID)
    {
       String[] splitedID = typedNodeID.split(" ");
@@ -59,7 +61,7 @@ public class Node
    {
       this.nodeNumID = nodeNumID;
       this.nodeID = nodeID;
-      this.group = "Default";
+      this.group = DEFAULT_GROUP;
       this.type = type;
    }
 
@@ -68,7 +70,7 @@ public class Node
       String[] splitedID = typedNodeID.split(" ");
       this.nodeID = splitedID[0];
       this.nodeNumID = Integer.parseInt(splitedID[2].replace("]", ""));
-      this.group = "Default";
+      this.group = DEFAULT_GROUP;
       this.type = type;
    }
 
@@ -137,6 +139,12 @@ public class Node
    public boolean equals(Object obj)
    {
       Node node;
+
+      if (obj == null)
+      {
+         return false;
+      }
+
       if (obj instanceof Node)
       {
          node = (Node) obj;
@@ -161,7 +169,7 @@ public class Node
          return false;
       }
 
-      return !nodeID.equals(node.getNodeID());
+      return nodeID.equals(node.getNodeID());
    }
 
    @Override
@@ -175,4 +183,9 @@ public class Node
       return hash;
    }
 
+   @Override
+   public Object clone() throws CloneNotSupportedException
+   {
+      return super.clone();
+   }
 }

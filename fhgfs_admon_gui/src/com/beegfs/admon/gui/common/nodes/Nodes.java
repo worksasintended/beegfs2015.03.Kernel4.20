@@ -2,38 +2,36 @@ package com.beegfs.admon.gui.common.nodes;
 
 import com.beegfs.admon.gui.common.enums.NodeTypesEnum;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 
 
 public class Nodes implements Iterable<Node>
 {
-   private final static int INITIAL_CAPACITY = 10;
-   private final ArrayList<Node> nodes;
+   protected final static int INITIAL_CAPACITY = 10;
+   protected final List<Node> nodes;
 
    public Nodes()
    {
-      nodes = new ArrayList<>(INITIAL_CAPACITY);
+      nodes = Collections.synchronizedList(new ArrayList<Node>(INITIAL_CAPACITY));
    }
 
    public boolean contains(Node node)
    {
-      for (Node tmpNode : nodes)
-      {
-         if (node.equals(tmpNode))
-         {
-           return true;
-         }
-      }
-      return false;
+      return nodes.contains(node);
    }
 
    public boolean contains(String nodeID, NodeTypesEnum type)
    {
-      for (Node tmpNode : nodes)
+      synchronized(nodes)
       {
-         if (type == tmpNode.getType() && nodeID.equals(tmpNode.getNodeID()))
+         for (Node tmpNode : nodes)
          {
-           return true;
+            if (type == tmpNode.getType() && nodeID.equals(tmpNode.getNodeID()))
+            {
+               return true;
+            }
          }
       }
       return false;
@@ -41,11 +39,14 @@ public class Nodes implements Iterable<Node>
 
    public boolean contains(int nodeNumID, NodeTypesEnum type)
    {
-      for (Node tmpNode : nodes)
+      synchronized(nodes)
       {
-         if (type == tmpNode.getType() && nodeNumID == tmpNode.getNodeNumID())
+         for (Node tmpNode : nodes)
          {
-           return true;
+            if (type == tmpNode.getType() && nodeNumID == tmpNode.getNodeNumID())
+            {
+               return true;
+            }
          }
       }
       return false;
@@ -53,11 +54,14 @@ public class Nodes implements Iterable<Node>
 
    public Node getNode(String nodeID, NodeTypesEnum type)
    {
-      for (Node node : nodes)
+      synchronized(nodes)
       {
-         if (type == node.getType() && node.getNodeID().equals(nodeID))
+         for (Node node : nodes)
          {
-           return node;
+            if (type == node.getType() && node.getNodeID().equals(nodeID))
+            {
+               return node;
+            }
          }
       }
       return null;
@@ -65,11 +69,14 @@ public class Nodes implements Iterable<Node>
 
    public Node getNode(int nodeNumID, NodeTypesEnum type)
    {
-      for (Node node : nodes)
+      synchronized(nodes)
       {
-         if (type == node.getType() && node.getNodeNumID() == nodeNumID)
+         for (Node node : nodes)
          {
-            return node;
+            if (type == node.getType() && node.getNodeNumID() == nodeNumID)
+            {
+               return node;
+            }
          }
       }
       return null;
@@ -79,11 +86,31 @@ public class Nodes implements Iterable<Node>
    {
       Nodes groupNodes = new Nodes();
 
-      for (Node node : nodes)
+      synchronized(nodes)
       {
-         if (type == node.getType() && node.getGroup().equals(group))
+         for (Node node : nodes)
          {
-            groupNodes.add(node);
+            if (type == node.getType() && node.getGroup().equals(group))
+            {
+               groupNodes.add(node);
+            }
+         }
+      }
+      return groupNodes;
+   }
+
+   public Nodes getClonedNodes(String group, NodeTypesEnum type) throws CloneNotSupportedException
+   {
+      Nodes groupNodes = new Nodes();
+
+      synchronized(nodes)
+      {
+         for (Node node : nodes)
+         {
+            if (type == node.getType() && node.getGroup().equals(group))
+            {
+               groupNodes.add((Node)node.clone());
+            }
          }
       }
       return groupNodes;
@@ -101,64 +128,24 @@ public class Nodes implements Iterable<Node>
       }
    }
 
-   public boolean addOrUpdateNode(Node node)
-   {
-      if (nodes.contains(node))
-      {
-         Node tmpNode = this.getNode(node.getNodeNumID(), node.getType());
-         tmpNode.setNodeID(node.getNodeID());
-         tmpNode.setNodeNumID(node.getNodeNumID());
-         tmpNode.setGroup(node.getGroup());
-         tmpNode.setType(node.getType());
-         return true;
-      }
-      else
-      {
-         return this.add(node);
-      }
-   }
-
    public boolean addNodes(Nodes nodeList)
    {
       boolean retVal = true;
       boolean oneFound = false;
-      
-      for(Node node : nodeList)
+
+      synchronized(nodeList)
       {
-         if (this.add(node))
+         for(Node node : nodeList)
          {
-            oneFound = true;
-         }
-         else
-         {
-            retVal = false;
-            oneFound = true;
-         }
-      }
-
-      if (!oneFound)
-      {
-         retVal = false;
-      }
-
-      return retVal;
-   }
-
-   public boolean addOrUpdateNodes(Nodes nodeList)
-   {
-      boolean retVal = true;
-      boolean oneFound = false;
-
-      for(Node node : nodeList)
-      {
-         if (this.addOrUpdateNode(node))
-         {
-            oneFound = true;
-         }
-         else
-         {
-            retVal = false;
-            oneFound = true;
+            if (this.add(node))
+            {
+               oneFound = true;
+            }
+            else
+            {
+               retVal = false;
+               oneFound = true;
+            }
          }
       }
 
@@ -177,11 +164,14 @@ public class Nodes implements Iterable<Node>
 
    public boolean remove(String nodeID, NodeTypesEnum type)
    {
-      for (Node node : nodes)
+      synchronized(nodes)
       {
-         if (type  == node.getType() && node.getNodeID().equals(nodeID))
+         for (Node node : nodes)
          {
-            return nodes.remove(node);
+            if (type  == node.getType() && node.getNodeID().equals(nodeID))
+            {
+               return this.remove(node);
+            }
          }
       }
       return false;
@@ -189,11 +179,14 @@ public class Nodes implements Iterable<Node>
 
    public boolean remove(int nodeNumID, NodeTypesEnum type)
    {
-      for (Node node : nodes)
+      synchronized(nodes)
       {
-         if (type  == node.getType() && node.getNodeNumID() == nodeNumID)
+         for (Node node : nodes)
          {
-            return nodes.remove(node);
+            if (type  == node.getType() && node.getNodeNumID() == nodeNumID)
+            {
+               return this.remove(node);
+            }
          }
       }
       return false;
@@ -204,18 +197,21 @@ public class Nodes implements Iterable<Node>
       boolean retVal = true;
       boolean oneFound = false;
 
-      for (Node node : nodes)
+      synchronized(nodes)
       {
-         if (node.getGroup().equals(group))
+         for (Node node : nodes)
          {
-            if (this.remove(node))
+            if (node.getGroup().equals(group))
             {
-               oneFound = true;
-            }
-            else
-            {
-               retVal = false;
-               oneFound = true;
+               if (this.remove(node))
+               {
+                  oneFound = true;
+               }
+               else
+               {
+                  retVal = false;
+                  oneFound = true;
+               }
             }
          }
       }
@@ -233,19 +229,21 @@ public class Nodes implements Iterable<Node>
       boolean retVal = true;
       boolean oneFound = false;
 
-      for (Node node : nodeList)
+      synchronized(nodeList)
       {
-         if (this.remove(node))
+         for (Node node : nodeList)
          {
-            oneFound = true;
-         }
-         else
-         {
-            retVal = false;
-            oneFound = true;
+            if (this.remove(node))
+            {
+               oneFound = true;
+            }
+            else
+            {
+               retVal = false;
+               oneFound = true;
+            }
          }
       }
-
 
       if (!oneFound)
       {
@@ -253,6 +251,28 @@ public class Nodes implements Iterable<Node>
       }
 
       return retVal;
+   }
+
+   public int syncNodes(Nodes nodeList)
+   {
+      int counter = 0;
+
+      synchronized(nodeList)
+      {
+         for (Node node : nodeList)
+         {
+            if(!this.contains(node))
+            {
+               if(!this.add(node))
+               {
+                  return -1;
+               }
+               counter++;
+            }
+         }
+      }
+
+      return counter;
    }
 
    public void clear()
@@ -264,5 +284,10 @@ public class Nodes implements Iterable<Node>
    public Iterator<Node> iterator()
    {
       return nodes.iterator();
+   }
+
+   public int size()
+   {
+      return nodes.size();
    }
 }

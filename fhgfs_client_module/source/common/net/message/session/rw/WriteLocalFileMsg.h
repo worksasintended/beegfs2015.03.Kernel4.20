@@ -6,6 +6,7 @@
 #include <common/storage/PathInfo.h>
 #include <app/log/Logger.h>
 #include <app/App.h>
+#include <os/iov_iter.h>
 
 
 #define WRITELOCALFILEMSG_FLAG_SESSION_CHECK        1 /* if session check should be done */
@@ -36,11 +37,7 @@ extern void WriteLocalFileMsg_serializePayload(NetMessage* this, char* buf);
 extern unsigned WriteLocalFileMsg_calcMessageLength(NetMessage* this);
 
 // inliners
-static inline fhgfs_bool WriteLocalFileMsg_sendData(
-   WriteLocalFileMsg* this, const char* data, Socket* sock);
-static inline fhgfs_bool WriteLocalFileMsg_sendDataPartExact(App* app, char* data,
-   size_t sendLen, size_t* partSentLen, Socket* sock);
-static inline FhgfsOpsErr WriteLocalFileMsg_sendDataPartInstant(App* app, const char* data,
+static inline FhgfsOpsErr WriteLocalFileMsg_sendDataPartInstant(App* app, struct iov_iter* data,
    size_t partLen, size_t* partSentLen, Socket* sock);
 
 // getters & setters
@@ -162,42 +159,6 @@ void WriteLocalFileMsg_destruct(NetMessage* this)
    os_kfree(this);
 }
 
-fhgfs_bool WriteLocalFileMsg_sendData(WriteLocalFileMsg* this, const char* data, Socket* sock)
-{
-   return (sock->send(sock, data, this->count, 0) == this->count);
-}
-
-/**
- * Note: The length parameter differs from the one of WriteLocalFileMsg_sendDataPartInstant
- *
- * @sendLen number of bytes to be sent
- * @partSentLen will automatically be increased on success
- */
-fhgfs_bool WriteLocalFileMsg_sendDataPartExact(App* app, char* data, size_t sendLen,
-   size_t* partSentLen, Socket* sock)
-{
-   ssize_t sendRes = sock->send(sock, &data[*partSentLen], sendLen, 0);
-
-   if(sendRes > 0)
-   { // successfully sent some data
-      (*partSentLen) += sendRes;
-
-      return fhgfs_true;
-   }
-   else
-   { // error
-      Logger* log = App_getLogger(app);
-      const char* logContext = "WriteLocalFileMsg_sendDataPartExact";
-
-      Logger_logFormatted(log, 2, logContext, "SocketError. ErrCode: %lld",
-         (long long)sendRes);
-      Logger_logFormatted(log, 5, logContext, "partSentLen/sendLen: %lld/%lld",
-         (long long)*partSentLen, (long long)sendLen);
-
-      return fhgfs_false;
-   }
-
-}
 
 
 /**
@@ -205,22 +166,29 @@ fhgfs_bool WriteLocalFileMsg_sendDataPartExact(App* app, char* data, size_t send
  *
  * Note: The length parameter differs from the one of WriteLocalFileMsg_sendDataPartExact
  *
- * @partLen such that missingLen = partLen - *partSentLen
  * @partSentLen will automatically be increased on success
  */
-FhgfsOpsErr WriteLocalFileMsg_sendDataPartInstant(App* app, const char* data, size_t partLen,
-   size_t* partSentLen, Socket* sock)
+FhgfsOpsErr WriteLocalFileMsg_sendDataPartInstant(App* app, struct iov_iter* data,
+   size_t partLen, size_t* partSentLen, Socket* sock)
 {
-   ssize_t missing = partLen-(*partSentLen);
+   ssize_t sendRes = 0;
 
-   ssize_t sendRes = sock->send(sock, &data[*partSentLen], missing, BEEGFS_MSG_DONTWAIT);
+   while (data->count)
+   {
+      struct iovec iov;
+
+      iov = BEEGFS_IOV_ITER_IOVEC(data);
+      sendRes = sock->send(sock, iov.iov_base, iov.iov_len, BEEGFS_MSG_DONTWAIT);
+
+      if (sendRes < 0)
+         break;
+
+      *partSentLen += sendRes;
+      iov_iter_advance(data, sendRes);
+   }
 
    if(sendRes > 0)
-   { // successfully sent some data
-      (*partSentLen) += sendRes;
-
       return FhgfsOpsErr_SUCCESS;
-   }
    else
    if(sendRes == -EAGAIN)
    { // send would block (nothing was sent)
@@ -239,7 +207,7 @@ FhgfsOpsErr WriteLocalFileMsg_sendDataPartInstant(App* app, const char* data, si
       Logger_logFormatted(log, Log_WARNING, logContext, "SocketError. ErrCode: %lld",
          (long long)sendRes);
       Logger_logFormatted(log, Log_SPAM, logContext, "partLen/missing: %lld/%lld",
-         (long long)partLen, (long long)missing);
+         (long long)partLen, (long long)data->count);
 
       return FhgfsOpsErr_COMMUNICATION;
    }

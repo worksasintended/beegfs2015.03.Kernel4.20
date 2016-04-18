@@ -143,7 +143,7 @@ public class Main
       {
          //no command line specified, try using a default config file
          //try beegfs_dir in users home
-         configFile = new File(Config.defaultConfigName);
+         configFile = new File(Config.DEFAULT_CONFIG_NAME);
       }
 
       if (configFile.exists())

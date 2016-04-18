@@ -2516,31 +2516,18 @@ int64_t FsckDB::getRowCount(std::string tableName, std::string whereClause)
 
    std::string queryStr = "SELECT COUNT() FROM " + tableName + " WHERE " + whereClause;
 
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_READ);
-
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
    // SQLITE_BUSY should basically be impossible, but as we cannot guarantee it, we have to handle
    // it
-   int sqlite_retVal = SQLITE_BUSY;
-   while ( sqlite_retVal == SQLITE_BUSY )
-   {
-      sqlite_retVal = sqlite3_prepare_v2(dbHandle->getHandle(), queryStr.c_str(), queryStr.length(),
-         &stmt, NULL);
-   }
+   int sqlite_retVal = dbHandle->sqliteBlockingPrepare(queryStr.c_str(), queryStr.length(), &stmt);
 
    if ( sqlite_retVal != SQLITE_OK )
    {
       goto cleanup;
    }
 
-   if ( sqlite3_step(stmt) == SQLITE_ROW )
+   if ( dbHandle->sqliteBlockingStep(stmt) == SQLITE_ROW )
    {
       retVal = sqlite3_column_int64(stmt, 0);
    }
@@ -2551,8 +2538,6 @@ int64_t FsckDB::getRowCount(std::string tableName, std::string whereClause)
       sqlite3_finalize(stmt);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }

@@ -7,7 +7,7 @@ bool DummyMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
    LogContext log("DummyMsg incoming");
 
    std::string peer = fromAddr ? Socket::ipaddrToStr(&fromAddr->sin_addr) : sock->getPeername();
-   LOG_DEBUG_CONTEXT(log, 4, std::string("Received a DummyMsg from: ") + peer);
+   LOG_DEBUG_CONTEXT(log, Log_DEBUG, std::string("Received a DummyMsg from: ") + peer);
 
    DummyMsg respMsg;
    respMsg.serialize(respBuf, bufLen);

@@ -71,7 +71,7 @@
               <SubComponents>
                 <Component class="com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel" name="remoteLogFileTabPanelMgmtd">
                   <AuxValues>
-                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.MANAGMENT, mgmtdNodes, getLogfileBaseUrl)"/>
+                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(&#xa;   nodes.getNodes(NodeTypesEnum.MANAGMENT),&#xa;   GET_LOGFILE_BASE_URL)"/>
                   </AuxValues>
                   <Constraints>
                     <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
@@ -83,7 +83,7 @@
                 </Component>
                 <Component class="com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel" name="remoteLogFileTabPanelMeta">
                   <AuxValues>
-                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.METADATA, metaNodes, getLogfileBaseUrl)"/>
+                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(&#xa;   nodes.getNodes(NodeTypesEnum.METADATA),&#xa;   GET_LOGFILE_BASE_URL)"/>
                   </AuxValues>
                   <Constraints>
                     <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
@@ -95,7 +95,7 @@
                 </Component>
                 <Component class="com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel" name="remoteLogFileTabPanelStorage">
                   <AuxValues>
-                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.STORAGE, storageNodes, getLogfileBaseUrl)"/>
+                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(&#xa;   nodes.getNodes(NodeTypesEnum.STORAGE),&#xa;   GET_LOGFILE_BASE_URL)"/>
                   </AuxValues>
                   <Constraints>
                     <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
@@ -107,7 +107,7 @@
                 </Component>
                 <Component class="com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel" name="remoteLogFileTabPanelAdmon">
                   <AuxValues>
-                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.ADMON, admonNodes, getLogfileBaseUrl)"/>
+                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(&#xa;   nodes.getNodes(NodeTypesEnum.ADMON),&#xa;   GET_LOGFILE_BASE_URL)"/>
                   </AuxValues>
                   <Constraints>
                     <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">
@@ -119,7 +119,7 @@
                 </Component>
                 <Component class="com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel" name="remoteLogFileTabPanelClient">
                   <AuxValues>
-                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.CLIENT, clientNodes, getLogfileBaseUrl)"/>
+                    <AuxValue name="JavaCodeGenerator_CreateCodeCustom" type="java.lang.String" value="new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(&#xa;   nodes.getNodes(NodeTypesEnum.CLIENT),&#xa;   GET_LOGFILE_BASE_URL)"/>
                   </AuxValues>
                   <Constraints>
                     <Constraint layoutClass="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout" value="org.netbeans.modules.form.compat2.layouts.support.JTabbedPaneSupportLayout$JTabbedPaneConstraintsDescription">

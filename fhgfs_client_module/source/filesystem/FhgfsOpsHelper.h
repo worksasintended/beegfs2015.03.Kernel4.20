@@ -53,6 +53,8 @@ extern ssize_t FhgfsOpsHelper_writefileEx(FhgfsInode* fhgfsInode, const char __u
    size_t size, loff_t offset, RemotingIOInfo* ioInfo);
 extern ssize_t FhgfsOpsHelper_appendfile(FhgfsInode* fhgfsInode, const char __user *buf,
    size_t size, RemotingIOInfo* ioInfo, loff_t* outNewOffset);
+extern ssize_t FhgfsOpsHelper_appendfileVecOffset(FhgfsInode* fhgfsInode, const struct iovec* data,
+   size_t dataCount, RemotingIOInfo* ioInfo, loff_t offsetFromEnd, loff_t* outNewOffset);
 
 extern FhgfsOpsErr FhgfsOpsHelper_readOrClearUser(App* app, char __user *buf, size_t size,
    loff_t offset, FsFileInfo* fileInfo, RemotingIOInfo* ioInfo);

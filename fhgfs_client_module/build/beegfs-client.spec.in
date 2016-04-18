@@ -46,7 +46,7 @@
 Name: %NAME%
 Version: %{ver}.%{release_str}
 Release: %release
-License: Dual (GPL v2, BeeGFS EULA)
+License: GPL v2
 Group: Software/Other
 Source: %NAME%-%{ver}-%{release_str}.tgz
 URL: http://www.beegfs.com

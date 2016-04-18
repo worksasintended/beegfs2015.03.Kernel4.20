@@ -16,7 +16,7 @@ import javax.swing.ImageIcon;
 
 public class GuiTk
 {
-   static final Logger logger = Logger.getLogger(GuiTk.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(GuiTk.class.getCanonicalName());
 
    public static Color getFhGColor()
    {
@@ -53,7 +53,7 @@ public class GuiTk
       }
       catch (IOException e)
       {
-         logger.log(Level.INFO, "IO Exception while trying to load icon.", e);
+         LOGGER.log(Level.INFO, "IO Exception while trying to load icon.", e);
       }
       return iconImage;
    }

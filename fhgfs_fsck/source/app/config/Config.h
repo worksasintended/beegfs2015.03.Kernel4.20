@@ -6,8 +6,8 @@
 #define CONFIG_DEFAULT_CFGFILENAME "/etc/beegfs/beegfs-client.conf"
 #define CONFIG_DEFAULT_LOGFILE     "/var/log/beegfs-fsck.log"
 #define CONFIG_DEFAULT_OUTFILE     "/var/log/beegfs-fsck.out"
-#define CONFIG_DEFAULT_DBFILE      "/var/lib/beegfs/beegfs-fsck.db"
-#define CONFIG_DEFAULT_TESTDBFILE  "/tmp/beegfs-fsck-test.db"
+#define CONFIG_DEFAULT_DBPATH      "/var/lib/beegfs/"
+#define CONFIG_DEFAULT_TESTDBPATH  "/tmp/beegfs-fsck/"
 
 #define RUNMODE_HELP_KEY_STRING     "--help" /* key for usage help */
 #define __RUNMODES_SIZE \
@@ -59,11 +59,11 @@ class Config : public AbstractConfig
 
       bool        runDaemonized;
 
-      std::string databaseFile;
+      std::string databasePath;
       bool        overwriteDbFile;
 
-      // only relevant for unit testing, to give the used databaseFile
-      std::string testDatabaseFile;
+      // only relevant for unit testing, to give the used databasePath
+      std::string testDatabasePath;
 
       unsigned    databaseNumMaxConns;
 
@@ -160,9 +160,9 @@ class Config : public AbstractConfig
          return runDaemonized;
       }
 
-      std::string getDatabaseFile() const
+      std::string getDatabasePath() const
       {
-         return databaseFile;
+         return databasePath;
       }
 
       bool getOverwriteDbFile() const
@@ -170,9 +170,9 @@ class Config : public AbstractConfig
          return overwriteDbFile;
       }
 
-      std::string getTestDatabaseFile() const
+      std::string getTestDatabasePath() const
       {
-         return testDatabaseFile;
+         return testDatabasePath;
       }
 
       unsigned getDatabaseNumMaxConns() const

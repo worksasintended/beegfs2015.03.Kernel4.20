@@ -126,7 +126,7 @@ fhgfs_bool __FhgfsOpsCommKit_readfileV2bStagePREPARE(RWfileStatesHelper* statesH
    // prepare message
    ReadLocalFileV2Msg_initFromSession(&readMsg, localNodeID,
       statesHelper->ioInfo->fileHandleID, currentState->targetID, statesHelper->ioInfo->pathInfo,
-      statesHelper->ioInfo->accessFlags, currentState->offset, currentState->size);
+      statesHelper->ioInfo->accessFlags, currentState->offset, currentState->data.count);
 
    NetMessage_setMsgHeaderTargetID( (NetMessage*)&readMsg, nodeReferenceTargetID);
 
@@ -257,11 +257,12 @@ void __FhgfsOpsCommKit_readfileV2bStageRECVHEADER(RWfileStatesHelper* statesHelp
    }
 
    // buffer overflow check
-   if(unlikely( (currentState->transmitted + lengthInfo) > currentState->size) )
+   if(unlikely(lengthInfo > currentState->data.count) )
    {
       Logger_logErrFormatted(statesHelper->log, statesHelper->logContext,
-         "Bug: Received a lengthInfo that would lead to a buffer overflow from %s: %lld",
-         Node_getNodeIDWithTypeStr(currentState->node), (long long)lengthInfo);
+         "Bug: Received a lengthInfo that would lead to a buffer overflow from %s: %lld %lld %zu",
+         Node_getNodeIDWithTypeStr(currentState->node), (long long)lengthInfo,
+         currentState->transmitted, currentState->data.count);
 
       currentState->nodeResult = -FhgfsOpsErr_INTERNAL;
       currentState->stage = ReadfileStage_SOCKETINVALIDATE;
@@ -279,18 +280,19 @@ void __FhgfsOpsCommKit_readfileV2bStageRECVDATA(RWfileStatesHelper* statesHelper
 {
    size_t missingLength;
    ssize_t recvRes;
+   struct iovec iov;
 
 
    // check for incoming data
    if(!__FhgfsOpsCommKit_readfileV2bIsDataAvailable(statesHelper, currentState) )
       return;
 
-
-   missingLength = currentState->toBeTransmitted - currentState->transmitted;
+   iov = BEEGFS_IOV_ITER_IOVEC(&currentState->data);
+   missingLength = MIN(iov.iov_len, currentState->toBeTransmitted - currentState->transmitted);
 
    // receive available dataPart
    recvRes = currentState->sock->recvT(currentState->sock,
-      &(currentState->buf)[currentState->transmitted], missingLength, 0, CONN_LONG_TIMEOUT);
+      iov.iov_base, missingLength, 0, CONN_LONG_TIMEOUT);
 
 #if (BEEGFS_COMMKIT_DEBUG & COMMKIT_DEBUG_RECV_DATA)
    if (recvRes > 0 && jiffies % CommKitErrorInjectRate == 0)
@@ -335,6 +337,7 @@ void __FhgfsOpsCommKit_readfileV2bStageRECVDATA(RWfileStatesHelper* statesHelper
    }
 
    currentState->transmitted += recvRes;
+   iov_iter_advance(&currentState->data, recvRes);
 
    if(currentState->toBeTransmitted == currentState->transmitted)
    { // all of the data has been received => receive the next lengthInfo in the header stage
@@ -364,7 +367,7 @@ void __FhgfsOpsCommKit_readfileV2bStageSOCKETEXCEPTION(RWfileStatesHelper* state
       Logger_logFormatted(statesHelper->log, Log_DEBUG, statesHelper->logContext,
          "Sent request: node: %s; fileHandleID: %s; offset: %lld; size: %lld",
          Node_getNodeIDWithTypeStr(currentState->node), statesHelper->ioInfo->fileHandleID,
-         (long long)currentState->offset, (long long)currentState->size);
+         (long long)currentState->offset, (long long)currentState->data.count);
    }
 
    currentState->nodeResult = -FhgfsOpsErr_COMMUNICATION;
@@ -716,7 +719,7 @@ fhgfs_bool __FhgfsOpsCommKit_writefileV2bStagePREPARE(RWfileStatesHelper* states
    // prepare message
    WriteLocalFileMsg_initFromSession(&writeMsg, localNodeID,
       statesHelper->ioInfo->fileHandleID, currentState->targetID, statesHelper->ioInfo->pathInfo,
-      statesHelper->ioInfo->accessFlags, currentState->offset, currentState->size);
+      statesHelper->ioInfo->accessFlags, currentState->offset, currentState->data.count);
 
    NetMessage_setMsgHeaderTargetID( (NetMessage*)&writeMsg, nodeReferenceTargetID);
 
@@ -787,7 +790,7 @@ void __FhgfsOpsCommKit_writefileV2bStageSENDHEADER(RWfileStatesHelper* statesHel
 
    // prepare transmission state vars
    currentState->transmitted = 0;
-   currentState->toBeTransmitted = currentState->size;
+   currentState->toBeTransmitted = currentState->data.count;
 
    currentState->stage = WritefileStage_SENDDATA;
 
@@ -831,7 +834,7 @@ void __FhgfsOpsCommKit_writefileV2bStageSENDDATA(RWfileStatesHelper* statesHelpe
    }
 
    // send dataPart non-blocking
-   sendDataPartRes = WriteLocalFileMsg_sendDataPartInstant(statesHelper->app, currentState->buf,
+   sendDataPartRes = WriteLocalFileMsg_sendDataPartInstant(statesHelper->app, &currentState->data,
       currentState->toBeTransmitted, &currentState->transmitted, currentState->sock);
 
 #if (BEEGFS_COMMKIT_DEBUG & COMMKIT_DEBUG_WRITE_SEND)
@@ -978,7 +981,7 @@ void __FhgfsOpsCommKit_writefileV2bStageSOCKETEXCEPTION(RWfileStatesHelper* stat
       Logger_logFormatted(statesHelper->log, Log_DEBUG, statesHelper->logContext,
          "Sent request: node: %s; fileHandleID: %s; offset: %lld; size: %lld",
          Node_getNodeIDWithTypeStr(currentState->node), statesHelper->ioInfo->fileHandleID,
-         (long long)currentState->offset, (long long)currentState->size);
+         (long long)currentState->offset, (long long)currentState->toBeTransmitted);
    }
 
    currentState->nodeResult = -FhgfsOpsErr_COMMUNICATION;

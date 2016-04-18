@@ -6,8 +6,7 @@ import javax.swing.JProgressBar;
 
 public class ProgressBarThread extends GuiThread
 {
-   static final Logger logger = Logger.getLogger(
-           ProgressBarThread.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(ProgressBarThread.class.getCanonicalName());
 
    private JProgressBar bar;
 
@@ -40,7 +39,7 @@ public class ProgressBarThread extends GuiThread
          }
          catch (InterruptedException e)
          {
-            logger.log(Level.FINEST, "Internal error.", e);
+            LOGGER.log(Level.FINEST, "Internal error.", e);
          }
          if (value >= 100)
          {

@@ -31,10 +31,9 @@ import javax.swing.JOptionPane;
 public class JInternalFrameStartStop extends javax.swing.JInternalFrame implements
    JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
       JInternalFrameStartStop.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "StartStopGui";
 
    private transient GetInfoThread infoThread;
@@ -62,6 +61,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
    private static class JLabelNode extends JLabel
    {
       private static final long serialVersionUID = 1L;
+
       private final String node;
 
       JLabelNode(String nodeID)
@@ -80,6 +80,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
    private static class JLabelStatus extends JLabel
    {
       private static final long serialVersionUID = 1L;
+
       public static final int STATUS_RUNNING = 0;
       public static final int STATUS_STOPPED = 1;
       private final String node;
@@ -125,6 +126,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
    private static class JButtonStart extends JButton
    {
       private static final long serialVersionUID = 1L;
+
       private final String node;
 
       JButtonStart(String nodeID)
@@ -144,6 +146,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
    private static class JButtonStop extends JButton
    {
       private static final long serialVersionUID = 1L;
+
       private final String node;
 
       JButtonStop(String nodeID)
@@ -199,7 +202,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication error occured", new Object[]
+            LOGGER.log(Level.SEVERE, "Communication error occured", new Object[]
             {
                e,
                true
@@ -428,25 +431,25 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
       @Override
       public void run()
       {
-         if (action == ACTION_START)
+         switch (action)
          {
-            startSingleService();
-         }
-         else if (action == ACTION_STOP)
-         {
-            stopSingleService();
-         }
-         else if (action == ACTION_START_ALL)
-         {
-            startAllService();
-         }
-         else if (action == ACTION_STOP_ALL)
-         {
-            stopAllService();
-         }
-         else if (action == ACTION_RESTART_ADMON)
-         {
-            restartAdmon();
+            case ACTION_START:
+               startSingleService();
+               break;
+            case ACTION_STOP:
+               stopSingleService();
+               break;
+            case ACTION_START_ALL:
+               startAllService();
+               break;
+            case ACTION_STOP_ALL:
+               stopAllService();
+               break;
+            case ACTION_RESTART_ADMON:
+               restartAdmon();
+               break;
+            default:
+               break;
          }
       }
 
@@ -478,7 +481,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
                JOptionPane.showMessageDialog(null,
                   "Operation cannot be performed due to failed authentication",
                   "Authentication failed", JOptionPane.ERROR_MESSAGE);
-               logger.log(Level.SEVERE,
+               LOGGER.log(Level.SEVERE,
                   "Authentication failed. You are not allowed to perform this operation!", true);
                return;
             }
@@ -489,7 +492,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication error occured", new Object[]
+            LOGGER.log(Level.SEVERE, "Communication error occured", new Object[]
             {
                e,
                true
@@ -526,7 +529,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
                JOptionPane.showMessageDialog(null,
                   "Operation cannot be performed due to failed authentication",
                   "Authentication failed", JOptionPane.ERROR_MESSAGE);
-               logger.log(Level.SEVERE,
+               LOGGER.log(Level.SEVERE,
                   "Authentication failed. You are not allowed to perform this operation!", true);
                return;
             }
@@ -548,7 +551,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication error occured", new Object[]
+            LOGGER.log(Level.SEVERE, "Communication error occured", new Object[]
             {
                e,
                true
@@ -584,7 +587,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
                JOptionPane.showMessageDialog(null,
                   "Operation cannot be performed due to failed authentication",
                   "Authentication failed", JOptionPane.ERROR_MESSAGE);
-               logger.log(Level.SEVERE,
+               LOGGER.log(Level.SEVERE,
                   "Authentication failed. You are not allowed to perform this operation!", true);
                return;
             }
@@ -606,7 +609,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication error occured", new Object[]
+            LOGGER.log(Level.SEVERE, "Communication error occured", new Object[]
             {
                e,
                true
@@ -642,7 +645,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
                JOptionPane.showMessageDialog(null,
                   "Operation cannot be performed due to failed authentication",
                   "Authentication failed", JOptionPane.ERROR_MESSAGE);
-               logger.log(Level.SEVERE,
+               LOGGER.log(Level.SEVERE,
                   "Authentication failed. You are not allowed to perform this operation!", true);
                return;
             }
@@ -702,7 +705,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication error occured", new Object[]
+            LOGGER.log(Level.SEVERE, "Communication error occured", new Object[]
             {
                e,
                true
@@ -738,7 +741,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
                JOptionPane.showMessageDialog(null,
                   "Operation cannot be performed due to failed authentication",
                   "Authentication failed", JOptionPane.ERROR_MESSAGE);
-               logger.log(Level.SEVERE,
+               LOGGER.log(Level.SEVERE,
                   "Authentication failed. You are not allowed to perform this operation!", true);
                return;
             }
@@ -798,7 +801,7 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication error occured", new Object[]
+            LOGGER.log(Level.SEVERE, "Communication error occured", new Object[]
             {
                e,
                true

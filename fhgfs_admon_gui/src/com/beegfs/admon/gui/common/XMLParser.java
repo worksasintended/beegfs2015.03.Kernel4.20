@@ -41,9 +41,10 @@ import org.xml.sax.InputSource;
  */
 public class XMLParser extends GuiThread
 {
-   static final Logger logger = Logger.getLogger(XMLParser.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(XMLParser.class.getCanonicalName());
+
    private final static int INITIAL_CAPACITY = 10;
-   private static final boolean DEBUG_POST = true;
+   private static final boolean DEBUG_POST = false;
    
    private Element rootElement;
    private String url;
@@ -209,7 +210,7 @@ public class XMLParser extends GuiThread
             }
             catch (InterruptedException e)
             {
-               logger.log(Level.SEVERE, "Interrupted Exception in XML Parser run.", e);
+               LOGGER.log(Level.SEVERE, "Interrupted Exception in XML Parser run.", e);
             }
          }
       }
@@ -232,7 +233,7 @@ public class XMLParser extends GuiThread
          if(url != null)
          {
             urlObject = new URL(url);
-            logger.log(Level.FINEST, "request URL: {0}", url);
+            LOGGER.log(Level.FINEST, "request URL: {0}", url);
          }
          else
          {
@@ -262,7 +263,7 @@ public class XMLParser extends GuiThread
                }
             }
 
-            logger.log(Level.SEVERE, "Sending \'GET\' request to URL: {0}; Response Code: {1}; " +
+            LOGGER.log(Level.SEVERE, "Sending \'GET\' request to URL: {0}; Response Code: {1}; " +
                "Response: {2}", new Object[]{url, responseCode, response.toString()});
 
             doc = parser.build(new InputSource(new StringReader(response.toString() ) ) );
@@ -295,22 +296,22 @@ public class XMLParser extends GuiThread
       {
          commError = true;
          errorMsg = e.getMessage();
-         logger.log(Level.SEVERE, "Communication error during requesting URL: " + urlForLog +
-                 " during XML Parser update.", e);
+         LOGGER.log(Level.SEVERE, "Communication error during requesting URL: " + urlForLog +
+            " during XML Parser update.", e);
          retVal = false;
       }
       catch (JDOMException e)
       {
          commError = true;
          errorMsg = e.getMessage();
-         logger.log(Level.SEVERE, "Exception in XML Parser update.", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser update.", e);
          retVal = false;
       }
       finally
       {
          if (!commError)
          {
-            logger.log(Level.FINEST, "data recieved from URL: {0} ; result size: {1}",
+            LOGGER.log(Level.FINEST, "data recieved from URL: {0} ; result size: {1}",
                new Object[]{urlForLog, rootElementSizeForLog});
          }
       }
@@ -340,7 +341,7 @@ public class XMLParser extends GuiThread
       }
       catch (JDOMException | IOException e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser readFromInputStream.", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser readFromInputStream.", e);
       }
    }
 
@@ -373,7 +374,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getTreeMap", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getTreeMap", e);
       }
 
       return map;
@@ -414,7 +415,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getTreeMap", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getTreeMap", e);
       }
 
       return map;
@@ -456,11 +457,11 @@ public class XMLParser extends GuiThread
       }
       catch (java.lang.NullPointerException e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getVector.", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getVector.", e);
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getVector.", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getVector.", e);
       }
 
       if (vec == null)
@@ -501,7 +502,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getVector", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getVector", e);
       }
 
       if(vec == null)
@@ -547,7 +548,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
       }
 
       return map;
@@ -593,7 +594,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
       }
 
       return map;
@@ -637,7 +638,7 @@ public class XMLParser extends GuiThread
       }
       catch (NumberFormatException e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
       }
 
       if (list == null)
@@ -729,7 +730,7 @@ public class XMLParser extends GuiThread
                      {
                         if(!unkownStatIDLogged)
                         {
-                           logger.log(Level.FINEST, "Unknown statID: {0}, New stat added? ",
+                           LOGGER.log(Level.FINEST, "Unknown statID: {0}, New stat added? ",
                               String.valueOf(statID) );
                         }
                      }
@@ -746,7 +747,7 @@ public class XMLParser extends GuiThread
       }
       catch (NumberFormatException e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
       }
 
       return list;
@@ -811,7 +812,7 @@ public class XMLParser extends GuiThread
       }
       catch (NumberFormatException e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
       }
 
       return list;
@@ -877,7 +878,7 @@ public class XMLParser extends GuiThread
       }
       catch (NumberFormatException e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getAttrValueMap", e);
       }
 
       return list;
@@ -912,7 +913,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getValue", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getValue", e);
       }
 
       return outStr;
@@ -952,7 +953,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getValue", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getValue", e);
       }
 
       return outStr;
@@ -1004,7 +1005,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getVectorOfTreeMaps", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getVectorOfTreeMaps", e);
       }
 
       return outElements;
@@ -1061,7 +1062,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getVectorOfAttributeTreeMaps", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getVectorOfAttributeTreeMaps", e);
       }
 
       if (outElements == null)
@@ -1127,7 +1128,7 @@ public class XMLParser extends GuiThread
       }
       catch (Exception e)
       {
-         logger.log(Level.SEVERE, "Exception in XML Parser getVectorOfAttributeTreeMaps", e);
+         LOGGER.log(Level.SEVERE, "Exception in XML Parser getVectorOfAttributeTreeMaps", e);
       }
 
       if (outElements == null)

@@ -22,10 +22,9 @@ import javax.swing.JOptionPane;
 public class JInternalFrameStriping extends javax.swing.JInternalFrame
    implements JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
       JInternalFrameStriping.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "Striping";
 
    /**
@@ -89,11 +88,11 @@ public class JInternalFrameStriping extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
       }
       catch (java.lang.NullPointerException npe)
       {
-         logger.log(Level.FINEST, "Internal error.", npe);
+         LOGGER.log(Level.FINEST, "Internal error.", npe);
       }
    }
 
@@ -582,7 +581,7 @@ public class JInternalFrameStriping extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
       }
       catch (NumberFormatException e)
       {

@@ -18,10 +18,9 @@ import javax.swing.JOptionPane;
 public class JInternalFrameUserSettings extends javax.swing.JInternalFrame 
    implements JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
            JInternalFrameUserSettings.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "UserSettings";
 
     /** Creates new form JInternalFrameMetaNode */
@@ -355,7 +354,7 @@ public class JInternalFrameUserSettings extends javax.swing.JInternalFrame
                     JOptionPane.showMessageDialog(null, "The password could not be changed. Please make sure that you supplied the right Administrator password", "Password unchanged", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (CommunicationException e) {
-                logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+                LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
             }
         }
         else {
@@ -389,7 +388,7 @@ public class JInternalFrameUserSettings extends javax.swing.JInternalFrame
                     JOptionPane.showMessageDialog(null, "The password could not be changed. Please make sure that you supplied the right Administrator password", "Password unchanged", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (CommunicationException e) {
-                logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+                LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
             }
         }
         else {
@@ -435,7 +434,7 @@ public class JInternalFrameUserSettings extends javax.swing.JInternalFrame
                     JOptionPane.showMessageDialog(null, "Could not perform operation. Please make sure that you supplied the right Administrator password", "Operation failed", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (CommunicationException e) {
-                logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+                LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
             }
     }//GEN-LAST:event_jButtonAutologinInfoActionPerformed
 

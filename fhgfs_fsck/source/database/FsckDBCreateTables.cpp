@@ -27,9 +27,6 @@ void FsckDB::createTables()
    createTableWrongDirAttribs();
    createTableMissingStorageTargets();
    createTableFilesWithMissingTargets();
-   createTableMissingMirrorChunks();
-   createTableMissingPrimaryChunks();
-   createTableDifferingChunkAttribs();
    createTableChunksWithWrongPermissions();
    createTableChunksInWrongPath();
 
@@ -49,6 +46,9 @@ void FsckDB::createTable(DBTable& tableDefinition)
    // table MUST have a primary key OR autoIncID set
    if  ( ( tableDefinition.getPrimaryKey().empty() ) && ( ! tableDefinition.getAutoIncID() ) )
       throw FsckDBException("Cannot create table without primary key");
+
+   std::string schemaName = tableDefinition.getSchemaName();
+   std::string tableName = tableDefinition.getTableName();
 
    // assemble the sql field definitions
    std::string fieldDefinitions = "";
@@ -116,21 +116,8 @@ void FsckDB::createTable(DBTable& tableDefinition)
       primKeyStr = "PRIMARY KEY (" + primKeyStr + ")";
    }
 
-   // check for any foreign keys
-   std::string foreignKeysStr = "";
-   DBForeignKeyList foreignKeys = tableDefinition.getForeignKeys();
-   if (! foreignKeys.empty())
-   {
-      for (DBForeignKeyListIter iter = foreignKeys.begin(); iter != foreignKeys.end(); iter++)
-      {
-         DBForeignKey foreignKey = *iter;
-         foreignKeysStr += ",FOREIGN KEY(" + foreignKey.getFieldName() + ") REFERENCES " +
-            foreignKey.getForeignTableName() + "(" + foreignKey.getForeignFieldName() + ")";
-      }
-   }
-
-   std::string query = "CREATE TABLE IF NOT EXISTS " + tableDefinition.getTableName() + "(" +
-      fieldDefinitions + primKeyStr + foreignKeysStr +");";
+   std::string query = "CREATE TABLE IF NOT EXISTS " + schemaName + "." + tableName + "(" +
+      fieldDefinitions + primKeyStr +");";
 
    // check for any indices
    DBIndexList indices = tableDefinition.getIndices();
@@ -147,7 +134,7 @@ void FsckDB::createTable(DBTable& tableDefinition)
          else
             indexStr = "CREATE INDEX IF NOT EXISTS ";
 
-         indexStr += iter->getIndexName() + " ON " + tableDefinition.getTableName() + "("
+         indexStr += schemaName + "." + iter->getIndexName() + " ON " + tableName + "("
             + StringTk::implode(',', fields, true) + ");";
 
          query += indexStr;
@@ -156,18 +143,15 @@ void FsckDB::createTable(DBTable& tableDefinition)
 
    // create the table
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
-   char* sqlErrorMsg;
 
-   int execResult = sqlite3_exec(dbHandle->getHandle(), query.c_str(), NULL, NULL, &sqlErrorMsg);
+   std::string sqlErrorMsg;
+   int execResult = dbHandle->sqliteBlockingExec(query.c_str(), &sqlErrorMsg);
 
    this->dbHandlePool->releaseHandle(dbHandle);
 
    if (execResult != SQLITE_OK )
    {
-      std::string sqlErrorMsgStr = sqlErrorMsg;
-      // error string has to be freed with sqlite3_free (http://www.sqlite.org/c3ref/exec.html)
-      sqlite3_free(sqlErrorMsg);
-      throw FsckDBException(sqlErrorMsgStr.c_str());
+      throw FsckDBException(sqlErrorMsg.c_str());
    }
 }
 
@@ -447,7 +431,7 @@ void FsckDB::createTableUsedTargets()
 
 void FsckDB::createTableDanglingDentry()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_DANGLINGDENTRY));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_DANGLINGDENTRY));
 
    tableDefinition.addField(DBField("name", DBDataType_TEXT));
    tableDefinition.addField(DBField("parentDirID", DBDataType_TEXT));
@@ -460,17 +444,12 @@ void FsckDB::createTableDanglingDentry()
    tableDefinition.addPrimaryKeyElement("parentDirID");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
 
-   std::string foreignTableName = TABLE_NAME_DIR_ENTRIES;
-   DBForeignKey foreignKey("name,parentDirID,saveNodeID", foreignTableName,
-      "name,parentDirID,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
-
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableInodesWithWrongOwner()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_WRONGINODEOWNER));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_WRONGINODEOWNER));
 
    tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("saveNodeID", DBDataType_INT));
@@ -481,16 +460,12 @@ void FsckDB::createTableInodesWithWrongOwner()
    tableDefinition.addPrimaryKeyElement("id");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
 
-   std::string foreignTableName = TABLE_NAME_DIR_INODES;
-   DBForeignKey foreignKey("id,saveNodeID", foreignTableName, "id,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
-
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableDirEntriesWithWrongOwner()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_WRONGOWNERINDENTRY));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_WRONGOWNERINDENTRY));
 
    tableDefinition.addField(DBField("name", DBDataType_TEXT));
    tableDefinition.addField(DBField("parentDirID", DBDataType_TEXT));
@@ -502,18 +477,13 @@ void FsckDB::createTableDirEntriesWithWrongOwner()
    tableDefinition.addPrimaryKeyElement("name");
    tableDefinition.addPrimaryKeyElement("parentDirID");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
-
-   std::string foreignTableName = TABLE_NAME_DIR_ENTRIES;
-   DBForeignKey foreignKey("name,parentDirID,saveNodeID", foreignTableName,
-      "name,parentDirID,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
 
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableDentriesWithBrokenByIDFile()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_BROKENFSID));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_BROKENFSID));
 
    tableDefinition.addField(DBField("name", DBDataType_TEXT));
    tableDefinition.addField(DBField("parentDirID", DBDataType_TEXT));
@@ -526,17 +496,12 @@ void FsckDB::createTableDentriesWithBrokenByIDFile()
    tableDefinition.addPrimaryKeyElement("parentDirID");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
 
-   std::string foreignTableName = TABLE_NAME_DIR_ENTRIES;
-   DBForeignKey foreignKey("name,parentDirID,saveNodeID", foreignTableName,
-      "name,parentDirID,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
-
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableOrphanedDentryByIDFiles()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDFSID));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDFSID));
 
    tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("parentDirID", DBDataType_TEXT));
@@ -549,17 +514,12 @@ void FsckDB::createTableOrphanedDentryByIDFiles()
    tableDefinition.addPrimaryKeyElement("parentDirID");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
 
-   std::string foreignTableName = TABLE_NAME_FSIDS;
-   DBForeignKey foreignKey("id,parentDirID,saveNodeID", foreignTableName,
-      "id,parentDirID,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
-
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableOrphanedDirInodes()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDDIRINODE));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDDIRINODE));
 
    tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("saveNodeID", DBDataType_INT));
@@ -570,16 +530,12 @@ void FsckDB::createTableOrphanedDirInodes()
    tableDefinition.addPrimaryKeyElement("id");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
 
-   std::string foreignTableName = TABLE_NAME_DIR_INODES;
-   DBForeignKey foreignKey("id,saveNodeID", foreignTableName, "id,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
-
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableOrphanedFileInodes()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDFILEINODE));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDFILEINODE));
 
  /*  tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("saveNodeID", DBDataType_INT)); */
@@ -591,20 +547,12 @@ void FsckDB::createTableOrphanedFileInodes()
 
    tableDefinition.addPrimaryKeyElement("internalID");
 
-   /* tableDefinition.addPrimaryKeyElement("id");
-   tableDefinition.addPrimaryKeyElement("saveNodeID"); */
-
-   std::string foreignTableName = TABLE_NAME_FILE_INODES;
-  // DBForeignKey foreignKey("id,saveNodeID", foreignTableName, "id,saveNodeID");
-   DBForeignKey foreignKey("internalID", foreignTableName, "internalID");
-   tableDefinition.addForeignKey(foreignKey);
-
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableOrphanedChunks()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDCHUNK));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDCHUNK));
 
    tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("targetID", DBDataType_INT));
@@ -619,16 +567,12 @@ void FsckDB::createTableOrphanedChunks()
    tableDefinition.addPrimaryKeyElement("targetID");
    tableDefinition.addPrimaryKeyElement("buddyGroupID");
 
-   std::string foreignTableName = TABLE_NAME_CHUNKS;
-   DBForeignKey foreignKey("id,targetID,buddyGroupID", foreignTableName, "id,targetID,buddyGroupID");
-   tableDefinition.addForeignKey(foreignKey);
-
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableInodesWithoutContDir()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_MISSINGCONTDIR));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_MISSINGCONTDIR));
 
    tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("saveNodeID", DBDataType_INT));
@@ -638,17 +582,13 @@ void FsckDB::createTableInodesWithoutContDir()
 
    tableDefinition.addPrimaryKeyElement("id");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
-
-   std::string foreignTableName = TABLE_NAME_DIR_INODES;
-   DBForeignKey foreignKey("id,saveNodeID", foreignTableName, "id,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
 
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableOrphanedContDirs()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDCONTDIR));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_ORPHANEDCONTDIR));
 
    tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("saveNodeID", DBDataType_INT));
@@ -658,46 +598,27 @@ void FsckDB::createTableOrphanedContDirs()
 
    tableDefinition.addPrimaryKeyElement("id");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
-
-   std::string foreignTableName = TABLE_NAME_CONT_DIRS;
-   DBForeignKey foreignKey("id,saveNodeID", foreignTableName, "id,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
 
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableWrongFileAttribs()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_WRONGFILEATTRIBS));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_WRONGFILEATTRIBS));
 
    tableDefinition.addField(DBField("internalID", DBDataType_INT));
-
-/*   tableDefinition.addField(DBField("id", DBDataType_TEXT));
-   tableDefinition.addField(DBField("saveNodeID", DBDataType_INT)); */
 
    std::string defaultValue = StringTk::intToStr((int)FsckRepairAction_UNDEFINED);
    tableDefinition.addField(DBField("repairAction", DBDataType_INT, defaultValue));
 
-/* tableDefinition.addPrimaryKeyElement("id");
-
-   tableDefinition.addPrimaryKeyElement("saveNodeID");
-
-   std::string foreignTableName = TABLE_NAME_FILE_INODES;
-   DBForeignKey foreignKey("id,saveNodeID", foreignTableName, "id,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey); */
-
    tableDefinition.addPrimaryKeyElement("internalID");
-
-   std::string foreignTableName = TABLE_NAME_FILE_INODES;
-   DBForeignKey foreignKey("internalID", foreignTableName, "internalID");
-   tableDefinition.addForeignKey(foreignKey);
 
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableWrongDirAttribs()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_WRONGDIRATTRIBS));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_WRONGDIRATTRIBS));
 
    tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("saveNodeID", DBDataType_INT));
@@ -707,10 +628,6 @@ void FsckDB::createTableWrongDirAttribs()
 
    tableDefinition.addPrimaryKeyElement("id");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
-
-   std::string foreignTableName = TABLE_NAME_DIR_INODES;
-   DBForeignKey foreignKey("id,saveNodeID", foreignTableName, "id,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
 
    createTable(tableDefinition);
 }
@@ -721,7 +638,7 @@ void FsckDB::createTableWrongDirAttribs()
  */
 void FsckDB::createTableMissingStorageTargets()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_MISSINGTARGET));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_MISSINGTARGET));
 
    tableDefinition.addField(DBField("id", DBDataType_INT)); // id of the target
    tableDefinition.addField(DBField("targetIDType", DBDataType_INT)); // target or buddyMirrorGroup
@@ -741,7 +658,7 @@ void FsckDB::createTableMissingStorageTargets()
  */
 void FsckDB::createTableFilesWithMissingTargets()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_FILEWITHMISSINGTARGET));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_FILEWITHMISSINGTARGET));
 
    tableDefinition.addField(DBField("name", DBDataType_TEXT));
    tableDefinition.addField(DBField("parentDirID", DBDataType_TEXT));
@@ -754,84 +671,7 @@ void FsckDB::createTableFilesWithMissingTargets()
    tableDefinition.addPrimaryKeyElement("parentDirID");
    tableDefinition.addPrimaryKeyElement("saveNodeID");
 
-   std::string foreignTableName = TABLE_NAME_DIR_ENTRIES;
-   DBForeignKey foreignKey("name,parentDirID,saveNodeID", foreignTableName,
-      "name,parentDirID,saveNodeID");
-   tableDefinition.addForeignKey(foreignKey);
-
    createTable(tableDefinition);
-}
-
-void FsckDB::createTableMissingMirrorChunks()
-{
-  /* DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_MISSINGMIRRORCHUNK));
-
-   tableDefinition.addField(DBField("id", DBDataType_TEXT));
-   tableDefinition.addField(DBField("targetID", DBDataType_INT));
-
-   // only primary chunks will go here, nevertheless we need the field to comply with primary key
-   tableDefinition.addField(DBField("buddyGroupID", DBDataType_INT, "0"));
-
-   std::string defaultValue = StringTk::intToStr((int)FsckRepairAction_UNDEFINED);
-   tableDefinition.addField(DBField("repairAction", DBDataType_INT, defaultValue));
-
-   tableDefinition.addPrimaryKeyElement("id");
-   tableDefinition.addPrimaryKeyElement("targetID");
-   tableDefinition.addPrimaryKeyElement("buddyGroupID");
-
-   std::string foreignTableName = TABLE_NAME_CHUNKS;
-   DBForeignKey foreignKey("id,targetID,buddyGroupID", foreignTableName, "id,targetID,buddyGroupID");
-   tableDefinition.addForeignKey(foreignKey);
-
-   createTable(tableDefinition); */
-}
-
-void FsckDB::createTableMissingPrimaryChunks()
-{
-/*  DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_MISSINGPRIMARYCHUNK));
-
-   tableDefinition.addField(DBField("id", DBDataType_TEXT));
-   tableDefinition.addField(DBField("targetID", DBDataType_INT));
-
-   // only primary chunks will go here, nevertheless we need the field to comply with primary key
-   tableDefinition.addField(DBField("buddyGroupID", DBDataType_INT, "0"));
-
-   std::string defaultValue = StringTk::intToStr((int)FsckRepairAction_UNDEFINED);
-   tableDefinition.addField(DBField("repairAction", DBDataType_INT, defaultValue));
-
-   tableDefinition.addPrimaryKeyElement("id");
-   tableDefinition.addPrimaryKeyElement("targetID");
-   tableDefinition.addPrimaryKeyElement("buddyGroupID");
-
-   std::string foreignTableName = TABLE_NAME_CHUNKS;
-   DBForeignKey foreignKey("id,targetID,buddyGroupID", foreignTableName, "id,targetID,buddyGroupID");
-   tableDefinition.addForeignKey(foreignKey);
-
-   createTable(tableDefinition); */
-}
-
-void FsckDB::createTableDifferingChunkAttribs()
-{
- /*  DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_DIFFERINGCHUNKATTRIBS));
-
-   tableDefinition.addField(DBField("id", DBDataType_TEXT));
-   tableDefinition.addField(DBField("targetID", DBDataType_INT));
-
-   // only primary chunks will go here, nevertheless we need the field to comply with primary key
-   tableDefinition.addField(DBField("mirrorOf", DBDataType_INT, "0"));
-
-   std::string defaultValue = StringTk::intToStr((int)FsckRepairAction_UNDEFINED);
-   tableDefinition.addField(DBField("repairAction", DBDataType_INT, defaultValue));
-
-   tableDefinition.addPrimaryKeyElement("id");
-   tableDefinition.addPrimaryKeyElement("targetID");
-   tableDefinition.addPrimaryKeyElement("mirrorOf");
-
-   std::string foreignTableName = TABLE_NAME_CHUNKS;
-   DBForeignKey foreignKey("id,targetID,mirrorOf", foreignTableName, "id,targetID,mirrorOf");
-   tableDefinition.addForeignKey(foreignKey);
-
-   createTable(tableDefinition); */
 }
 
 /*
@@ -839,7 +679,7 @@ void FsckDB::createTableDifferingChunkAttribs()
  */
 void FsckDB::createTableChunksWithWrongPermissions()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_CHUNKWITHWRONGPERM));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_CHUNKWITHWRONGPERM));
 
    tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("targetID", DBDataType_INT));
@@ -851,17 +691,13 @@ void FsckDB::createTableChunksWithWrongPermissions()
    tableDefinition.addPrimaryKeyElement("id");
    tableDefinition.addPrimaryKeyElement("targetID");
    tableDefinition.addPrimaryKeyElement("buddyGroupID");
-
-   std::string foreignTableName = TABLE_NAME_CHUNKS;
-   DBForeignKey foreignKey("id,targetID,buddyGroupID", foreignTableName, "id,targetID,buddyGroupID");
-   tableDefinition.addForeignKey(foreignKey);
 
    createTable(tableDefinition);
 }
 
 void FsckDB::createTableChunksInWrongPath()
 {
-   DBTable tableDefinition(TABLE_NAME_ERROR(FsckErrorCode_CHUNKINWRONGPATH));
+   DBTable tableDefinition("errors", TABLE_NAME_ERROR(FsckErrorCode_CHUNKINWRONGPATH));
 
    tableDefinition.addField(DBField("id", DBDataType_TEXT));
    tableDefinition.addField(DBField("targetID", DBDataType_INT));
@@ -873,10 +709,6 @@ void FsckDB::createTableChunksInWrongPath()
    tableDefinition.addPrimaryKeyElement("id");
    tableDefinition.addPrimaryKeyElement("targetID");
    tableDefinition.addPrimaryKeyElement("buddyGroupID");
-
-   std::string foreignTableName = TABLE_NAME_CHUNKS;
-   DBForeignKey foreignKey("id,targetID,buddyGroupID", foreignTableName, "id,targetID,buddyGroupID");
-   tableDefinition.addForeignKey(foreignKey);
 
    createTable(tableDefinition);
 }

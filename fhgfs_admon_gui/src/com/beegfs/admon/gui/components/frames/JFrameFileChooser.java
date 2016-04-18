@@ -16,7 +16,7 @@ import javax.swing.JOptionPane;
 
 public class JFrameFileChooser extends javax.swing.JFrame
 {
-   static final Logger logger = Logger.getLogger(Logger.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(Logger.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
 
    private final static int INITIAL_CAPACITY = 10;
@@ -135,7 +135,7 @@ public class JFrameFileChooser extends javax.swing.JFrame
       }
       catch (java.lang.NullPointerException e)
       {
-         logger.log(Level.FINEST, "Internal error", e);
+         LOGGER.log(Level.FINEST, "Internal error", e);
       }
 
       if (file != null && file.exists() && file.isFile() && file.canRead())
@@ -158,13 +158,13 @@ public class JFrameFileChooser extends javax.swing.JFrame
          }
          catch (FileNotFoundException e)
          {
-            logger.log(Level.WARNING, "File not found", e);
+            LOGGER.log(Level.WARNING, "File not found", e);
             JOptionPane.showMessageDialog(null, "The selected file does not exist or is not " +
                "readable!", "Error", JOptionPane.ERROR_MESSAGE);
          }
          catch (IOException e)
          {
-            logger.log(Level.WARNING, "IO error", e);
+            LOGGER.log(Level.WARNING, "IO error", e);
             JOptionPane.showMessageDialog(null, "The selected file does not exist or is not " +
                "readable!", "Error", JOptionPane.ERROR_MESSAGE);
          }
@@ -179,7 +179,7 @@ public class JFrameFileChooser extends javax.swing.JFrame
             }
             catch (IOException e)
             {
-               logger.log(Level.FINEST, "Could not close file.", e);
+               LOGGER.log(Level.FINEST, "Could not close file.", e);
             }
          }
       }

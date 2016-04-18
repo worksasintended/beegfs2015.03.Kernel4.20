@@ -56,6 +56,8 @@ class InternodeSyncer : public PThread
       template <typename P, typename L>
       void demoteIfNecessary(P* pools, L& capacityInfos, const DemotionFlags& demotionFlags);
 
+      void logDemotionFlags(const DemotionFlags& demotionFlags, NodeType nodeType);
+
       void saveTargetMappings();
 
       void dropIdleConns();

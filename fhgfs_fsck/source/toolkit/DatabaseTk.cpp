@@ -594,3 +594,64 @@ std::string DatabaseTk::calculateExpectedChunkPath(std::string entryID, unsigned
 
    return resStr;
 }
+
+bool DatabaseTk::removeDatabaseFiles(const std::string& databasePath)
+{
+   size_t arraySize = sizeof(dbSchemas) / sizeof(dbSchemas[0]);
+
+   for ( size_t i = 0; i < arraySize; i++ )
+   {
+      std::string filepath = databasePath + "/" + dbSchemas[i] + ".db";
+      if ( StorageTk::pathExists(databasePath) )
+      {
+         int unlinkRes = unlink(filepath.c_str());
+         if ( (unlinkRes == -1) && (errno != ENOENT) )
+         {
+            LogContext(__func__).logErr(
+               "Unable to unlink file. Filepath: " + filepath + "; errorStr: "
+                  + System::getErrString());
+
+            return false;
+         }
+      }
+   }
+
+   // remove main schema file
+   std::string filepath = databasePath + "/" + DATABASE_MAINSCHEMANAME + ".db";
+   int unlinkRes = unlink(filepath.c_str());
+   if ( (unlinkRes == -1) && (errno != ENOENT) )
+   {
+      LogContext(__func__).logErr(
+         "Unable to unlink file. Filepath: " + filepath + "; errorStr: "
+            + System::getErrString());
+
+      return false;
+   }
+
+   return true;
+}
+
+/*
+ * check if all database files exist in database path
+ *
+ * @return true if all exist, false if one or more are missing
+ */
+bool DatabaseTk::databaseFilesExist(const std::string& databasePath)
+{
+   size_t arraySize = sizeof(dbSchemas) / sizeof(dbSchemas[0]);
+
+   // check main schema file
+   std::string filepath = databasePath + "/" + DATABASE_MAINSCHEMANAME + ".db";
+   if ( ! StorageTk::pathExists(filepath) )
+         return false;
+
+   // check additional schema files
+   for ( size_t i = 0; i < arraySize; i++ )
+   {
+      std::string filepath = databasePath + "/" + dbSchemas[i] + ".db";
+      if ( ! StorageTk::pathExists(filepath) )
+            return false;
+   }
+
+   return true;
+}

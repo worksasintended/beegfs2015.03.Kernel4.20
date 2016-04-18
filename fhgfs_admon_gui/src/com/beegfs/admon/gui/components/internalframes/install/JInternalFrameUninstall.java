@@ -33,7 +33,7 @@ import javax.swing.table.TableColumnModel;
 public class JInternalFrameUninstall extends javax.swing.JInternalFrame implements
    JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(JInternalFrameUninstall.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(JInternalFrameUninstall.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
    private static final String THREAD_NAME = "Uninstall";
 
@@ -174,7 +174,11 @@ public class JInternalFrameUninstall extends javax.swing.JInternalFrame implemen
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+            LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+            {
+               e,
+               true
+            });
             this.getDialog().addLine("Uninstallation cannot be performed due to communication " +
                 "problems");
             this.getDialog().setFinished();
@@ -248,16 +252,16 @@ public class JInternalFrameUninstall extends javax.swing.JInternalFrame implemen
          this.getDialog().addLine("--------------------------------------------");
          this.getDialog().addLine(" ");
 
-         logger.log(Level.INFO, "--------------------------------------------", true);
-         logger.log(Level.INFO, "starting uninstallation...", true);
-         logger.log(Level.INFO, "--------------------------------------------", true);
-         logger.log(Level.INFO, "Managment server: " + mgmtdString, true);
-         logger.log(Level.INFO, "Metadata server: " + metaString, true);
-         logger.log(Level.INFO, "Storage server: " + storageString, true);
-         logger.log(Level.INFO, "Clients: " + clientsString, true);
-         logger.log(Level.INFO, "--------------------------------------------", true);
-         logger.log(Level.INFO, "--------------------------------------------", true);
-         logger.log(Level.INFO, " ", true);
+         LOGGER.log(Level.INFO, "--------------------------------------------", true);
+         LOGGER.log(Level.INFO, "starting uninstallation...", true);
+         LOGGER.log(Level.INFO, "--------------------------------------------", true);
+         LOGGER.log(Level.INFO, "Managment server: " + mgmtdString, true);
+         LOGGER.log(Level.INFO, "Metadata server: " + metaString, true);
+         LOGGER.log(Level.INFO, "Storage server: " + storageString, true);
+         LOGGER.log(Level.INFO, "Clients: " + clientsString, true);
+         LOGGER.log(Level.INFO, "--------------------------------------------", true);
+         LOGGER.log(Level.INFO, "--------------------------------------------", true);
+         LOGGER.log(Level.INFO, " ", true);
       }
 
       private boolean doUninstall(String packageID, String packageDesc)
@@ -301,14 +305,14 @@ public class JInternalFrameUninstall extends javax.swing.JInternalFrame implemen
                   " authentication");
                this.getDialog().setFinished();
                this.shouldStop();
-               logger.log(Level.SEVERE, "Authentication failed. You are not allowed to perform" +
+               LOGGER.log(Level.SEVERE, "Authentication failed. You are not allowed to perform" +
                   " this operation!", true);
                return true;
             }
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication Error occured", new Object[]
+            LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
             {
                e,
                true
@@ -393,11 +397,15 @@ public class JInternalFrameUninstall extends javax.swing.JInternalFrame implemen
       }
       catch (IOException e)
       {
-         logger.log(Level.SEVERE, "IO error", e);
+         LOGGER.log(Level.SEVERE, "IO error", e);
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            e,
+            true
+         });
       }
       finally
       {
@@ -412,7 +420,7 @@ public class JInternalFrameUninstall extends javax.swing.JInternalFrame implemen
          }
          catch (IOException e)
          {
-            logger.log(Level.SEVERE, "IO error", e);
+            LOGGER.log(Level.SEVERE, "IO error", e);
          }
       }
       return retVal;
@@ -512,7 +520,11 @@ public class JInternalFrameUninstall extends javax.swing.JInternalFrame implemen
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            e,
+            true
+         });
       }
    }
 

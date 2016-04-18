@@ -35,15 +35,15 @@ import javax.swing.table.AbstractTableModel;
 public class JInternalFrameSetQuota extends javax.swing.JInternalFrame implements
    JInternalFrameUpdateableInterface
 {
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
       JInternalFrameStartStop.class.getCanonicalName());
-   
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "SetQuotaGui";
 
    private static final int DEFAULT_ROW_COUNT = 20;
    private static final int ERROR_LINES_PER_ROW = 10;
+
+   private static final String BASE_URL = HttpTk.generateAdmonUrl("/XML_SetQuota");
 
    private transient ProgressBarThread pBarThread;
 
@@ -53,7 +53,6 @@ public class JInternalFrameSetQuota extends javax.swing.JInternalFrame implement
    private ArrayList<ArrayList<Object>> dataGroupList;
    private ArrayList<ArrayList<Object>> dataGroupRange;
 
-   private static final String baseUrl = HttpTk.generateAdmonUrl("/XML_SetQuota");
    private transient SetQuotaUpdateThread quotaThread;
 
    /**
@@ -113,7 +112,7 @@ public class JInternalFrameSetQuota extends javax.swing.JInternalFrame implement
 
    private void requestQuotaLimits()
    {
-      quotaThread = new SetQuotaUpdateThread(baseUrl, title, false);
+      quotaThread = new SetQuotaUpdateThread(BASE_URL, title, false);
       quotaThread.start();
    }
 
@@ -164,7 +163,11 @@ public class JInternalFrameSetQuota extends javax.swing.JInternalFrame implement
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            e,
+            true
+         });
       }
       finally
       {
@@ -305,10 +308,10 @@ public class JInternalFrameSetQuota extends javax.swing.JInternalFrame implement
          lock.lock();
          try
          {
-            parser.setUrl(baseUrl + getURLVariablesPart(updateLimits) );
+            parser.setUrl(BASE_URL + getURLVariablesPart(updateLimits));
             parser.update();
 
-            while(!stop && (parser.getTreeMap().size() == 0) )
+            while (!stop && (parser.getTreeMap().isEmpty()))
             {
                gotData.await();
             }
@@ -320,7 +323,7 @@ public class JInternalFrameSetQuota extends javax.swing.JInternalFrame implement
             }
             catch (CommunicationException ex)
             {
-               logger.log(Level.FINEST, "Internal error.", ex);
+               LOGGER.log(Level.FINEST, "Internal error.", ex);
             }
             finally
             {
@@ -329,11 +332,11 @@ public class JInternalFrameSetQuota extends javax.swing.JInternalFrame implement
          }
          catch (InterruptedException ex)
          {
-            logger.log(Level.FINEST, "Internal error.", ex);
+            LOGGER.log(Level.FINEST, "Internal error.", ex);
          }
          catch (CommunicationException ex)
          {
-            logger.log(Level.FINEST, "Communication error.", ex);
+            LOGGER.log(Level.FINEST, "Communication error.", ex);
          }
          finally
          {

@@ -104,7 +104,7 @@ class TestDatabase: public CppUnit::TestFixture
       void tearDown();
 
    private:
-      std::string databaseFile;
+      std::string databasePath;
       FsckDB *db;
       LogContext log;
 

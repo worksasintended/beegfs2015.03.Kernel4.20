@@ -201,7 +201,6 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw(InvalidC
       IGNORE_CONFIG_CLIENT_VALUE("tuneRefreshOnGetAttr")
       IGNORE_CONFIG_CLIENT_VALUE("tuneInodeBlockBits")
       IGNORE_CONFIG_CLIENT_VALUE("tuneInodeBlockSize")
-      IGNORE_CONFIG_CLIENT_VALUE("tuneMaxClientMirrorSize")
       IGNORE_CONFIG_CLIENT_VALUE("tuneEarlyCloseResponse")
       IGNORE_CONFIG_CLIENT_VALUE("tuneUseGlobalAppendLocks")
       IGNORE_CONFIG_CLIENT_VALUE("tuneUseBufferedAppend")

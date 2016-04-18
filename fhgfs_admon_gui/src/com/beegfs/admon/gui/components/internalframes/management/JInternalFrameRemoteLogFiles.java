@@ -1,75 +1,28 @@
 package com.beegfs.admon.gui.components.internalframes.management;
 
-import com.beegfs.admon.gui.common.XMLParser;
 import com.beegfs.admon.gui.common.enums.NodeTypesEnum;
-import com.beegfs.admon.gui.common.exceptions.CommunicationException;
+import com.beegfs.admon.gui.common.nodes.NodeEnvironment;
 import com.beegfs.admon.gui.common.tools.GuiTk;
 import com.beegfs.admon.gui.common.tools.HttpTk;
 import com.beegfs.admon.gui.components.internalframes.JInternalFrameInterface;
 import com.beegfs.admon.gui.components.managers.FrameManager;
-import java.util.ArrayList;
-import java.util.TreeMap;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
 public class JInternalFrameRemoteLogFiles extends javax.swing.JInternalFrame
    implements JInternalFrameInterface
 {
-   private static final long serialVersionUID = 1L;
-
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
       JInternalFrameRemoteLogFiles.class.getCanonicalName());
+   private static final long serialVersionUID = 1L;
+   private static final String GET_LOGFILE_BASE_URL = HttpTk.generateAdmonUrl("/XML_GetLogFile");
 
-   private static final String getLogfileBaseUrl = HttpTk.generateAdmonUrl("/XML_GetLogFile");
+   private transient final NodeEnvironment nodes;
 
-   private ArrayList<TreeMap<String, String>> mgmtdNodes;
-   private ArrayList<TreeMap<String, String>> metaNodes;
-   private ArrayList<TreeMap<String, String>> storageNodes;
-   private ArrayList<TreeMap<String, String>> clientNodes;
-   private ArrayList<TreeMap<String, String>> admonNodes;
-
-   public JInternalFrameRemoteLogFiles(XMLParser nodeListparser)
+   public JInternalFrameRemoteLogFiles(NodeEnvironment nodes)
    {
-      try
-      {
-         mgmtdNodes = nodeListparser.getVectorOfAttributeTreeMaps(
-            NodeTypesEnum.MANAGMENT.shortType());
-         metaNodes = nodeListparser.getVectorOfAttributeTreeMaps(
-            NodeTypesEnum.METADATA.shortType());
-         storageNodes = nodeListparser.getVectorOfAttributeTreeMaps(
-            NodeTypesEnum.STORAGE.shortType());
-         admonNodes = nodeListparser.getVectorOfAttributeTreeMaps(
-            NodeTypesEnum.ADMON.shortType());
-         clientNodes = nodeListparser.getVectorOfAttributeTreeMaps(
-            NodeTypesEnum.CLIENT.shortType());
-      }
-      catch (CommunicationException ex)
-      {
-         logger.log(Level.SEVERE, "Communication error", ex);
-      }
-
-      if(mgmtdNodes == null)
-      {
-         mgmtdNodes = new ArrayList<>(0);
-      }
-      if(metaNodes == null)
-      {
-         metaNodes = new ArrayList<>(0);
-      }
-      if(storageNodes == null)
-      {
-         storageNodes = new ArrayList<>(0);
-      }
-      if(admonNodes == null)
-      {
-         admonNodes = new ArrayList<>(0);
-      }
-      if(clientNodes == null)
-      {
-         clientNodes = new ArrayList<>(0);
-      }
-
+      this.nodes = nodes;
+      
       initComponents();
       setTitle(getFrameTitle());
       setFrameIcon(GuiTk.getFrameIcon());
@@ -99,11 +52,21 @@ public class JInternalFrameRemoteLogFiles extends javax.swing.JInternalFrame
       jScrollPaneFrame = new javax.swing.JScrollPane();
       jPanelFrame = new javax.swing.JPanel();
       jTabbedPaneChooser = new javax.swing.JTabbedPane();
-      remoteLogFileTabPanelMgmtd = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.MANAGMENT, mgmtdNodes, getLogfileBaseUrl);
-      remoteLogFileTabPanelMeta = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.METADATA, metaNodes, getLogfileBaseUrl);
-      remoteLogFileTabPanelStorage = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.STORAGE, storageNodes, getLogfileBaseUrl);
-      remoteLogFileTabPanelAdmon = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.ADMON, admonNodes, getLogfileBaseUrl);
-      remoteLogFileTabPanelClient = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(NodeTypesEnum.CLIENT, clientNodes, getLogfileBaseUrl);
+      remoteLogFileTabPanelMgmtd = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(
+         nodes.getNodes(NodeTypesEnum.MANAGMENT),
+         GET_LOGFILE_BASE_URL);
+      remoteLogFileTabPanelMeta = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(
+         nodes.getNodes(NodeTypesEnum.METADATA),
+         GET_LOGFILE_BASE_URL);
+      remoteLogFileTabPanelStorage = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(
+         nodes.getNodes(NodeTypesEnum.STORAGE),
+         GET_LOGFILE_BASE_URL);
+      remoteLogFileTabPanelAdmon = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(
+         nodes.getNodes(NodeTypesEnum.ADMON),
+         GET_LOGFILE_BASE_URL);
+      remoteLogFileTabPanelClient = new com.beegfs.admon.gui.components.panels.RemoteLogFileTabPanel(
+         nodes.getNodes(NodeTypesEnum.CLIENT),
+         GET_LOGFILE_BASE_URL);
 
       setClosable(true);
       setResizable(true);

@@ -2334,6 +2334,13 @@ struct ib_cq* __IBVSocket_createCompletionQueue(struct ib_device* device,
 {
    #if defined (BEEGFS_OFED_1_2_API) && BEEGFS_OFED_1_2_API >= 1
       return ib_create_cq(device, comp_handler, event_handler, cq_context, cqe);
+   #elif defined OFED_HAS_IB_CREATE_CQATTR 
+      struct ib_cq_init_attr attrs = {
+         .cqe = cqe,
+         .comp_vector = 0,
+      };
+
+      return ib_create_cq(device, comp_handler, event_handler, cq_context, &attrs);
    #else // OFED 1.2.5 or higher API
       return ib_create_cq(device, comp_handler, event_handler, cq_context, cqe, 0);
    #endif

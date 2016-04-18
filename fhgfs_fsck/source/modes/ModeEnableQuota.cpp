@@ -24,8 +24,8 @@ void ModeEnableQuota::printHelp()
 {
    std::cout << "MODE ARGUMENTS:" << std::endl;
    std::cout << " Optional:" << std::endl;
-   std::cout << "  --databaseFile=<path>  Path to use for the database file." << std::endl;
-   std::cout << "                         (Default: " << CONFIG_DEFAULT_DBFILE << ")" << std::endl;
+   std::cout << "  --databasePath=<path>  Path to store the database files." << std::endl;
+   std::cout << "                         (Default: " << CONFIG_DEFAULT_DBPATH << ")" << std::endl;
    std::cout << "  --overwriteDbFile      Overwrite an existing database file without prompt." << std::endl;
    std::cout << "  --logOutFile=<path>    Path to the fsck output file, which contains a copy of" << std::endl;
    std::cout << "                         the console output." << std::endl;
@@ -48,6 +48,15 @@ int ModeEnableQuota::execute()
 {
    App* app = Program::getApp();
    Config *cfg = app->getConfig();
+
+   // check root privileges
+   if ( geteuid() && getegid() )
+   { // no root privileges
+      FsckTkEx::printVersionHeader(true, true);
+      FsckTkEx::fsckOutput("Error: beegfs-fsck requires root privileges.",
+         OutputOptions_NOLOG | OutputOptions_STDERR | OutputOptions_DOUBLELINEBREAK);
+      return APPCODE_INITIALIZATION_ERROR;
+   }
 
    if(this->checkInvalidArgs(cfg->getUnknownConfigArgs()))
       return APPCODE_INVALID_CONFIG;
@@ -74,8 +83,9 @@ void ModeEnableQuota::printHeaderInformation()
    std::string timeStr = std::string(ctime(&t));
    FsckTkEx::fsckOutput(
       "Started BeeGFS fsck in enableQuota mode [" + timeStr.substr(0, timeStr.length() - 1)
-         + "]\nLog will be written to " + cfg->getLogStdFile() + "\nDatabase will be saved as "
-         + cfg->getDatabaseFile(), OutputOptions_LINEBREAK | OutputOptions_HEADLINE);
+         + "]\nLog will be written to " + cfg->getLogStdFile()
+         + "\nDatabase files will be saved in " + cfg->getDatabasePath(),
+         OutputOptions_LINEBREAK | OutputOptions_HEADLINE);
 }
 
 void ModeEnableQuota::fixPermissions()

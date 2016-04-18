@@ -58,7 +58,6 @@ const char* const PROCFSHELPER_CONFIGKEYS[] =
    "tuneRefreshOnGetAttr",
    "tuneInodeBlockBits",
    "tuneInodeBlockSize",
-   "tuneMaxClientMirrorSize",
    "tuneEarlyCloseResponse",
    "tuneUseGlobalAppendLocks",
    "tuneUseBufferedAppend",
@@ -130,7 +129,6 @@ int ProcFsHelper_readV2_config(struct seq_file* file, App* app)
    seq_printf(file, "tuneRefreshOnGetAttr = %d\n", (int)Config_getTuneRefreshOnGetAttr(cfg) );
    seq_printf(file, "tuneInodeBlockBits = %u\n", Config_getTuneInodeBlockBits(cfg) );
    seq_printf(file, "tuneInodeBlockSize = %u\n", Config_getTuneInodeBlockSize(cfg) );
-   seq_printf(file, "tuneMaxClientMirrorSize = %u\n", Config_getTuneMaxClientMirrorSize(cfg) );
    seq_printf(file, "tuneEarlyCloseResponse = %d\n", (int)Config_getTuneEarlyCloseResponse(cfg) );
    seq_printf(file, "tuneUseGlobalAppendLocks = %d\n",
       (int)Config_getTuneUseGlobalAppendLocks(cfg) );
@@ -320,10 +318,6 @@ int ProcFsHelper_read_config(char* buf, char** start, off_t offset, int size, in
    if(!os_strcmp(currentKey, "tuneInodeBlockSize") )
       count = os_scnprintf(buf, size, "%s = %u\n", currentKey,
          Config_getTuneInodeBlockSize(cfg) );
-   else
-   if(!os_strcmp(currentKey, "tuneMaxClientMirrorSize") )
-      count = os_scnprintf(buf, size, "%s = %u\n", currentKey,
-         Config_getTuneMaxClientMirrorSize(cfg) );
    else
    if(!os_strcmp(currentKey, "tuneEarlyCloseResponse") )
       count = os_scnprintf(buf, size, "%s = %d\n", currentKey,

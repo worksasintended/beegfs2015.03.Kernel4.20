@@ -10,28 +10,29 @@ import javax.swing.JToggleButton;
 
 public class FrameManager
 {
-   static final Logger logger = Logger.getLogger(FrameManager.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(FrameManager.class.getCanonicalName());
+
    private final static int INITIAL_CAPACITY = 25;
-   private static final HashMap<JInternalFrameInterface, JToggleButton> openFrames =
-           new HashMap<>(INITIAL_CAPACITY);
+   private final static HashMap<JInternalFrameInterface, JToggleButton> OPEN_FRAMES =
+      new HashMap<>(INITIAL_CAPACITY);
 
    public static void addFrame(JInternalFrameInterface frame)
    {
       JToggleButton button = new JToggleButton();
-      openFrames.put(frame, button);
+      OPEN_FRAMES.put(frame, button);
    }
 
    public static boolean delFrame(JInternalFrameInterface removeFrame)
    {
       try
       {
-         HashSet<JInternalFrameInterface> keySet =  new HashSet<>(openFrames.keySet());
+         HashSet<JInternalFrameInterface> keySet = new HashSet<>(OPEN_FRAMES.keySet());
          for (JInternalFrameInterface frame : keySet)
          {
             if (frame.isEqual(removeFrame))
             {
                FrameManager.getOpenFrame(frame);
-               openFrames.remove(frame);
+               OPEN_FRAMES.remove(frame);
                return true;
             }
          }
@@ -39,14 +40,14 @@ public class FrameManager
       }
       catch (java.lang.NullPointerException e)
       {
-         logger.log(Level.FINEST, "Internal error", e);
+         LOGGER.log(Level.FINEST, "Internal error", e);
          return false;
       }
    }
 
    public static boolean isFrameOpen(JInternalFrameInterface newFrame)
    {
-      HashSet<JInternalFrameInterface> keySet =  new HashSet<>(openFrames.keySet());
+      HashSet<JInternalFrameInterface> keySet = new HashSet<>(OPEN_FRAMES.keySet());
       try
       {
          for (JInternalFrameInterface frame : keySet)
@@ -60,14 +61,14 @@ public class FrameManager
       }
       catch (java.lang.NullPointerException e)
       {
-         logger.log(Level.FINEST, "Internal error.", e);
+         LOGGER.log(Level.FINEST, "Internal error.", e);
       }
       return false;
    }
 
    public static JInternalFrameInterface getOpenFrame(JInternalFrameInterface newFrame)
    {
-      HashSet<JInternalFrameInterface> keySet = new HashSet<>(openFrames.keySet());
+      HashSet<JInternalFrameInterface> keySet = new HashSet<>(OPEN_FRAMES.keySet());
       try
       {
          for (JInternalFrameInterface frame : keySet)
@@ -82,7 +83,7 @@ public class FrameManager
                }
                catch (PropertyVetoException ex)
                {
-                  logger.log(Level.FINEST, "Internal error.", ex);
+                  LOGGER.log(Level.FINEST, "Internal error.", ex);
                }
                return frame;
             }
@@ -90,7 +91,7 @@ public class FrameManager
       }
       catch (java.lang.NullPointerException e)
       {
-         logger.log(Level.FINEST, "Internal error.", e);
+         LOGGER.log(Level.FINEST, "Internal error.", e);
       }
       return null;
    }

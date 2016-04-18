@@ -32,12 +32,12 @@ import javax.swing.table.TableColumn;
 public class JInternalFrameStorageNode extends javax.swing.JInternalFrame implements
         JInternalFrameInterface
 {
-   private static final Logger logger = Logger.getLogger(
-           JInternalFrameStorageNode.class.getCanonicalName());
+   private static final Logger LOGGER = Logger.getLogger(
+      JInternalFrameStorageNode.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
+   private static final String THREAD_NAME = "StorageNode";
 
    private static final int DEFAULT_TRACE_COUNT = 4; // read, write, read-avg, write-avg
-   private static final String THREAD_NAME = "StorageNode";
 
    private final transient Node node;
    
@@ -89,7 +89,7 @@ public class JInternalFrameStorageNode extends javax.swing.JInternalFrame implem
                {
                   if(!gotData.await(10, TimeUnit.SECONDS))
                   {
-                     logger.log(Level.FINEST, "No update from server!");
+                     LOGGER.log(Level.FINEST, "No update from server!");
                   }
                }
                finally
@@ -98,7 +98,7 @@ public class JInternalFrameStorageNode extends javax.swing.JInternalFrame implem
                }
 
                TreeMap<String, String> data = parser.getTreeMap("general");
-               if (data.size() != 0)
+               if (!data.isEmpty())
                {
                   jLabelNodeID.setText(data.get("nodeID") + " [ID: " + data.get("nodeNumID") + "]");
 
@@ -165,7 +165,7 @@ public class JInternalFrameStorageNode extends javax.swing.JInternalFrame implem
                   }
                   catch (NumberFormatException e)
                   {
-                     logger.log(Level.FINEST, "Internal error.", e);
+                     LOGGER.log(Level.FINEST, "Internal error.", e);
                   }
                }
 
@@ -198,11 +198,15 @@ public class JInternalFrameStorageNode extends javax.swing.JInternalFrame implem
             }
             catch (CommunicationException e)
             {
-               logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+               LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+               {
+                  e,
+                  true
+               });
             }
             catch (java.lang.NullPointerException | java.lang.InterruptedException npe)
             {
-               logger.log(Level.FINEST, "Internal error.", npe);
+               LOGGER.log(Level.FINEST, "Internal error.", npe);
             }
          }
          parser.shouldStop();
@@ -455,7 +459,7 @@ public class JInternalFrameStorageNode extends javax.swing.JInternalFrame implem
        }
        catch (ArrayIndexOutOfBoundsException e)
        {
-          logger.log(Level.FINEST, "Internal error.", e);
+          LOGGER.log(Level.FINEST, "Internal error.", e);
        }
 }//GEN-LAST:event_jComboBoxTimeSpanActionPerformed
 
@@ -489,7 +493,7 @@ public class JInternalFrameStorageNode extends javax.swing.JInternalFrame implem
    @Override
    public final String getFrameTitle()
    {
-      return "Storage Node : " + node.getTypedNodeID();
+      return "Storage Node: " + node.getTypedNodeID();
    }
 
    public Node getNode()

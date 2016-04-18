@@ -722,7 +722,7 @@ bool ModeMigrate::processDir(std::string& dirPath)
          bool isBuddyMirrored = false;
          unsigned numTargets;
          int testRes = testFile(newPath, isDir, &numTargets, &isBuddyMirrored);
-         if (testRes != MODE_FIND_ERR_SUCCESS)
+         if (testRes == MODE_FIND_ERR_SUCCESS)
          {
             /* getentryInfo would fail for "" if we are still in our search root
              * and didn't request it before

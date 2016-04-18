@@ -26,12 +26,12 @@ void ExternalJobRunner::run()
 {
    try
    {
-      log.log(4, "Component started.");
+      log.log(Log_DEBUG, "Component started.");
 
       registerSignalHandler();
       workLoop();
 
-      log.log(4, "Component stopped.");
+      log.log(Log_DEBUG, "Component stopped.");
    }
    catch(std::exception& e)
    {
@@ -74,7 +74,7 @@ void ExternalJobRunner::workLoop()
       std::string cmd = job->cmd + " > " + job->outputFile + " 2>&1";
       job->startTime = time(NULL);
 
-      log.log(4, "Executing job: " + cmd);
+      log.log(Log_DEBUG, "Executing job: " + cmd);
 
       /*
       * In mongoose.c we disabled ignore SIGCHILD. Ignore SIGCHILD breaks the installation process
@@ -88,7 +88,16 @@ void ExternalJobRunner::workLoop()
       else
          job->returnCode = -1;
 
-      log.log(5, "Job complete. Return code: " + StringTk::intToStr(job->returnCode) );
+      if(job->returnCode != 0)
+      {
+         log.log(Log_ERR, "Job complete with return code: " + StringTk::intToStr(job->returnCode) +
+            " - command: " + job->cmd);
+      }
+      else
+      {
+         log.log(Log_SPAM, "Job complete with return code: " + StringTk::intToStr(job->returnCode) +
+            " - command: " + job->cmd);
+      }
 
       job->finished = true;
 

@@ -129,7 +129,7 @@ void ModificationEventFlusher::sendToFsck()
       this->fsckMissedEvent);
 
    bool ackReceived = this->dGramLis->sendToNodeUDPwithAck(fsckNode, &fsckModificationEventMsg,
-      WAIT_FOR_ACK_MS, WAIT_FOR_ACK_RETRIES);
+      MODFLUSHER_WAIT_FOR_ACK_MS, MODFLUSHER_WAIT_FOR_ACK_RETRIES);
 
    if (!ackReceived)
    {

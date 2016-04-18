@@ -36,11 +36,11 @@ import javax.swing.table.TableColumnModel;
 public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
    JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(JInternalFrameInstall.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(JInternalFrameInstall.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
+   private static final String THREAD_NAME = "Install";
 
    private static final int DEFAULT_NODE_CAPACITY = 20;
-   private static final String THREAD_NAME = "Install";
    
    private ArrayList<Object[]> mgmtdInfo;
    private ArrayList<Object[]> metaInfo;
@@ -60,17 +60,20 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
       OverviewTable()
       {
          super();
+
          DefaultTableModel defModel = new DefaultTableModelImpl();
          defModel.addColumn("Type");
          defModel.addColumn("Host");
          defModel.addColumn("Architecture");
          defModel.addColumn("Distribution");
          setModel(defModel);
+
          InstallTableCellRenderer renderer = new InstallTableCellRenderer();
          getColumnModel().getColumn(0).setCellRenderer(renderer);
          getColumnModel().getColumn(1).setCellRenderer(renderer);
          getColumnModel().getColumn(2).setCellRenderer(renderer);
          getColumnModel().getColumn(3).setCellRenderer(renderer);
+
          setColumnSelectionAllowed(false);
          setCellSelectionEnabled(false);
          getTableHeader().setReorderingAllowed(false);
@@ -78,7 +81,6 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
          setAutoCreateRowSorter(true);
          setCellEditor(null);
       }
-
 
       private static class DefaultTableModelImpl extends DefaultTableModel
       {
@@ -177,7 +179,11 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+            LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+            {
+               e,
+               true
+            });
             this.getDialog().addLine(
                "Installation cannot be performed due to communication problems");
             this.getDialog().setFinished();
@@ -251,16 +257,16 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
          this.getDialog().addLine("--------------------------------------------");
          this.getDialog().addLine(" ");
 
-         logger.log(Level.INFO, "--------------------------------------------", true);
-         logger.log(Level.INFO, "starting installation...", true);
-         logger.log(Level.INFO, "--------------------------------------------", true);
-         logger.log(Level.INFO, "Managment server: " + mgmtdString, true);
-         logger.log(Level.INFO, "Metadata server: " + metaString, true);
-         logger.log(Level.INFO, "Storage server: " + storageString, true);
-         logger.log(Level.INFO, "Clients: " + clientsString, true);
-         logger.log(Level.INFO, "--------------------------------------------", true);
-         logger.log(Level.INFO, "--------------------------------------------", true);
-         logger.log(Level.INFO, " ", true);
+         LOGGER.log(Level.INFO, "--------------------------------------------", true);
+         LOGGER.log(Level.INFO, "starting installation...", true);
+         LOGGER.log(Level.INFO, "--------------------------------------------", true);
+         LOGGER.log(Level.INFO, "Managment server: " + mgmtdString, true);
+         LOGGER.log(Level.INFO, "Metadata server: " + metaString, true);
+         LOGGER.log(Level.INFO, "Storage server: " + storageString, true);
+         LOGGER.log(Level.INFO, "Clients: " + clientsString, true);
+         LOGGER.log(Level.INFO, "--------------------------------------------", true);
+         LOGGER.log(Level.INFO, "--------------------------------------------", true);
+         LOGGER.log(Level.INFO, " ", true);
       }
 
       private boolean checkClientDependencies()
@@ -292,7 +298,7 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
             }
             else
             {
-               logger.log(Level.WARNING, "Couldn't get client dependency check results!", true);
+               LOGGER.log(Level.WARNING, "Couldn't get client dependency check results!", true);
                this.getDialog().addLine("Couldn't get client dependency check results!");
                this.getDialog().setFinished();
                this.shouldStop();
@@ -301,7 +307,7 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication Error occured", new Object[]
+            LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
             {
                e,
                true
@@ -355,14 +361,14 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
                   "Installation cannot be performed due to failed authentication");
                this.getDialog().setFinished();
                this.shouldStop();
-               logger.log(Level.SEVERE,
+               LOGGER.log(Level.SEVERE,
                   "Authentication failed. You are not allowed to perform an installation!", true);
                return true;
             }
          }
          catch (CommunicationException e)
          {
-            logger.log(Level.SEVERE, "Communication Error occured", new Object[]
+            LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
             {
                e,
                true
@@ -449,11 +455,11 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
       }
       catch (IOException e)
       {
-         logger.log(Level.SEVERE, "IO error", e);
+         LOGGER.log(Level.SEVERE, "IO error", e);
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
          {
             e,
             true
@@ -470,7 +476,7 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
          }
          catch (IOException e)
          {
-            logger.log(Level.SEVERE, "IO error", e);
+            LOGGER.log(Level.SEVERE, "IO error", e);
          }
       }
       return retVal;
@@ -571,7 +577,11 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[] {e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            e,
+            true
+         });
          mgmtdInfo = new ArrayList<>(0);
          metaInfo = new ArrayList<>(0);
          storageInfo = new ArrayList<>(0);

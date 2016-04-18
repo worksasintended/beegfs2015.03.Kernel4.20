@@ -29,9 +29,9 @@ import javax.swing.table.AbstractTableModel;
 public class JInternalFrameStats extends javax.swing.JInternalFrame implements
    JInternalFrameInterface
 {
+   private static final Logger LOGGER = Logger.getLogger(
+      JInternalFrameStats.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
-   private static final Logger logger = Logger.getLogger(JInternalFrameStats.class.getCanonicalName());
 
    private static final int DEFAULT_LINE_COUNT = 20;
    private static final int MIN_LINE_COUNT = 1;
@@ -104,12 +104,16 @@ public class JInternalFrameStats extends javax.swing.JInternalFrame implements
       {
          jLabelLineCount.setText("Number of clients:");
          jPanelUseNames.setBorder(javax.swing.BorderFactory.createTitledBorder("Use Hostname"));
+         jPanelStatistics.setBorder(javax.swing.BorderFactory.createTitledBorder(
+            "Client Statistics"));
       }
       else
       { // translation into user name only possible on the server
          jLabelLineCount.setText("Number of users:");
          jPanelUseNames.setBorder(javax.swing.BorderFactory.createTitledBorder("Use Usernames"));
          jPanelUseNames.setVisible(false);
+         jPanelStatistics.setBorder(javax.swing.BorderFactory.createTitledBorder(
+            "User Statistics"));
       }
 
       // init and start of update thread is done by formInternalFrameOpened
@@ -422,11 +426,15 @@ public class JInternalFrameStats extends javax.swing.JInternalFrame implements
             }
             catch (InterruptedException | NullPointerException | NumberFormatException ex)
             {
-               logger.log(Level.FINEST, "Internal error.", ex);
+               LOGGER.log(Level.FINEST, "Internal error.", ex);
             }
             catch (CommunicationException ex)
             {
-               logger.log(Level.SEVERE, "Communication Error occured", new Object[]{ex, true});
+               LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+               {
+                  ex,
+                  true
+               });
             }
          }
          parser.shouldStop();
@@ -577,7 +585,7 @@ public class JInternalFrameStats extends javax.swing.JInternalFrame implements
                         }
                         catch (UnknownHostException ex)
                         {
-                           logger.log(Level.FINEST, "Unknown host: {0}", valueStr);
+                           LOGGER.log(Level.FINEST, "Unknown host: {0}", valueStr);
                            value = valueStr;
                         }
                      }

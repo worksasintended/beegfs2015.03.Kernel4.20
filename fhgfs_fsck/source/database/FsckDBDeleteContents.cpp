@@ -305,13 +305,6 @@ bool FsckDB::deleteMissingStripeTargets(FsckTargetIDList& targetIDs, FsckTargetI
    sqlite3_stmt *stmt;
    const char *sqlTail; // uncompiled part of statement, should never have anything inside
    int sqlRes;
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
 
    /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
@@ -325,7 +318,7 @@ bool FsckDB::deleteMissingStripeTargets(FsckTargetIDList& targetIDs, FsckTargetI
 
    // prepare statements
    std::string queryStr = "DELETE FROM " + tableName + " WHERE id=? AND targetIDType=?";
-   sqlRes = sqlite3_prepare_v2(dbHandle->getHandle(), queryStr.c_str(), strlen(queryStr.c_str()),
+   sqlRes = dbHandle->sqliteBlockingPrepare(queryStr.c_str(), strlen(queryStr.c_str()),
       &stmt, &sqlTail);
    if ( sqlRes != SQLITE_OK )
    {
@@ -354,7 +347,7 @@ bool FsckDB::deleteMissingStripeTargets(FsckTargetIDList& targetIDs, FsckTargetI
          break;
       }
 
-      sqlRes = sqlite3_step(stmt);
+      sqlRes = dbHandle->sqliteBlockingStep(stmt);
       if ( sqlRes != SQLITE_DONE )
       {
          retVal = false;
@@ -376,8 +369,6 @@ bool FsckDB::deleteMissingStripeTargets(FsckTargetIDList& targetIDs, FsckTargetI
 
    if ( releaseHandle )
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    if (!retVal)
    {
@@ -475,14 +466,6 @@ bool FsckDB::deleteDirEntries(std::string tableName, FsckDirEntryList& dentries,
    int sqlRes;
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
@@ -532,7 +515,7 @@ bool FsckDB::deleteDirEntries(std::string tableName, FsckDirEntryList& dentries,
          break;
       }
 
-      sqlRes = sqlite3_step(stmt);
+      sqlRes = dbHandle->sqliteBlockingStep(stmt);
       if ( sqlRes != SQLITE_DONE )
       {
          retVal = false;
@@ -553,8 +536,6 @@ bool FsckDB::deleteDirEntries(std::string tableName, FsckDirEntryList& dentries,
 
    if ( releaseHandle )
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    if (!retVal)
    {
@@ -577,14 +558,6 @@ bool FsckDB::deleteFsIDs(std::string tableName, FsckFsIDList& fsIDs, FsckFsID& o
    sqlite3_stmt *stmt;
    const char *sqlTail; // uncompiled part of statement, should never have anything inside
    int sqlRes;
-
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
 
    /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
@@ -635,7 +608,7 @@ bool FsckDB::deleteFsIDs(std::string tableName, FsckFsIDList& fsIDs, FsckFsID& o
          break;
       }
 
-      sqlRes = sqlite3_step(stmt);
+      sqlRes = dbHandle->sqliteBlockingStep(stmt);
       if ( sqlRes != SQLITE_DONE )
       {
          retVal = false;
@@ -656,8 +629,6 @@ bool FsckDB::deleteFsIDs(std::string tableName, FsckFsIDList& fsIDs, FsckFsID& o
 
    if ( releaseHandle )
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    if (!retVal)
    {
@@ -680,14 +651,6 @@ bool FsckDB::deleteFileInodesByIDAndSaveNode(std::string tableName, FsckFileInod
    sqlite3_stmt *stmt;
    const char *sqlTail; // uncompiled part of statement, should never have anything inside
    int sqlRes;
-
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
 
    /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
@@ -733,7 +696,7 @@ bool FsckDB::deleteFileInodesByIDAndSaveNode(std::string tableName, FsckFileInod
          break;
       }
 
-      sqlRes = sqlite3_step(stmt);
+      sqlRes = dbHandle->sqliteBlockingStep(stmt);
       if (sqlRes != SQLITE_DONE)
       {
          retVal = false;
@@ -754,8 +717,6 @@ bool FsckDB::deleteFileInodesByIDAndSaveNode(std::string tableName, FsckFileInod
 
    if ( releaseHandle )
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    if (!retVal)
    {
@@ -778,14 +739,6 @@ bool FsckDB::deleteFileInodesByInternalID(std::string tableName, FsckFileInodeLi
    sqlite3_stmt *stmt;
    const char *sqlTail; // uncompiled part of statement, should never have anything inside
    int sqlRes;
-
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
 
    /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
@@ -824,7 +777,7 @@ bool FsckDB::deleteFileInodesByInternalID(std::string tableName, FsckFileInodeLi
          break;
       }
 
-      sqlRes = sqlite3_step(stmt);
+      sqlRes = dbHandle->sqliteBlockingStep(stmt);
       if (sqlRes != SQLITE_DONE)
       {
          retVal = false;
@@ -845,8 +798,6 @@ bool FsckDB::deleteFileInodesByInternalID(std::string tableName, FsckFileInodeLi
 
    if ( releaseHandle )
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    if (!retVal)
    {
@@ -869,14 +820,6 @@ bool FsckDB::deleteDirInodesByIDAndSaveNode(std::string tableName, FsckDirInodeL
    sqlite3_stmt *stmt;
    const char *sqlTail; // uncompiled part of statement, should never have anything inside
    int sqlRes;
-
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
 
    /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
@@ -921,7 +864,7 @@ bool FsckDB::deleteDirInodesByIDAndSaveNode(std::string tableName, FsckDirInodeL
          break;
       }
 
-      sqlRes = sqlite3_step(stmt);
+      sqlRes = dbHandle->sqliteBlockingStep(stmt);
       if (sqlRes != SQLITE_DONE)
       {
          retVal = false;
@@ -942,8 +885,6 @@ bool FsckDB::deleteDirInodesByIDAndSaveNode(std::string tableName, FsckDirInodeL
 
    if ( releaseHandle )
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    if (!retVal)
    {
@@ -966,14 +907,6 @@ bool FsckDB::deleteChunksByIDAndTargetID(std::string tableName, FsckChunkList& c
    sqlite3_stmt *stmt;
    const char *sqlTail; // uncompiled part of statement, should never have anything inside
    int sqlRes;
-
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
 
    if ( !dbHandle )
    {
@@ -1021,7 +954,7 @@ bool FsckDB::deleteChunksByIDAndTargetID(std::string tableName, FsckChunkList& c
          break;
       }
 
-      sqlRes = sqlite3_step(stmt);
+      sqlRes = dbHandle->sqliteBlockingStep(stmt);
       if ( (sqlRes != SQLITE_DONE) )
       {
          retVal = false;
@@ -1042,8 +975,6 @@ bool FsckDB::deleteChunksByIDAndTargetID(std::string tableName, FsckChunkList& c
 
    if ( releaseHandle )
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    if ( !retVal )
    {
@@ -1068,14 +999,6 @@ bool FsckDB::deleteContDirsByIDAndSaveNode(std::string tableName, FsckContDirLis
    sqlite3_stmt *stmt;
    const char *sqlTail; // uncompiled part of statement, should never have anything inside
    int sqlRes;
-
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
 
    if ( !dbHandle )
    {
@@ -1116,7 +1039,7 @@ bool FsckDB::deleteContDirsByIDAndSaveNode(std::string tableName, FsckContDirLis
          break;
       }
 
-      sqlRes = sqlite3_step(stmt);
+      sqlRes = dbHandle->sqliteBlockingStep(stmt);
       if ( (sqlRes != SQLITE_DONE) )
       {
          retVal = false;
@@ -1138,8 +1061,6 @@ bool FsckDB::deleteContDirsByIDAndSaveNode(std::string tableName, FsckContDirLis
 
    if ( releaseHandle )
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    if ( !retVal )
    {

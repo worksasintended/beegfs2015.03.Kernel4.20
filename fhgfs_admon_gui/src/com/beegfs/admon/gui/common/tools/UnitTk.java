@@ -3,7 +3,6 @@ package com.beegfs.admon.gui.common.tools;
 import com.beegfs.admon.gui.common.ValueUnit;
 import com.beegfs.admon.gui.common.enums.SizeUnitEnum;
 import com.beegfs.admon.gui.common.enums.TimeUnitEnum;
-import com.beegfs.admon.gui.common.enums.UnitEnum;
 
 
 public class UnitTk
@@ -12,17 +11,22 @@ public class UnitTk
    {
       long retval = 0;
       
-      if (timeSpan.getUnit() == TimeUnitEnum.MINUTES)
+      if (null != timeSpan.getUnit())
       {
-         retval = (long) timeSpan.getValue();
-      }
-      else if (timeSpan.getUnit() == TimeUnitEnum.HOURS)
-      {
-         retval = (long) (timeSpan.getValue() * 60);
-      }
-      else if (timeSpan.getUnit() == TimeUnitEnum.DAYS)
-      {
-         retval = (long) (timeSpan.getValue() * 60 * 24);
+         switch (timeSpan.getUnit())
+         {
+            case MINUTES:
+               retval = (long) timeSpan.getValue();
+               break;
+            case HOURS:
+               retval = (long) (timeSpan.getValue() * 60);
+               break;
+            case DAYS:
+               retval = (long) (timeSpan.getValue() * 60 * 24);
+               break;
+            default:
+               break;
+         }
       }
 
       return retval;
@@ -277,37 +281,37 @@ public class UnitTk
 
       int maxCount = 0;
 
-      if (forceUnit == SizeUnitEnum.KILOBYTE)
+      if (null != forceUnit)
       {
-         maxCount = 1;
-      }
-      else if (forceUnit == SizeUnitEnum.MEGABYTE)
-      {
-         maxCount = 2;
-      }
-      else if (forceUnit == SizeUnitEnum.GIGABYTE)
-      {
-         maxCount = 3;
-      }
-      else if (forceUnit == SizeUnitEnum.TERABYTE)
-      {
-         maxCount = 4;
-      }
-      else if (forceUnit == SizeUnitEnum.PETABYTE)
-      {
-         maxCount = 5;
-      }
-      else if (forceUnit == SizeUnitEnum.EXABYTE)
-      {
-         maxCount = 6;
-      }
-      else if (forceUnit == SizeUnitEnum.ZETTABYTE)
-      {
-         maxCount = 7;
-      }
-      else if (forceUnit == SizeUnitEnum.YOTTABYTE)
-      {
-         maxCount = 8;
+         switch (forceUnit)
+         {
+            case KILOBYTE:
+               maxCount = 1;
+               break;
+            case MEGABYTE:
+               maxCount = 2;
+               break;
+            case GIGABYTE:
+               maxCount = 3;
+               break;
+            case TERABYTE:
+               maxCount = 4;
+               break;
+            case PETABYTE:
+               maxCount = 5;
+               break;
+            case EXABYTE:
+               maxCount = 6;
+               break;
+            case ZETTABYTE:
+               maxCount = 7;
+               break;
+            case YOTTABYTE:
+               maxCount = 8;
+               break;
+            default:
+               break;
+         }
       }
 
       short count = 0;
@@ -357,39 +361,40 @@ public class UnitTk
    public static long xbyteTobyte(ValueUnit<SizeUnitEnum> value)
    {
       int maxCount = 0;
-      UnitEnum unit = value.getUnit();
-      
-      if (unit == SizeUnitEnum.KILOBYTE)
+      SizeUnitEnum unit = value.getUnit();
+
+      if (null != unit)
       {
-         maxCount = 1;
-      }
-      else if (unit == SizeUnitEnum.MEGABYTE)
-      {
-         maxCount = 2;
-      }
-      else if (unit == SizeUnitEnum.GIGABYTE)
-      {
-         maxCount = 3;
-      }
-      else if (unit == SizeUnitEnum.TERABYTE)
-      {
-         maxCount = 4;
-      }
-      else if (unit == SizeUnitEnum.PETABYTE)
-      {
-         maxCount = 5;
-      }
-      else if (unit == SizeUnitEnum.EXABYTE)
-      {
-         maxCount = 6;
-      }
-      else if (unit == SizeUnitEnum.ZETTABYTE)
-      {
-         maxCount = 7;
-      }
-      else if (unit == SizeUnitEnum.YOTTABYTE)
-      {
-         maxCount = 8;
+         switch (unit)
+         {
+            case KILOBYTE:
+               maxCount = 1;
+               break;
+            case MEGABYTE:
+               maxCount = 2;
+               break;
+            case GIGABYTE:
+               maxCount = 3;
+               break;
+            case TERABYTE:
+               maxCount = 4;
+               break;
+            case PETABYTE:
+               maxCount = 5;
+               break;
+            case EXABYTE:
+               maxCount = 6;
+               break;
+            case ZETTABYTE:
+               maxCount = 7;
+               break;
+            case YOTTABYTE:
+               maxCount = 8;
+               break;
+            default:
+               maxCount = 0;
+               break;
+         }
       }
 
       long out = (long) value.getValue();

@@ -1,5 +1,16 @@
 # All detected features are included in "KERNEL_FEATURE_DETECTION"
 
+# parameters:
+# $1: name to define when grep finds something
+# $2: grep flags and expression
+# $3: input files in linux source tree
+define define_if_matches
+$(eval \
+   KERNEL_FEATURE_DETECTION += $$(shell \
+      grep -q -s $2 $(addprefix ${KSRCDIR_PRUNED_HEAD}/include/linux/,$3) \
+         && echo "-D$(strip $1)"))
+endef
+
 # KERNEL_HAS_DROP_NLINK Detection [START]
 #
 # Find out whether the kernel has a drop_nlink function.
@@ -401,6 +412,27 @@ KERNEL_HAS_DENTRY_XATTR_HANDLER = $(shell \
    fi)
 # KERNEL_HAS_DENTRY_XATTR_HANDLER Detection [END]
 
+# struct iov_iter was originally new to to 2.6.23, but some distro kernels have it too
+# iov_iter_advance was added a little bit later
+# Note: we need to check that in multiple files, because it is declared in uio.h in vanilla kernels, but at least RHEL backports put it in fs.h
+$(call define_if_matches, KERNEL_HAS_IOV_ITER_TYPE, "struct iov_iter {", fs.h)
+$(call define_if_matches, KERNEL_HAS_IOV_ITER_FUNCTIONS, "void iov_iter_advance", fs.h)
+$(call define_if_matches, KERNEL_HAS_IOV_ITER_TYPE, "struct iov_iter {", uio.h)
+$(call define_if_matches, KERNEL_HAS_IOV_ITER_FUNCTIONS, "void iov_iter_advance", uio.h)
+ 
+# iov_iter_truncate was new to 3.16, but was backported in distro kernels
+# Note: we need to check that in multiple files, because it is declared in uio.h in vanilla kernels, but at least RHEL backports put it in fs.h
+$(call define_if_matches, KERNEL_HAS_IOV_ITER_TRUNCATE, "static inline void iov_iter_truncate(struct iov_iter \*i, size_t count)", fs.h) 
+$(call define_if_matches, KERNEL_HAS_IOV_ITER_TRUNCATE, "static inline void iov_iter_truncate(struct iov_iter \*i, u64 count)", uio.h) 
+
+# Find out whether ib_create_cq function has cq_attr argument
+# This is tricky because the function declaration spans multiple lines.
+# Note: Was introduced in vanilla 4.2
+OFED_HAS_IB_CREATE_CQATTR += $(shell \
+   grep -sA4 "struct ib_cq \*ib_create_cq(struct ib_device \*device," ${OFED_DETECTION_PATH}/rdma/ib_verbs.h 2>&1 \
+      | grep -qs "const struct ib_cq_init_attr \*cq_attr);" \
+      && echo "-DOFED_HAS_IB_CREATE_CQATTR")
+
 # Combine results
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_DROP_NLINK)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_CLEAR_NLINK)
@@ -434,4 +466,4 @@ KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_BDI_CAP_MAP_COPY)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_POSIX_GET_ACL)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_CONST_XATTR_HANDLER)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_DENTRY_XATTR_HANDLER)
-
+KERNEL_FEATURE_DETECTION += $(OFED_HAS_IB_CREATE_CQATTR)

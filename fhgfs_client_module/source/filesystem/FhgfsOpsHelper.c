@@ -12,6 +12,7 @@
 #include <toolkit/CacheStore.h>
 #include <toolkit/InodeRefStore.h>
 #include <toolkit/NoAllocBufferStore.h>
+#include <os/iov_iter.h>
 #include "FhgfsOpsDir.h"
 #include "FhgfsOpsHelper.h"
 
@@ -830,12 +831,23 @@ ssize_t FhgfsOpsHelper_writefileEx(FhgfsInode* fhgfsInode, const char __user *bu
 ssize_t FhgfsOpsHelper_appendfile(FhgfsInode* fhgfsInode, const char __user *buf, size_t size,
    RemotingIOInfo* ioInfo, loff_t* outNewOffset)
 {
-   const char* logContext = "OpsHelper (append)";
+   struct iovec iov = {
+      .iov_len = size,
+      .iov_base = (void*) buf
+   };
+
+   return FhgfsOpsHelper_appendfileVecOffset(fhgfsInode, &iov, 1, ioInfo, 0, outNewOffset);
+}
+
+ssize_t FhgfsOpsHelper_appendfileVecOffset(FhgfsInode* fhgfsInode, const struct iovec* data,
+   size_t dataCount, RemotingIOInfo* ioInfo, loff_t offsetFromEnd, loff_t* outNewOffset)
+{
+   const char* logContext = "OpsHelper (appendVec)";
 
    App* app = ioInfo->app;
    Logger* log = App_getLogger(app);
 
-   ssize_t writeRes;
+   ssize_t writeRes = 0;
    FhgfsOpsErr lockRes;
    FhgfsOpsErr unlockRes;
    FhgfsOpsErr statRes;
@@ -878,10 +890,21 @@ ssize_t FhgfsOpsHelper_appendfile(FhgfsInode* fhgfsInode, const char __user *buf
 
    // the actual remote write...
 
-   writeRes = FhgfsOpsRemoting_writefile(buf, size, fhgfsStat.size, ioInfo);
-   if(likely(writeRes > 0) )
-      *outNewOffset = fhgfsStat.size + writeRes;
+   fhgfsStat.size += offsetFromEnd;
 
+   while(dataCount > 0)
+   {
+      writeRes = FhgfsOpsRemoting_writefile(data->iov_base, data->iov_len, fhgfsStat.size, ioInfo);
+      if(writeRes < 0)
+         goto unlock_and_exit_some_written;
+
+      fhgfsStat.size += writeRes;
+      dataCount--;
+      data++;
+   }
+
+unlock_and_exit_some_written:
+   *outNewOffset = fhgfsStat.size;
 
 unlock_and_exit:
 

@@ -1,13 +1,12 @@
 package com.beegfs.admon.gui.components;
 
 
-import com.beegfs.admon.gui.common.XMLParser;
 import com.beegfs.admon.gui.common.enums.FilePathsEnum;
 import com.beegfs.admon.gui.common.exceptions.CommunicationException;
 import com.beegfs.admon.gui.common.exceptions.WrongBackendVersionException;
+import com.beegfs.admon.gui.common.nodes.NodeEnvironment;
 import com.beegfs.admon.gui.common.tools.CryptTk;
 import com.beegfs.admon.gui.common.tools.GuiTk;
-import com.beegfs.admon.gui.common.tools.HttpTk;
 import com.beegfs.admon.gui.components.dialogs.JDialogAbout;
 import com.beegfs.admon.gui.components.dialogs.JDialogLogin;
 import com.beegfs.admon.gui.components.dialogs.JDialogNewConfig;
@@ -32,15 +31,14 @@ import javax.swing.JOptionPane;
 
 public class MainWindow extends javax.swing.JFrame
 {
-   static final Logger logger = Logger.getLogger(
-           MainWindow.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(MainWindow.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
 
-   private static final String THREAD_NAME = "MainNodeList";
    private static final int LOGO_WIDHT = 133;
    private static final int LOGO_HEIGHT = 200;
 
-   private transient final XMLParser parserNodeList;
+   private transient final NodeEnvironment nodes;
+
    private final JDialogLogin loginDialog;
    private JTreeMenu treeMenu;
 
@@ -108,14 +106,17 @@ public class MainWindow extends javax.swing.JFrame
     */
    public MainWindow()
    {
+      this.nodes = new NodeEnvironment();
+
       initComponents();
+
       this.setTitle("BeeGFS admon");
       this.getContentPane().setBackground(BeegfsLookAndFeel.getMenuBackground());
       jDesktopPaneContent.setBackground(java.awt.Color.WHITE);
       jScrollPaneDesktop.getHorizontalScrollBar().addAdjustmentListener(
-              new RepaintAdjustmentListener(jDesktopPaneContent));
+         new RepaintAdjustmentListener(jDesktopPaneContent));
       jScrollPaneDesktop.getVerticalScrollBar().addAdjustmentListener(
-              new RepaintAdjustmentListener(jDesktopPaneContent));
+         new RepaintAdjustmentListener(jDesktopPaneContent));
       this.setExtendedState(this.getExtendedState() | MainWindow.MAXIMIZED_BOTH);
 
       jPanelMenue.setBackground(BeegfsLookAndFeel.getMenuBackground());
@@ -125,13 +126,9 @@ public class MainWindow extends javax.swing.JFrame
       jMenuAdministration.setVisible(false);
       jMenuWindow.setVisible(false);
 
-      this.loginDialog = new JDialogLogin(this, true);
       this.setIconImage(GuiTk.getFrameIcon().getImage());
 
-      parserNodeList = new XMLParser(HttpTk.generateAdmonUrl(
-         "/XML_NodeList?clients=true&admon=true"), THREAD_NAME);
-
-      toFront();
+      this.loginDialog = new JDialogLogin(this, true);
    }
 
    public void updateInternalDesktopResolution(int resolutionX, int resolutionY)
@@ -439,14 +436,13 @@ public class MainWindow extends javax.swing.JFrame
    }// </editor-fold>//GEN-END:initComponents
 
     private void jMenuItemCloseActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItemCloseActionPerformed
-      parserNodeList.shouldStop();
       this.setVisible(false);
       this.dispose();
     }//GEN-LAST:event_jMenuItemCloseActionPerformed
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
       treeMenu.stopUpdateMenuThread();
-      parserNodeList.shouldStop();
+      nodes.stopUpdateThread();
     }//GEN-LAST:event_formWindowClosed
 
     private void jMenuItemLoginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItemLoginActionPerformed
@@ -511,13 +507,13 @@ public class MainWindow extends javax.swing.JFrame
       }
       catch (WrongBackendVersionException e)
       {
-         logger.log(Level.SEVERE, "Wrong backend version", e);
+         LOGGER.log(Level.SEVERE, "Wrong backend version", e);
       }
       catch (CommunicationException e)
       {
          JOptionPane.showMessageDialog(Main.getMainWindow(), "Unable to communicate with the "
             + "remote backend.", "Communication Error", JOptionPane.ERROR_MESSAGE);
-         logger.log(Level.SEVERE, "Communication Error: Unable to communicate with the "
+         LOGGER.log(Level.SEVERE, "Communication Error: Unable to communicate with the "
             + "remote backend.", e);
       }
     }//GEN-LAST:event_jPasswordFieldQuickAdminActionPerformed
@@ -567,7 +563,7 @@ public class MainWindow extends javax.swing.JFrame
       {
          jPanelMenuParent.removeAll();
          jPanelMenuParent.invalidate();
-         treeMenu = new JTreeMenu(parserNodeList);
+         treeMenu = new JTreeMenu(nodes);
          treeMenu.startUpdateMenuThread();
          jPanelMenuParent.add(treeMenu);
          treeMenu.setVisible(true);
@@ -582,7 +578,8 @@ public class MainWindow extends javax.swing.JFrame
     }//GEN-LAST:event_jDesktopPaneContentComponentShown
 
     private void formWindowOpened(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowOpened
-      parserNodeList.start();
+      nodes.startUpdateThread();
+      toFront();
     }//GEN-LAST:event_formWindowOpened
 
     private void jMenuItemConnSettingsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItemConnSettingsActionPerformed
@@ -600,7 +597,7 @@ public class MainWindow extends javax.swing.JFrame
          }
          catch (PropertyVetoException ex)
          {
-            logger.log(Level.FINEST, "Internal error.", ex);
+            LOGGER.log(Level.FINEST, "Internal error.", ex);
          }
       }
     }//GEN-LAST:event_jMenuItemMinimizeActionPerformed
@@ -634,7 +631,7 @@ public class MainWindow extends javax.swing.JFrame
             }
             catch (PropertyVetoException ex)
             {
-               logger.log(Level.FINEST, "Internal error", ex);
+               LOGGER.log(Level.FINEST, "Internal error", ex);
             }
 
             if (i % 2 == 0)

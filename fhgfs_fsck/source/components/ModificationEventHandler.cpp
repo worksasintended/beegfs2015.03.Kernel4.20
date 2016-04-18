@@ -14,22 +14,41 @@ ModificationEventHandler::~ModificationEventHandler()
 
 void ModificationEventHandler::run()
 {
-   while ( !this->getSelfTerminate() )
+   while ( !getSelfTerminate() )
    {
+      SafeMutexLock bufferListSafeLock(&bufferListMutex); // LOCK BUFFER
+
       // make sure to group at least MODHANDLER_MINSIZE_FLUSH flush elements (to not bother the DB
       // with every single event)
-      while ( this->bufferList.size() < MODHANDLER_MINSIZE_FLUSH )
+      if (bufferList.size() < MODHANDLER_MINSIZE_FLUSH)
       {
-         SafeMutexLock safeLock(&eventsAddedMutex);
-         this->eventsAddedCond.timedwait(&eventsAddedMutex, 5000);
-         safeLock.unlock();
-
-         if (this->getSelfTerminate())
-            break;
+         bufferListSafeLock.unlock(); // UNLOCK BUFFER
+         SafeMutexLock lock(&eventsAddedMutex);
+         eventsAddedCond.timedwait(&eventsAddedMutex, 2000);
+         lock.unlock();
       }
+      else
+      {
+         // create a copy of the buffer list and flush this to DB, so that the buffer will become
+         // free immediately and the incoming messages do not have to wait for DB
+         FsckModificationEventList bufferListCopy;
 
-      this->flush();
+         bufferListCopy.splice(bufferListCopy.begin(), bufferList);
+
+         bufferListSafeLock.unlock(); // UNLOCK BUFFER
+
+         flush(bufferListCopy);
+      }
    }
+
+   // a last flush after component stopped
+   FsckModificationEventList bufferListCopy;
+
+   SafeMutexLock bufferListSafeLock(&bufferListMutex); // LOCK BUFFER
+   bufferListCopy.splice(bufferListCopy.begin(), bufferList);
+   bufferListSafeLock.unlock(); // UNLOCK BUFFER
+
+   flush(bufferListCopy);
 }
 
 bool ModificationEventHandler::add(UInt8List& eventTypeList, StringList& entryIDList)
@@ -41,7 +60,6 @@ bool ModificationEventHandler::add(UInt8List& eventTypeList, StringList& entryID
       LogContext(logContext).logErr("Unable to add events. The lists do not have equal sizes.");
       return false;
    }
-
 
    while ( true )
    {
@@ -55,7 +73,7 @@ bool ModificationEventHandler::add(UInt8List& eventTypeList, StringList& entryID
       {
          bufferListSafeLock.unlock();
          SafeMutexLock eventsFlushedSafeLock(&eventsFlushedMutex);
-         this->eventsFlushedCond.timedwait(&eventsFlushedMutex, 5000);
+         this->eventsFlushedCond.timedwait(&eventsFlushedMutex, 2000);
          eventsFlushedSafeLock.unlock();
       }
    }
@@ -78,30 +96,20 @@ bool ModificationEventHandler::add(UInt8List& eventTypeList, StringList& entryID
    return true;
 }
 
-void ModificationEventHandler::flush()
+/*
+ * Note: no locks here, only to be called with a unique list copy
+ */
+void ModificationEventHandler::flush(FsckModificationEventList& flushList)
 {
-   SafeMutexLock flushSafeLock(&flushMutex);
    const char* logContext = "ModificationEventHandler (flush)";
 
-   // create a copy of the buffer list and this to DB, so that the buffer will become free
-   // immediately and the incoming messages do not have to wait for DB
-   SafeMutexLock bufferListCopySafeLock(&bufferListMutex);
-
-   if (this->bufferList.empty())
-   {
-      bufferListCopySafeLock.unlock();
-      flushSafeLock.unlock();
+   if (flushList.empty())
       return;
-   }
-
-   bufferListCopy.splice(bufferListCopy.begin(), this->bufferList);
-
-   bufferListCopySafeLock.unlock();
 
    FsckModificationEvent failedInsert;
    int errorCode;
 
-   bool success = database->insertModificationEvents(bufferListCopy, failedInsert, errorCode);
+   bool success = database->insertModificationEvents(flushList, failedInsert, errorCode);
 
    if ( !success )
    {
@@ -114,8 +122,4 @@ void ModificationEventHandler::flush()
          "Error while inserting modification event to database. "
          "Please see log for more information.");
    }
-
-   bufferListCopy.clear();
-
-   flushSafeLock.unlock();
 }

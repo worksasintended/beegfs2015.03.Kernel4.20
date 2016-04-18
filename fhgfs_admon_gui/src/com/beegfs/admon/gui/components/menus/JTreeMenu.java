@@ -1,14 +1,12 @@
 package com.beegfs.admon.gui.components.menus;
 
-import com.beegfs.admon.gui.common.Groups;
-import com.beegfs.admon.gui.common.XMLParser;
 import com.beegfs.admon.gui.common.enums.NodeTypesEnum;
 import static com.beegfs.admon.gui.common.enums.StatsTypeEnum.STATS_CLIENT_METADATA;
 import static com.beegfs.admon.gui.common.enums.StatsTypeEnum.STATS_CLIENT_STORAGE;
 import static com.beegfs.admon.gui.common.enums.StatsTypeEnum.STATS_USER_METADATA;
 import static com.beegfs.admon.gui.common.enums.StatsTypeEnum.STATS_USER_STORAGE;
-import com.beegfs.admon.gui.common.exceptions.CommunicationException;
 import com.beegfs.admon.gui.common.nodes.Node;
+import com.beegfs.admon.gui.common.nodes.NodeEnvironment;
 import com.beegfs.admon.gui.common.nodes.Nodes;
 import com.beegfs.admon.gui.common.threading.GuiThread;
 import com.beegfs.admon.gui.components.internalframes.JInternalFrameInterface;
@@ -30,16 +28,14 @@ import com.beegfs.admon.gui.components.managers.FrameManager;
 import com.beegfs.admon.gui.program.Main;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import static java.lang.Integer.parseInt;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.TreeMap;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JInternalFrame;
 import javax.swing.JTree;
 import javax.swing.border.EtchedBorder;
-import javax.swing.text.Position;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.MutableTreeNode;
@@ -48,18 +44,18 @@ import javax.swing.tree.TreePath;
 
 public class JTreeMenu extends JTree
 {
-
-   static final Logger logger = Logger.getLogger(
-           JTreeMenu.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(
+      JTreeMenu.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "MenuNodeList";
 
-   private final transient XMLParser parserNodeList;
+   private transient final NodeEnvironment nodes;
 
+   private final Lock updateLock;
+   private final transient Condition newData;
    private final transient MenuUpdateThread updateThread;
 
-   public JTreeMenu(XMLParser nodeListParser)
+   public JTreeMenu(NodeEnvironment newNodes)
    {
       TreeMenuCellRenderer menuCellRenderer = new TreeMenuCellRenderer();
       this.setCellRenderer(menuCellRenderer);
@@ -70,12 +66,16 @@ public class JTreeMenu extends JTree
 
       this.addMouseListener(new TreeMenuMouseListener());
 
+      this.nodes = newNodes;
+
       DefaultTreeModel model = (DefaultTreeModel) this.getModel();
       DefaultMutableTreeNode topNode = new DefaultMutableTreeNode("Menu");
       model.setRoot(topNode);
+
       rebuildTree();
 
-      parserNodeList = nodeListParser;
+      updateLock = this.nodes.getUpdateLock();
+      newData = this.nodes.getNewDataCondition();
       updateThread = new MenuUpdateThread(THREAD_NAME);
    }
 
@@ -83,72 +83,60 @@ public class JTreeMenu extends JTree
    {
       try
       {
-         Groups groups = new Groups();
-         ArrayList<TreeMap<String, String>> groupedNodes =
-            parserNodeList.getVectorOfAttributeTreeMaps("meta");
-         for (TreeMap<String, String> groupedNode : groupedNodes)
-         {
-            String group = groupedNode.get("group");
-            String nodeID = groupedNode.get("value");
-            int nodeNumID = parseInt(groupedNode.get("nodeNumID"));
-            Node node = new Node(nodeNumID, nodeID, group, NodeTypesEnum.METADATA);
-            groups.getGroup(group).addNode(node);
-         }
+         Nodes newNodes = this.nodes.getNodes(NodeTypesEnum.METADATA).getClonedNodes(
+            Node.DEFAULT_GROUP);
 
          DefaultTreeModel model = (DefaultTreeModel) this.getModel();
-         TreePath parentPath = this.getNextMatch("Node details", 0, Position.Bias.Forward);
+         DefaultMutableTreeNode rootNode = (DefaultMutableTreeNode)model.getRoot();
+         DefaultMutableTreeNode parentNode = null;
 
-         DefaultMutableTreeNode node;
-
-         String path = parentPath.getParentPath().getLastPathComponent().toString();
-         if(path.equalsIgnoreCase("Metadata nodes") )
+         for (int rootIndex = 0; rootIndex < rootNode.getChildCount(); rootIndex++)
          {
-            node = (DefaultMutableTreeNode) parentPath.getLastPathComponent();
-         }
-         else
-         {
-            parentPath = this.getNextMatch("Node details", 0, Position.Bias.Backward);
-            node = (DefaultMutableTreeNode) parentPath.getLastPathComponent();
-         }
-
-         boolean isExpanded = this.isExpanded(parentPath);
-
-         if (node.getChildCount() > 0)
-         {
-            for (int i = node.getChildCount() - 1; i >= 0; i--)
+            DefaultMutableTreeNode tmpNode = (DefaultMutableTreeNode)rootNode.getChildAt(rootIndex);
+            if(tmpNode.toString().equalsIgnoreCase("Metadata nodes"))
             {
-               DefaultMutableTreeNode n = (DefaultMutableTreeNode) node.getChildAt(i);
-               model.removeNodeFromParent(n);
+               for (int index = 0; index < tmpNode.getChildCount(); index++)
+               {
+                  if(tmpNode.getChildAt(index).toString().equalsIgnoreCase("Node details"))
+                  {
+                     parentNode = (DefaultMutableTreeNode)tmpNode.getChildAt(index);
+                     break;
+                  }
+               }
             }
          }
 
-         for (final String groupName : groups.getGroupNames())
+         if(parentNode != null)
          {
-            Nodes nodes = groups.getGroup(groupName).getNodes();
-            for (Iterator<Node> iter = nodes.iterator(); iter.hasNext();)
+            TreePath parentPath = new TreePath(parentNode.getPath());
+            boolean isExpanded = this.isExpanded(parentPath);
+
+            if (parentNode.getChildCount() > 0)
+            {
+               for (int i = parentNode.getChildCount() - 1; i >= 0; i--)
+               {
+                  DefaultMutableTreeNode n = (DefaultMutableTreeNode) parentNode.getChildAt(i);
+                  model.removeNodeFromParent(n);
+               }
+            }
+
+            for (Iterator<Node> iter = newNodes.iterator(); iter.hasNext();)
             {
                final Node tmpNode = iter.next();
                model.insertNodeInto(new DefaultMutableTreeNode(tmpNode.getTypedNodeID()),
-                  (MutableTreeNode) parentPath.getLastPathComponent(),
-                  ((TreeNode) parentPath.getLastPathComponent()).getChildCount());
+                  parentNode, parentNode.getChildCount());
+            }
+
+            if (isExpanded)
+            {
+               this.expandPath(parentPath);
             }
          }
-
-         if (isExpanded)
-         {
-            this.expandPath(parentPath);
-         }
-
          return true;
       }
-      catch (CommunicationException e)
+      catch (CloneNotSupportedException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
-         return false;
-      }
-      catch (java.lang.NullPointerException e)
-      {
-         logger.log(Level.FINEST, "Internal error.", e);
+         LOGGER.log(Level.FINEST, "Internal error.", e);
          return false;
       }
    }
@@ -157,71 +145,62 @@ public class JTreeMenu extends JTree
    {
       try
       {
-         Groups groups = new Groups();
-         ArrayList<TreeMap<String, String>> groupedNodes =
-            parserNodeList.getVectorOfAttributeTreeMaps("storage");
-         for (TreeMap<String, String> groupedNode : groupedNodes)
-         {
-            String group = groupedNode.get("group");
-            String nodeID = groupedNode.get("value");
-            int nodeNumID = parseInt(groupedNode.get("nodeNumID"));
-            Node node = new Node(nodeNumID, nodeID, group, NodeTypesEnum.STORAGE);
-            groups.getGroup(group).addNode(node);
-         }
+         Nodes newNodes = this.nodes.getNodes(NodeTypesEnum.STORAGE).getClonedNodes(
+            Node.DEFAULT_GROUP);
+
          DefaultTreeModel model = (DefaultTreeModel) this.getModel();
-         TreePath parentPath = this.getNextMatch("Node details", 0, Position.Bias.Backward);
+         DefaultMutableTreeNode rootNode = (DefaultMutableTreeNode)model.getRoot();
+         DefaultMutableTreeNode parentNode = null;
 
-         DefaultMutableTreeNode node;
-
-         String path = parentPath.getParentPath().getLastPathComponent().toString();
-         if(path.equalsIgnoreCase("Storage nodes") )
+         for (int rootIndex = 0; rootIndex < rootNode.getChildCount(); rootIndex++)
          {
-            node = (DefaultMutableTreeNode) parentPath.getLastPathComponent();
-         }
-         else
-         {
-            parentPath = this.getNextMatch("Node details", 0, Position.Bias.Forward);
-            node = (DefaultMutableTreeNode) parentPath.getLastPathComponent();
-         }
-
-         boolean isExpanded = this.isExpanded(parentPath);
-
-         if (node.getChildCount() > 0)
-         {
-            for (int i = node.getChildCount() - 1; i >= 0; i--)
+            DefaultMutableTreeNode tmpNode = (DefaultMutableTreeNode)rootNode.getChildAt(rootIndex);
+            if(tmpNode.toString().equalsIgnoreCase("Storage nodes"))
             {
-               DefaultMutableTreeNode n = (DefaultMutableTreeNode) node.getChildAt(i);
-               model.removeNodeFromParent(n);
+               for (int index = 0; index < tmpNode.getChildCount(); index++)
+               {
+                  if(tmpNode.getChildAt(index).toString().equalsIgnoreCase("Node details"))
+                  {
+                     parentNode = (DefaultMutableTreeNode)tmpNode.getChildAt(index);
+                     break;
+                  }
+               }
             }
          }
 
-         for (final String groupName : groups.getGroupNames())
+         if(parentNode != null)
          {
-            Nodes nodes = groups.getGroup(groupName).getNodes();
-            for (Iterator<Node> iter = nodes.iterator(); iter.hasNext();)
+            TreePath parentPath = new TreePath(parentNode.getPath());
+            boolean isExpanded = this.isExpanded(parentPath);
+
+            if (parentNode.getChildCount() > 0)
+            {
+               for (int i = parentNode.getChildCount() - 1; i >= 0; i--)
+               {
+                  DefaultMutableTreeNode n = (DefaultMutableTreeNode) parentNode.getChildAt(i);
+                  model.removeNodeFromParent(n);
+               }
+            }
+
+            for (Iterator<Node> iter = newNodes.iterator(); iter.hasNext();)
             {
                final Node tmpNode = iter.next();
-               model.insertNodeInto(new DefaultMutableTreeNode(tmpNode.getTypedNodeID()),
+               model.insertNodeInto(new DefaultMutableTreeNode(tmpNode.getTypedNodeID() ),
                   (MutableTreeNode) parentPath.getLastPathComponent(),
-                  ((TreeNode) parentPath.getLastPathComponent()).getChildCount());
+                  ((TreeNode) parentPath.getLastPathComponent()).getChildCount() );
             }
-         }
 
-         if (isExpanded)
-         {
-            this.expandPath(parentPath);
+            if (isExpanded)
+            {
+               this.expandPath(parentPath);
+            }
          }
          
          return true;
       }
-      catch (CommunicationException e)
+      catch (java.lang.NullPointerException | CloneNotSupportedException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
-         return false;
-      }
-      catch (java.lang.NullPointerException e)
-      {
-         logger.log(Level.FINEST, "Internal error.", e);
+         LOGGER.log(Level.FINEST, "Internal error.", e);
          return false;
       }
    }
@@ -237,6 +216,8 @@ public class JTreeMenu extends JTree
       String submenu = pathObjects[1].toString();
       String item = pathObjects[pathCount - 1].toString();
 
+      int nodeNumID = Node.getNodeNumIDFromTypedNodeID(item);
+
       // First check the submenu we are in, especially if we are in meta or storage nodes
       if (submenu.equalsIgnoreCase("metadata nodes") && (Main.getSession().getIsInfo()))
       {
@@ -247,7 +228,8 @@ public class JTreeMenu extends JTree
          else
          if (!item.equalsIgnoreCase("Node details"))
          {
-            frame = new JInternalFrameMetaNode(new Node(item, NodeTypesEnum.METADATA));
+            frame = new JInternalFrameMetaNode(this.nodes.getNode(
+               NodeTypesEnum.METADATA, nodeNumID));
          }
          else
          {
@@ -263,7 +245,8 @@ public class JTreeMenu extends JTree
          else
          if (!item.equalsIgnoreCase("Node details"))
          {
-            frame = new JInternalFrameStorageNode(new Node(item, NodeTypesEnum.STORAGE));
+            frame = new JInternalFrameStorageNode(this.nodes.getNode(
+               NodeTypesEnum.STORAGE, nodeNumID));
          }
          else
          {
@@ -347,7 +330,7 @@ public class JTreeMenu extends JTree
       }
       else if (item.equalsIgnoreCase("view log file") && (Main.getSession().getIsAdmin()))
       {
-         frame = new JInternalFrameRemoteLogFiles(parserNodeList);
+         frame = new JInternalFrameRemoteLogFiles(nodes);
       }
       else if (item.equalsIgnoreCase("installation log file") && (Main.getSession().getIsAdmin()))
       {
@@ -448,7 +431,7 @@ public class JTreeMenu extends JTree
          model.insertNodeInto(new DefaultMutableTreeNode("Installation Log File"), menuNode,
             menuNode.getChildCount());
       }
-
+      
       this.expandPath(topPath);
    }
 
@@ -479,7 +462,7 @@ public class JTreeMenu extends JTree
                {
                   if (!openFrame(selPath))
                   {
-                     logger.log(Level.WARNING, "Tried to open frame " + selPath.toString() +
+                     LOGGER.log(Level.WARNING, "Tried to open frame " + selPath.toString() +
                         " which does not exist", false);
                   }
                }
@@ -498,20 +481,26 @@ public class JTreeMenu extends JTree
       @Override
       public void run()
       {
-         long delay = 4000; //milliseconds
-
-         while(true)
+         while(!stop)
          {
-            updateMetadataNodes();
-            updateStorageNodes();
-
+            updateLock.lock();
             try
             {
-               sleep(delay);
+               if(!stop)
+               {
+                  updateMetadataNodes();
+                  updateStorageNodes();
+               }
+               
+               newData.await();
             }
             catch (InterruptedException ex)
             {
-               logger.log(Level.FINEST, "Internal error.", ex);
+               LOGGER.log(Level.SEVERE, "Interrupted Exception in menu update thread run.", ex);
+            }
+            finally
+            {
+               updateLock.unlock();
             }
          }
       }

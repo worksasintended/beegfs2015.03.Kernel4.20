@@ -21,13 +21,16 @@ SQLITE_VER_PATH         = $(shell echo `pwd`/../source/sqlite-autoconf-${SQLITE_
 OPENSSL_VER             = 2.1.6
 OPENSSL_VER_PATH        = $(shell echo `pwd`/../source/libressl-${OPENSSL_VER} )
 
+PREMAKE_VER             = 4.3
+PREMAKE_VER_PATH        = $(shell echo `pwd`/../source/premake-${PREMAKE_VER} )
+
 SQLITE_OBJ_IN   = $(SQLITE_PATH)/sqlite3.o
 SQLITE_LIB_IN   = $(SQLITE_PATH)/libsqlite3.a
 OPENSSL_LIB_IN  = $(OPENSSL_PATH)/ssl/.libs/libssl.a
 CRYPTO_LIB_IN   = $(OPENSSL_PATH)/crypto/.libs/libcrypto.a
 CPPUNIT_LIB_IN  = $(CPPUNIT_INSTALL_PATH)/usr/local/lib/libcppunit.a
 MONGOOSE_LIB_IN = $(MONGOOSE_PATH)/libmongoose.a
-TICPP_LIB_IN    = $(TICPP_PATH)/../lib/libticpp.a
+TICPP_LIB_IN    = $(TICPP_PATH)/lib/libticpp.a
 
 SQLITE_LIB_OUT   = ./libsqlite3.a
 OPENSSL_LIB_OUT  = ./libssl.a
@@ -36,7 +39,7 @@ CPPUNIT_LIB_OUT  = ./libcppunit.a
 MONGOOSE_LIB_OUT = ./libmongoose.a
 TICPP_LIB_OUT    = ./libticpp.a
 
-PREMAKE         := $(shell echo `pwd`/../source/premake/premake)
+PREMAKE         := $(shell echo ${PREMAKE_VER_PATH}/bin/release/premake4)
 
 BUILDTYPE        = $(shell `pwd`/get-build-type.sh)
 
@@ -55,8 +58,8 @@ sqlite:
 		cd $(SOURCE_PATH)                                  && \
 		tar xf sqlite-autoconf-$(SQLITE_VER).tar.gz        && \
 		cd $(SQLITE_PATH)                                  && \
-		./configure --disable-dynamic-extensions           && \
-		$(MAKE)                                            && \
+	        ./configure --disable-dynamic-extensions           && \
+		$(MAKE) CFLAGS+="-DSQLITE_ENABLE_UNLOCK_NOTIFY"     && \
 		cd $(BUILD_PATH)                                   && \
 		ar -r $(SQLITE_LIB_IN) $(SQLITE_OBJ_IN);              \
 	fi
@@ -65,12 +68,12 @@ sqlite:
 	cp $(SQLITE_LIB_IN) $(SQLITE_LIB_OUT) 
 
 openssl:
-	# we delete the old folders first here, to be sure to remove aold object files,
+	# we delete the old folders first here, to be sure to remove old object files,
 	# as a clean before "configure" may have failed.
 	if [ ! -f $(OPENSSL_LIB_IN) ] || [ ! -f $(CRYPTO_LIB_IN) ]; then \
 		rm -fr $(OPENSSL_VER_PATH)                &&     \
 		cd $(SOURCE_PATH)                         &&     \
-		tar xf libressl-$(OPENSSL_VER).tar.gz      &&     \
+		tar xf libressl-$(OPENSSL_VER).tar.gz     &&     \
 		cd $(OPENSSL_VER_PATH)                    &&     \
 		./config -no-apps                         &&     \
 		$(MAKE);                                         \
@@ -102,14 +105,28 @@ mongoose:
 	# copy lib
 	cp $(MONGOOSE_LIB_IN) $(MONGOOSE_LIB_OUT)
 
-ticpp:
+premake:
+	if [ ! -d $(PREMAKE_VER_PATH) ]; then                    \
+		cd $(SOURCE_PATH)                          &&    \
+		unzip premake-${PREMAKE_VER}-src.zip       &&    \
+		cd $(BUILD_PATH);                                \
+	fi
+
+	$(MAKE) -C $(PREMAKE_VER_PATH)/build/gmake.unix
+
+ticpp: premake
 	# we run make clean first here, to be sure to remove old object files
-	if [ ! -f $(TICPP_LIB_IN) ]; then cd $(TICPP_PATH); ${PREMAKE} --target gnu --unicode && \
-	$(MAKE) clean CONFIG=Release && $(MAKE) CONFIG=Release; fi
+	if [ ! -f $(TICPP_LIB_IN) ]; then                     \
+		cd $(TICPP_PATH)                           && \
+		${PREMAKE} --unicode gmake                 && \
+		$(MAKE) clean config=release               && \
+		$(MAKE) config=release                     && \
+		cd $(BUILD_PATH);                             \
+	fi
 	# copy lib
 	cp $(TICPP_LIB_IN) $(TICPP_LIB_OUT)
 
-clean: clean_sqlite clean_openssl clean_cppunit clean_mongoose clean_ticpp
+clean: clean_sqlite clean_openssl clean_cppunit clean_mongoose clean_premake clean_ticpp
 
 clean_sqlite:
 	rm -fr $(SQLITE_VER_PATH)
@@ -128,7 +145,10 @@ clean_mongoose:
 	# absolutely make sure we delete previous libs and also delete the copied lib
 	rm -f $(MONGOOSE_LIB_IN) $(MONGOOSE_LIB_OUT)
 
+clean_premake:
+	rm -fr $(PREMAKE_VER_PATH)
+
 clean_ticpp:
-	cd $(TICPP_PATH); $(MAKE) clean CONFIG=Release || true
+	cd $(TICPP_PATH); $(MAKE) clean config=release || true
 	# absolutely make sure we delete previous libs and also delete the copied lib
 	rm -f $(TICPP_LIB_IN) $(TICPP_LIB_OUT)

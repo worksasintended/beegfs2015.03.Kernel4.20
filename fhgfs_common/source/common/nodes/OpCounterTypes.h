@@ -141,8 +141,9 @@ class MetaOpToStringMapping : public OpToStringMapping
       MetaOpToStringMapping()
       {
          opToStrMap[MetaOpCounter_OPSUM]              =  "sum";
-         opToStrMap[MetaOpCounter_CLOSE]              =  "close";
+
          opToStrMap[MetaOpCounter_ACK]                =  "ack";
+         opToStrMap[MetaOpCounter_CLOSE]              =  "close";
          opToStrMap[MetaOpCounter_GETENTRYINFO]       =  "entInf";
          opToStrMap[MetaOpCounter_GETNODEINFO]        =  "nodeInf";
          opToStrMap[MetaOpCounter_FINDOWNER]          =  "fndOwn";
@@ -177,6 +178,10 @@ class MetaOpToStringMapping : public OpToStringMapping
          opToStrMap[MetaOpCounter_FLOCKENTRY]              = "flckEn";
          opToStrMap[MetaOpCounter_FLOCKRANGE]              = "flckRg";
          opToStrMap[MetaOpCounter_UPDATEDIRPARENT]         = "dirparent";
+         opToStrMap[MetaOpCounter_LISTXATTR]               = "listXA";
+         opToStrMap[MetaOpCounter_GETXATTR]                = "getXA";
+         opToStrMap[MetaOpCounter_REMOVEXATTR]             = "rmXA";
+         opToStrMap[MetaOpCounter_SETXATTR]                = "setXA";
       }
 };
 

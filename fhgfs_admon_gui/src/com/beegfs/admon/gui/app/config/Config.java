@@ -15,8 +15,10 @@ import java.util.logging.Logger;
 
 public class Config
 {
-   static final Logger logger = Logger.getLogger(Config.class.getCanonicalName());
-   public static final String defaultConfigName = FilePathsEnum.CONFIG_FILE.getPath();
+   static final Logger LOGGER = Logger.getLogger(Config.class.getCanonicalName());
+
+   public static final String DEFAULT_CONFIG_NAME = FilePathsEnum.CONFIG_FILE.getPath();
+
    public static final String CONFIG_PROPERTY_LOG_DEBUG = "logDebug";
 
    private final String CONFIG_PROPERTY_ADMON_HOST = "admonHost";
@@ -143,7 +145,7 @@ public class Config
          }
          catch (NumberFormatException ex)
          {
-            logger.log(Level.INFO, "Resolution value isn't valid.", ex);
+            LOGGER.log(Level.INFO, "Resolution value isn't valid.", ex);
             retVal = false;
          }
       }
@@ -245,7 +247,7 @@ public class Config
       }
       catch (IOException ex)
       {
-         logger.log(Level.WARNING, "IO error. Could not read configuration file, using defaults.",
+         LOGGER.log(Level.WARNING, "IO error. Could not read configuration file, using defaults.",
             ex);
 
          this.admonHost = DEFAULT_ADMON_HOST;
@@ -264,7 +266,7 @@ public class Config
             }
             catch (IOException e)
             {
-               logger.log(Level.FINEST, "Could not close configuration file.", e);
+               LOGGER.log(Level.FINEST, "Could not close configuration file.", e);
             }
          }
 
@@ -276,7 +278,7 @@ public class Config
             }
             catch (IOException ex)
             {
-               logger.log(Level.FINEST, "Could not close configuration file.", ex);
+               LOGGER.log(Level.FINEST, "Could not close configuration file.", ex);
             }
          }
       }
@@ -298,7 +300,7 @@ public class Config
       }
       catch (IOException ex)
       {
-         logger.log(Level.SEVERE, "Could not write configuration file.", ex);
+         LOGGER.log(Level.SEVERE, "Could not write configuration file.", ex);
       }
       finally
       {
@@ -310,7 +312,7 @@ public class Config
             }
             catch (IOException e)
             {
-               logger.log(Level.FINEST, "Could not close configuration file.", e);
+               LOGGER.log(Level.FINEST, "Could not close configuration file.", e);
             }
          }
 
@@ -322,7 +324,7 @@ public class Config
             }
                catch (IOException ex)
                {
-                  logger.log(Level.FINEST, "Could not close configuration file.", ex);
+                  LOGGER.log(Level.FINEST, "Could not close configuration file.", ex);
                }
             }
       }

@@ -12,6 +12,8 @@
 #include <linux/compat.h>
 #include <linux/list.h>
 #include <linux/posix_acl_xattr.h>
+#include <linux/swap.h>
+#include <linux/writeback.h>
 
 #ifdef KERNEL_HAS_TASK_IO_ACCOUNTING
    #include <linux/task_io_accounting_ops.h>
@@ -227,6 +229,161 @@ static inline int os_generic_write_checks(struct file* filp, loff_t* offset, siz
    *size = iter.count;
 
    return 0;
+}
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+static inline void page_endio(struct page *page, int rw, int err)
+{
+   if (rw == READ)
+   {
+      if (!err)
+      {
+         SetPageUptodate(page);
+      }
+      else
+      {
+         ClearPageUptodate(page);
+         SetPageError(page);
+      }
+
+      unlock_page(page);
+   }
+   else
+   { /* rw == WRITE */
+      if (err)
+      {
+         SetPageError(page);
+         if (page->mapping)
+            mapping_set_error(page->mapping, err);
+      }
+
+      end_page_writeback(page);
+   }
+}
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+static inline int os_write_cache_pages(struct address_space* mapping, struct writeback_control* wbc,
+   writepage_t writepage, void* data)
+{
+   return write_cache_pages(mapping, wbc, writepage, data);
+}
+#else
+/* not adding a writepage_t typedef here because it already exists in older kernels */
+static inline int os_write_cache_pages(struct address_space* mapping, struct writeback_control* wbc,
+   int (*writepage)(struct page*, struct writeback_control*, void*), void* data)
+{
+   struct backing_dev_info* bdi = mapping->backing_dev_info;
+   int ret = 0;
+   int done = 0;
+   struct pagevec pvec;
+   int nr_pages;
+   pgoff_t index;
+   pgoff_t end;		/* Inclusive */
+   int scanned = 0;
+   int range_whole = 0;
+
+   if(wbc->nonblocking && bdi_write_congested(bdi) )
+   {
+      wbc->encountered_congestion = 1;
+      return 0;
+   }
+
+   pagevec_init(&pvec, 0);
+   if(wbc->range_cyclic)
+   {
+      index = mapping->writeback_index; /* Start from prev offset */
+      end = -1;
+   }
+   else
+   {
+      index = wbc->range_start >> PAGE_CACHE_SHIFT;
+      end = wbc->range_end >> PAGE_CACHE_SHIFT;
+      if(wbc->range_start == 0 && wbc->range_end == LLONG_MAX)
+         range_whole = 1;
+
+      scanned = 1;
+   }
+
+retry:
+   while(!done && (index <= end) &&
+         (nr_pages = pagevec_lookup_tag(&pvec, mapping, &index,
+                                        PAGECACHE_TAG_DIRTY,
+                                        min(end - index, (pgoff_t)PAGEVEC_SIZE-1) + 1) ) )
+   {
+      unsigned i;
+
+      scanned = 1;
+      for(i = 0; i < nr_pages; i++)
+      {
+         struct page *page = pvec.pages[i];
+
+         /*
+          * At this point we hold neither mapping->tree_lock nor
+          * lock on the page itself: the page may be truncated or
+          * invalidated (changing page->mapping to NULL), or even
+          * swizzled back from swapper_space to tmpfs file
+          * mapping
+          */
+         lock_page(page);
+
+         if(unlikely(page->mapping != mapping) )
+         {
+            unlock_page(page);
+            continue;
+         }
+
+         if(!wbc->range_cyclic && page->index > end)
+         {
+            done = 1;
+            unlock_page(page);
+            continue;
+         }
+
+         if(wbc->sync_mode != WB_SYNC_NONE)
+            wait_on_page_writeback(page);
+
+         if(PageWriteback(page) || !clear_page_dirty_for_io(page) )
+         {
+            unlock_page(page);
+            continue;
+         }
+
+         ret = (*writepage)(page, wbc, data);
+
+         if(unlikely(ret == AOP_WRITEPAGE_ACTIVATE) )
+            unlock_page(page);
+
+         if(ret || (--(wbc->nr_to_write) <= 0) )
+            done = 1;
+
+         if(wbc->nonblocking && bdi_write_congested(bdi) )
+         {
+            wbc->encountered_congestion = 1;
+            done = 1;
+         }
+      }
+
+      pagevec_release(&pvec);
+      cond_resched();
+   }
+
+   if(!scanned && !done)
+   {
+      /*
+       * We hit the last page and there is more work to be done: wrap
+       * back to the start of the file
+       */
+      scanned = 1;
+      index = 0;
+      goto retry;
+   }
+
+   if (wbc->range_cyclic || (range_whole && wbc->nr_to_write > 0) )
+      mapping->writeback_index = index;
+
+   return ret;
 }
 #endif
 

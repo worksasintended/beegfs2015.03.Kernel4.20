@@ -11,14 +11,14 @@ typedef HandleList::iterator HandleListIter;
 class DBHandlePool
 {
    public:
-      DBHandlePool(std::string dbFilename);
+      DBHandlePool(const std::string& databasePath);
       virtual ~DBHandlePool();
 
       DBHandle* acquireHandle(bool allowWaiting = true);
       void releaseHandle(DBHandle* handle);
 
    private:
-      std::string dbFilename;
+      std::string databasePath;
 
       unsigned availableHandles; // available opened handles
       unsigned openedHandles; // not equal to handleList.size!!

@@ -287,7 +287,10 @@ fhgfs_bool __FhgfsOps_isPagedMode(struct super_block* sb)
    if (Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Paged)
       return fhgfs_true;
 
-   return fhgfs_false;
+   if (Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Native)
+      return true;
+
+   return false;
 }
 
 /**

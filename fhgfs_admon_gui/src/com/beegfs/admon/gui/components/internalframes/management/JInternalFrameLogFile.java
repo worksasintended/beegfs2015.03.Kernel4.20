@@ -23,11 +23,9 @@ import javax.swing.JOptionPane;
 public class JInternalFrameLogFile extends javax.swing.JInternalFrame implements
    JInternalFrameInterface
 {
-
-   static final Logger logger = Logger.getLogger(JInternalFrameLogFile.class.getCanonicalName());
-   private static final String THREAD_NAME = "LoadLogFile";
-
+   static final Logger LOGGER = Logger.getLogger(JInternalFrameLogFile.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
+   private static final String THREAD_NAME = "LoadLogFile";
 
    /** Creates new form JInternalFrameMetaNode */
    public JInternalFrameLogFile()
@@ -68,7 +66,11 @@ public class JInternalFrameLogFile extends javax.swing.JInternalFrame implements
             } 
             catch (CommunicationException e)
             {
-               logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+               LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+               {
+                  e,
+                  true
+               });
             }
          }
       };
@@ -244,7 +246,7 @@ public class JInternalFrameLogFile extends javax.swing.JInternalFrame implements
                   bw.write(jTextPaneLogfile.getText());
                   bw.close();
                } catch (IOException e) {
-                  logger.log(Level.SEVERE, "IO Exception occured while saving log file",
+                  LOGGER.log(Level.SEVERE, "IO Exception occured while saving log file",
                      new Object[]{e, true});
                }
                finally
@@ -257,7 +259,7 @@ public class JInternalFrameLogFile extends javax.swing.JInternalFrame implements
                      }
                      catch (IOException ex)
                      {
-                        logger.log(Level.SEVERE, "IO Exception occured while saving log file",
+                        LOGGER.log(Level.SEVERE, "IO Exception occured while saving log file",
                            new Object[]{ex, true});
                      }
                   }

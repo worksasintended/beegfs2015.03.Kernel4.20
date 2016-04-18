@@ -13,7 +13,7 @@ import java.util.logging.Logger;
 
 public class HttpTk
 {
-   static final Logger logger = Logger.getLogger(HttpTk.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(HttpTk.class.getCanonicalName());
 
    public static InputStream sendPostData(String urlStr, Object[] parameters)
    {
@@ -47,7 +47,7 @@ public class HttpTk
       }
       catch (IOException e)
       {
-         logger.log(Level.SEVERE, "Error during sending POST data to URL: " + urlStr, e);
+         LOGGER.log(Level.SEVERE, "Error during sending POST data to URL: " + urlStr, e);
          return null;
       }
       finally
@@ -60,7 +60,7 @@ public class HttpTk
             }
             catch (IOException ex)
             {
-               logger.log(Level.SEVERE, "Error during sending POST data to URL: " + urlStr, ex);
+               LOGGER.log(Level.SEVERE, "Error during sending POST data to URL: " + urlStr, ex);
             }
          }
       }

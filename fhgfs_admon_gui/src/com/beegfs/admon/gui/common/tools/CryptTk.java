@@ -7,7 +7,7 @@ import java.util.logging.Logger;
 
 public class CryptTk
 {
-   static final Logger logger = Logger.getLogger(CryptTk.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(CryptTk.class.getCanonicalName());
 
    /**
     * char[] to byte[] conversion
@@ -74,7 +74,7 @@ public class CryptTk
       }
       catch (java.security.NoSuchAlgorithmException e)
       {
-         logger.log(Level.FINEST, "Algorithm error.", e);
+         LOGGER.log(Level.FINEST, "Algorithm error.", e);
          return null;
       }
       MD5 = bytesToString(md.digest(charsToBytes(chars)));

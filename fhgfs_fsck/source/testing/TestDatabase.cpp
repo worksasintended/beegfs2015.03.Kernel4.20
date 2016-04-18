@@ -13,7 +13,7 @@
 TestDatabase::TestDatabase()
 {
    log.setContext("TestDatabase");
-   this->databaseFile = Program::getApp()->getConfig()->getTestDatabaseFile();
+   this->databasePath = Program::getApp()->getConfig()->getTestDatabasePath();
 }
 
 TestDatabase::~TestDatabase()
@@ -25,7 +25,12 @@ void TestDatabase::setUp()
    // create a new database
    try
    {
-      this->db = new FsckDB(this->databaseFile);
+      Path dbPath(databasePath);
+      bool createRes = StorageTk::createPathOnDisk(dbPath, false);
+      if (!createRes)
+         throw FsckDBException("Unable to create path to database");
+
+      this->db = new FsckDB(databasePath);
       this->db->init();
    }
    catch (FsckDBException &e)
@@ -45,7 +50,7 @@ void TestDatabase::tearDown()
    bool keepFile = Program::getApp()->getConfig()->getKeepTestDatabaseFile();
 
    if (!keepFile)
-      remove(this->databaseFile.c_str());
+      DatabaseTk::removeDatabaseFiles(databasePath);
 }
 
 void TestDatabase::testCreateTables()
@@ -2352,7 +2357,7 @@ void TestDatabase::testUpdateRepairActionDentries()
 
    try
    {
-      this->db = new FsckDB(this->databaseFile);
+      this->db = new FsckDB(databasePath);
       this->db->init();
    }
    catch (FsckDBException &e)
@@ -2403,7 +2408,7 @@ void TestDatabase::testUpdateRepairActionDentries()
 
    try
    {
-      this->db = new FsckDB(this->databaseFile);
+      this->db = new FsckDB(databasePath);
       this->db->init();
    }
    catch (FsckDBException &e)
@@ -2454,7 +2459,7 @@ void TestDatabase::testUpdateRepairActionDentries()
 
    try
    {
-      this->db = new FsckDB(this->databaseFile);
+      this->db = new FsckDB(databasePath);
       this->db->init();
    }
    catch (FsckDBException &e)
@@ -2551,7 +2556,7 @@ void TestDatabase::testUpdateRepairActionFileInodes()
 
    try
    {
-      this->db = new FsckDB(this->databaseFile);
+      this->db = new FsckDB(databasePath);
       this->db->init();
    }
    catch (FsckDBException &e)
@@ -2649,7 +2654,7 @@ void TestDatabase::testUpdateRepairActionDirInodes()
 
    try
    {
-      this->db = new FsckDB(this->databaseFile);
+      this->db = new FsckDB(databasePath);
       this->db->init();
    }
    catch (FsckDBException &e)
@@ -2701,7 +2706,7 @@ void TestDatabase::testUpdateRepairActionDirInodes()
 
    try
    {
-      this->db = new FsckDB(this->databaseFile);
+      this->db = new FsckDB(databasePath);
       this->db->init();
    }
    catch (FsckDBException &e)

@@ -719,6 +719,13 @@ bool FsckTkEx::stopModificationLogging(NodeStore* metaNodes)
 
    bool retVal = true;
 
+   FsckTkEx::fsckOutput("-----",
+      OutputOptions_ADDLINEBREAKBEFORE | OutputOptions_FLUSH | OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput(
+      "Waiting for metadata servers to stop modification logging. This might take some time.",
+      OutputOptions_FLUSH | OutputOptions_LINEBREAK);
+   FsckTkEx::fsckOutput("-----", OutputOptions_FLUSH | OutputOptions_DOUBLELINEBREAK);
+
    NodeList metaNodeList;
    UInt16List nodeIDs;
 

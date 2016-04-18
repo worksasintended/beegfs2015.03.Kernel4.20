@@ -8,6 +8,7 @@ import java.util.ArrayList;
 public class JFrameAddHosts extends javax.swing.JFrame
 {
    private static final long serialVersionUID = 1L;
+
    private final static int INITIAL_CAPACITY = 10;
 
    private final JInternalFrameUpdateableInterface parent;

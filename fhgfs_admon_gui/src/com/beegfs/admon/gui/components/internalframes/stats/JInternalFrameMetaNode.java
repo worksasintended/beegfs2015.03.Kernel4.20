@@ -30,12 +30,12 @@ import javax.swing.ImageIcon;
 public class JInternalFrameMetaNode extends javax.swing.JInternalFrame implements 
         JInternalFrameInterface
 {
-   private static final Logger logger = Logger.getLogger(
+   private static final Logger LOGGER = Logger.getLogger(
       JInternalFrameMetaNode.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
+   private static final String THREAD_NAME = "MetaNode";
 
    private static final int DEFAULT_TRACE_COUNT = 1;
-   private static final String THREAD_NAME = "MetaNode";
    
    private final transient Node node;
 
@@ -137,7 +137,7 @@ public class JInternalFrameMetaNode extends javax.swing.JInternalFrame implement
                {
                   if(!gotData.await(10, TimeUnit.SECONDS))
                   {
-                     logger.log(Level.FINEST, "No update from server!");
+                     LOGGER.log(Level.FINEST, "No update from server!");
                   }
                }
                finally
@@ -146,7 +146,7 @@ public class JInternalFrameMetaNode extends javax.swing.JInternalFrame implement
                }
 
                TreeMap<String, String> data = parser.getTreeMap("general");
-               if (data.size() != 0)
+               if (!data.isEmpty())
                {
                   jLabelNodeID.setText(data.get("nodeID") + " [ID: " + data.get("nodeNumID") + "]");
 
@@ -183,11 +183,15 @@ public class JInternalFrameMetaNode extends javax.swing.JInternalFrame implement
             }
             catch (CommunicationException | java.lang.NullPointerException e)
             {
-               logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+               LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+               {
+                  e,
+                  true
+               });
             }
             catch (java.lang.InterruptedException e)
             {
-               logger.log(Level.FINEST, "Internal error.", e);
+               LOGGER.log(Level.FINEST, "Internal error.", e);
             }
          }
          parser.shouldStop();
@@ -416,7 +420,7 @@ public class JInternalFrameMetaNode extends javax.swing.JInternalFrame implement
        }
        catch (ArrayIndexOutOfBoundsException e)
        {
-          logger.log(Level.FINEST, "Internal error.", e);
+          LOGGER.log(Level.FINEST, "Internal error.", e);
        }
 }//GEN-LAST:event_jComboBoxTimeSpanActionPerformed
 
@@ -448,6 +452,6 @@ public class JInternalFrameMetaNode extends javax.swing.JInternalFrame implement
    @Override
    public final String getFrameTitle()
    {
-      return "Metadata Node : " + node.getTypedNodeID();
+      return "Metadata Node: " + node.getTypedNodeID();
    }
 }

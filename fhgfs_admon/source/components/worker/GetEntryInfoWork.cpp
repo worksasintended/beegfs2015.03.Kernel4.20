@@ -3,7 +3,7 @@
 
 void GetEntryInfoWork::process(char* bufIn, unsigned bufInLen, char* bufOut, unsigned bufOutLen)
 {
-      log.log(5, std::string("Requesting Entry info for path: ") + pathStr );
+      log.log(Log_SPAM, std::string("Requesting Entry info for path: ") + pathStr );
 
       // find the owner node of the path
       Path path(pathStr);

@@ -1121,7 +1121,8 @@ int SetupFunctions::updateAdmonConfig()
 
    std::string cfgFile = Program::getApp()->getConfig()->getCfgFile();
 
-   Job *job = jobRunner->addJob(BASH + " " + SCRIPT_WRITE_CONFIG + " localhost " + cfgFile, &mutex);
+   Job *job = jobRunner->addJob(BASH + " " + SCRIPT_WRITE_CONFIG + " localhost " + cfgFile + " " +
+      SETUP_LOG_PATH, &mutex);
 
    while(!job->finished)
       job->jobFinishedCond.wait(&mutex);

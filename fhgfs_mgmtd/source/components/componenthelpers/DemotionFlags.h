@@ -28,12 +28,26 @@ class DemotionFlags
                   poolLimitsInodes.demotionActiveLowPool(lowPoolInodes) )
        { }
 
+       DemotionFlags()
+        : normalPoolSpace(false),
+          lowPoolSpace(false),
+          normalPoolInodes(false),
+          lowPoolInodes(false)
+       { }
+
+      bool operator!=(const DemotionFlags& other) const
+      {
+         return normalPoolSpace != other.normalPoolSpace
+             || lowPoolSpace != other.lowPoolSpace
+             || normalPoolInodes != other.normalPoolInodes
+             || lowPoolInodes != other.lowPoolInodes;
+      }
 
    private:
-      const bool normalPoolSpace;
-      const bool lowPoolSpace;
-      const bool normalPoolInodes;
-      const bool lowPoolInodes;
+      bool normalPoolSpace;
+      bool lowPoolSpace;
+      bool normalPoolInodes;
+      bool lowPoolInodes;
 
 
    public:

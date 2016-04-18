@@ -22,12 +22,12 @@ import javax.swing.table.AbstractTableModel;
 public class JInternalFrameShowQuota extends javax.swing.JInternalFrame implements
    JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
       JInternalFrameStartStop.class.getCanonicalName());
-
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "ShowQuotaGui";
+
+   private static final String BASE_URL = HttpTk.generateAdmonUrl("/XML_GetQuota");
 
    private transient ProgressBarThread pBarThread;
 
@@ -35,7 +35,6 @@ public class JInternalFrameShowQuota extends javax.swing.JInternalFrame implemen
    private Object[][] dataUser;
    private Object[][] dataGroup;
 
-   private static final String baseUrl = HttpTk.generateAdmonUrl("/XML_GetQuota");
    private transient GetQuotaUpdateThread quotaThread;
 
    /**
@@ -88,7 +87,7 @@ public class JInternalFrameShowQuota extends javax.swing.JInternalFrame implemen
 
    private void requestQuota()
    {
-      quotaThread = new GetQuotaUpdateThread(baseUrl, title);
+      quotaThread = new GetQuotaUpdateThread(BASE_URL, title);
       quotaThread.start();
    }
 
@@ -147,10 +146,10 @@ public class JInternalFrameShowQuota extends javax.swing.JInternalFrame implemen
          lock.lock();
          try
          {
-            parser.setUrl(baseUrl + getURLVariablesPart() );
+            parser.setUrl(BASE_URL + getURLVariablesPart());
             parser.update();
 
-            while(!stop && (parser.getTreeMap().size() == 0) )
+            while (!stop && (parser.getTreeMap().isEmpty()))
             {
                gotData.await();
             }
@@ -162,7 +161,7 @@ public class JInternalFrameShowQuota extends javax.swing.JInternalFrame implemen
             }
             catch (CommunicationException ex)
             {
-               logger.log(Level.FINEST, "Internal error.", ex);
+               LOGGER.log(Level.FINEST, "Internal error.", ex);
             }
             finally
             {
@@ -171,11 +170,11 @@ public class JInternalFrameShowQuota extends javax.swing.JInternalFrame implemen
          }
          catch (InterruptedException ex)
          {
-            logger.log(Level.FINEST, "Internal error.", ex);
+            LOGGER.log(Level.FINEST, "Internal error.", ex);
          }
          catch (CommunicationException ex)
          {
-            logger.log(Level.FINEST, "Communication error.", ex);
+            LOGGER.log(Level.FINEST, "Communication error.", ex);
          }
          finally
          {

@@ -222,7 +222,7 @@ public class JDialogNewConfig extends javax.swing.JDialog
        Main.getConfig().setAdmonHttpPort(String.valueOf(port));
        Main.getConfig().setLogLevel(jComboBoxLogLevel.getSelectedIndex());
 
-       if (Main.getConfig().writeConfigFile(new File(Config.defaultConfigName)))
+       if (Main.getConfig().writeConfigFile(new File(Config.DEFAULT_CONFIG_NAME)))
        {
           dispose();
        }

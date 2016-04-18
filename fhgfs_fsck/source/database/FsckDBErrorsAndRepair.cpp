@@ -184,14 +184,6 @@ unsigned FsckDB::setRepairAction(FsckDirEntryList& dentries, FsckErrorCode error
    std::string tableName = TABLE_NAME_ERROR(errorCode);
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
@@ -203,7 +195,7 @@ unsigned FsckDB::setRepairAction(FsckDirEntryList& dentries, FsckErrorCode error
 
    // take all into one transaction (SQLite would treat every INSERT as transaction otherwise)
    std::string queryStr = "BEGIN TRANSACTION;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    for (FsckDirEntryListIter iter = dentries.begin(); iter != dentries.end(); iter++)
    {
@@ -214,7 +206,7 @@ unsigned FsckDB::setRepairAction(FsckDirEntryList& dentries, FsckErrorCode error
          "' WHERE name='" + element.getName() + "' AND parentDirID='" + element.getParentDirID()
          +"' AND saveNodeID=" + StringTk::uintToStr(element.getSaveNodeID()) + ";";
 
-      int sqlRes = executeQuery(dbHandle, queryStr);
+      int sqlRes = dbHandle->sqliteBlockingExec(queryStr);
       if ( sqlRes != SQLITE_OK )
       {
          amountFailed++;
@@ -226,12 +218,10 @@ unsigned FsckDB::setRepairAction(FsckDirEntryList& dentries, FsckErrorCode error
    }
 
    queryStr = "COMMIT;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    if (releaseHandle)
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return amountFailed;
 }
@@ -281,14 +271,6 @@ unsigned FsckDB::setRepairAction(FsckFileInodeList& fileInodes, FsckErrorCode er
    std::string tableName = TABLE_NAME_ERROR(errorCode);
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
@@ -300,7 +282,7 @@ unsigned FsckDB::setRepairAction(FsckFileInodeList& fileInodes, FsckErrorCode er
 
    // take all into one transaction (SQLite would treat every INSERT as transaction otherwise)
    std::string queryStr = "BEGIN TRANSACTION;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    for (FsckFileInodeListIter iter = fileInodes.begin(); iter != fileInodes.end(); iter++)
    {
@@ -310,7 +292,7 @@ unsigned FsckDB::setRepairAction(FsckFileInodeList& fileInodes, FsckErrorCode er
       queryStr = "UPDATE " + tableName + " SET repairAction='" + repairActionStr
          + "' WHERE internalID='" + StringTk::uint64ToStr(element.getInternalID()) + "';";
 
-      int sqlRes = executeQuery(dbHandle, queryStr);
+      int sqlRes = dbHandle->sqliteBlockingExec(queryStr);
       if ( sqlRes != SQLITE_OK )
       {
          amountFailed++;
@@ -322,12 +304,10 @@ unsigned FsckDB::setRepairAction(FsckFileInodeList& fileInodes, FsckErrorCode er
    }
 
    queryStr = "COMMIT;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    if (releaseHandle)
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return amountFailed;
 }
@@ -374,14 +354,6 @@ unsigned FsckDB::setRepairAction(FsckDirInodeList& dirInodes, FsckErrorCode erro
    std::string tableName = TABLE_NAME_ERROR(errorCode);
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
@@ -393,7 +365,7 @@ unsigned FsckDB::setRepairAction(FsckDirInodeList& dirInodes, FsckErrorCode erro
 
    // take all into one transaction (SQLite would treat every INSERT as transaction otherwise)
    std::string queryStr = "BEGIN TRANSACTION;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    for (FsckDirInodeListIter iter = dirInodes.begin(); iter != dirInodes.end(); iter++)
    {
@@ -403,7 +375,7 @@ unsigned FsckDB::setRepairAction(FsckDirInodeList& dirInodes, FsckErrorCode erro
       queryStr = "UPDATE " + tableName + " SET repairAction='" + repairActionStr + "' WHERE id='" +
          element.getID() + "';";
 
-      int sqlRes = executeQuery(dbHandle, queryStr);
+      int sqlRes = dbHandle->sqliteBlockingExec(queryStr);
       if ( sqlRes != SQLITE_OK )
       {
          amountFailed++;
@@ -415,12 +387,10 @@ unsigned FsckDB::setRepairAction(FsckDirInodeList& dirInodes, FsckErrorCode erro
    }
 
    queryStr = "COMMIT;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    if (releaseHandle)
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return amountFailed;
 }
@@ -468,14 +438,6 @@ unsigned FsckDB::setRepairAction(FsckChunkList& chunks, FsckErrorCode errorCode,
    std::string tableName = TABLE_NAME_ERROR(errorCode);
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
@@ -487,7 +449,7 @@ unsigned FsckDB::setRepairAction(FsckChunkList& chunks, FsckErrorCode errorCode,
 
    // take all into one transaction (SQLite would treat every INSERT as transaction otherwise)
    std::string queryStr = "BEGIN TRANSACTION;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    for (FsckChunkListIter iter = chunks.begin(); iter != chunks.end(); iter++)
    {
@@ -498,7 +460,7 @@ unsigned FsckDB::setRepairAction(FsckChunkList& chunks, FsckErrorCode errorCode,
       queryStr = "UPDATE " + tableName + " SET repairAction='" + repairActionStr + "' WHERE id='" +
          element.getID() + "' AND targetID=" + StringTk::uintToStr(element.getTargetID()) + ";";
 
-      int sqlRes = executeQuery(dbHandle, queryStr);
+      int sqlRes = dbHandle->sqliteBlockingExec(queryStr);
       if ( sqlRes != SQLITE_OK )
       {
          amountFailed++;
@@ -510,12 +472,10 @@ unsigned FsckDB::setRepairAction(FsckChunkList& chunks, FsckErrorCode errorCode,
    }
 
    queryStr = "COMMIT;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    if (releaseHandle)
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return amountFailed;
 }
@@ -562,14 +522,6 @@ unsigned FsckDB::setRepairAction(FsckContDirList& contDirs, FsckErrorCode errorC
    std::string tableName = TABLE_NAME_ERROR(errorCode);
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
@@ -581,7 +533,7 @@ unsigned FsckDB::setRepairAction(FsckContDirList& contDirs, FsckErrorCode errorC
 
    // take all into one transaction (SQLite would treat every INSERT as transaction otherwise)
    std::string queryStr = "BEGIN TRANSACTION;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    for (FsckContDirListIter iter = contDirs.begin(); iter != contDirs.end(); iter++)
    {
@@ -591,7 +543,7 @@ unsigned FsckDB::setRepairAction(FsckContDirList& contDirs, FsckErrorCode errorC
       queryStr = "UPDATE " + tableName + " SET repairAction='" + repairActionStr + "' WHERE id='" +
          element.getID() + "';";
 
-      int sqlRes = executeQuery(dbHandle, queryStr);
+      int sqlRes = dbHandle->sqliteBlockingExec(queryStr);
       if ( sqlRes != SQLITE_OK )
       {
          amountFailed++;
@@ -603,12 +555,10 @@ unsigned FsckDB::setRepairAction(FsckContDirList& contDirs, FsckErrorCode errorC
    }
 
    queryStr = "COMMIT;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    if (releaseHandle)
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return amountFailed;
 }
@@ -655,14 +605,6 @@ unsigned FsckDB::setRepairAction(FsckFsIDList& fsIDs, FsckErrorCode errorCode,
    std::string tableName = TABLE_NAME_ERROR(errorCode);
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
@@ -674,7 +616,7 @@ unsigned FsckDB::setRepairAction(FsckFsIDList& fsIDs, FsckErrorCode errorCode,
 
    // take all into one transaction (SQLite would treat every INSERT as transaction otherwise)
    std::string queryStr = "BEGIN TRANSACTION;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    for (FsckFsIDListIter iter = fsIDs.begin(); iter != fsIDs.end(); iter++)
    {
@@ -685,7 +627,7 @@ unsigned FsckDB::setRepairAction(FsckFsIDList& fsIDs, FsckErrorCode errorCode,
          element.getID() + "' AND parentDirID='" + element.getParentDirID() + "' AND saveNodeID=" +
          StringTk::uintToStr(element.getSaveNodeID()) + ";";
 
-      int sqlRes = executeQuery(dbHandle, queryStr);
+      int sqlRes = dbHandle->sqliteBlockingExec(queryStr);
       if ( sqlRes != SQLITE_OK )
       {
          amountFailed++;
@@ -697,12 +639,10 @@ unsigned FsckDB::setRepairAction(FsckFsIDList& fsIDs, FsckErrorCode errorCode,
    }
 
    queryStr = "COMMIT;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    if (releaseHandle)
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return amountFailed;
 }
@@ -749,14 +689,6 @@ unsigned FsckDB::setRepairAction(FsckTargetIDList& targetIDs, FsckErrorCode erro
    std::string tableName = TABLE_NAME_ERROR(errorCode);
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
@@ -768,7 +700,7 @@ unsigned FsckDB::setRepairAction(FsckTargetIDList& targetIDs, FsckErrorCode erro
 
    // take all into one transaction (SQLite would treat every INSERT as transaction otherwise)
    std::string queryStr = "BEGIN TRANSACTION;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    for (FsckTargetIDListIter iter = targetIDs.begin(); iter != targetIDs.end(); iter++)
    {
@@ -777,7 +709,7 @@ unsigned FsckDB::setRepairAction(FsckTargetIDList& targetIDs, FsckErrorCode erro
          StringTk::uintToStr(iter->getID()) + "' AND targetIDType='"
          + StringTk::uintToStr((int)iter->getTargetIDType()) + "';";
 
-      int sqlRes = executeQuery(dbHandle, queryStr);
+      int sqlRes = dbHandle->sqliteBlockingExec(queryStr);
       if ( sqlRes != SQLITE_OK )
       {
          amountFailed++;
@@ -789,12 +721,10 @@ unsigned FsckDB::setRepairAction(FsckTargetIDList& targetIDs, FsckErrorCode erro
    }
 
    queryStr = "COMMIT;";
-   executeQuery(dbHandle, queryStr);
+   dbHandle->sqliteBlockingExec(queryStr);
 
    if (releaseHandle)
       dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return amountFailed;
 }
@@ -807,15 +737,12 @@ bool FsckDB::clearErrorTable(FsckErrorCode errorCode)
 
    std::string queryStr = "DELETE FROM " + tableName + " WHERE 1";
 
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
       retVal = false;
 
    this->dbHandlePool->releaseHandle(dbHandle);
-   safeLock.unlock();
 
    return retVal;
 }
@@ -838,16 +765,6 @@ bool FsckDB::addIgnoreErrorCode(std::string tableName, std::string whereClause,
    std::string queryStr = "UPDATE " + tableName + " SET " + IGNORE_ERRORS_FIELD + "="
       + IGNORE_ERRORS_FIELD + "|" + StringTk::intToStr((int) errorCode) + " WHERE " + whereClause;
 
-   // perform the query
-
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
    /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
@@ -859,13 +776,11 @@ bool FsckDB::addIgnoreErrorCode(std::string tableName, std::string whereClause,
       releaseHandle = true;
    }
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
       retVal = false;
 
    if ( releaseHandle )
       this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -893,14 +808,6 @@ bool FsckDB::addIgnoreAllErrorCodes(std::string tableName, std::string whereClau
    // perform the query
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
@@ -911,13 +818,11 @@ bool FsckDB::addIgnoreAllErrorCodes(std::string tableName, std::string whereClau
       releaseHandle = true;
    }
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
       retVal = false;
 
    if ( releaseHandle )
       this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }

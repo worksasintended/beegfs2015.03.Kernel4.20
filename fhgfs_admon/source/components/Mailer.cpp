@@ -231,7 +231,7 @@ void Mailer::notifyBackUpNodes()
 
     if (sendMail)
     {
-       log.log(5,"Sending eMail caused by nodes which are up again");
+       log.log(Log_SPAM,"Sending eMail caused by nodes which are up again");
        std::string subject = "BeeGFS : Nodes Up again";
        Mail::sendMail(runtimeCfg->getMailSmtpServer(),
           runtimeCfg->getMailSender(), runtimeCfg->getMailRecipient(),

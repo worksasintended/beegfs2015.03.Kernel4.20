@@ -93,7 +93,10 @@ def parseConfigFiles(file, verbose):
    for line in fileinput.input(file, inplace=True):
       line.strip()
       if line.startswith("#"):
-         sys.stdout.write(line)
+         if os.path.basename(file) == "beegfs-client-autobuild.conf":
+            sys.stdout.write(line.replace("FHGFS_OPENTK_IBVERBS", "BEEGFS_OPENTK_IBVERBS") )
+         else:
+            sys.stdout.write(line)
       elif line.startswith("connInterfacesFile"):
          lineSplit = line.split("=")
          if lineSplit[1].strip().startswith(FHGFS_CONF_DIR):

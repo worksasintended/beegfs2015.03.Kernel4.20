@@ -2,6 +2,7 @@
 #define FHGFSOPSCOMMKIT_H_
 
 #include <common/storage/PathInfo.h>
+#include <os/iov_iter.h>
 #include "FhgfsOpsCommKitCommon.h"
 
 struct ReadfileState;
@@ -63,10 +64,10 @@ extern void __FhgfsOpsCommKit_writefileV2bStartRetry(RWfileStatesHelper* statesH
 
 
 // inliners
-static inline ReadfileState FhgfsOpsCommKit_assignReadfileState(char __user *buf, loff_t offset,
-   size_t size, uint16_t targetID, char* msgBuf);
-static inline WritefileState FhgfsOpsCommKit_assignWritefileState(const char __user *buf,
-   loff_t offset, size_t size, uint16_t targetID, char* msgBuf);
+static inline ReadfileState FhgfsOpsCommKit_assignReadfileState(const struct iov_iter* data,
+   loff_t offset, uint16_t targetID, char* msgBuf);
+static inline WritefileState FhgfsOpsCommKit_assignWritefileState(const struct iov_iter* data,
+   loff_t offset, uint16_t targetID, char* msgBuf);
 static inline void FhgfsOpsCommKit_setWritefileStateUseBuddyMirrorSecond(
    fhgfs_bool useBuddyMirrorSecond, WritefileState* outState);
 static inline void FhgfsOpsCommKit_setWritefileStateUseServersideMirroring(
@@ -97,9 +98,8 @@ struct ReadfileState
    // data for all modes
 
    // (assigned by the state-creator)
-   char __user *buf; // the data that shall be transferred
+   struct iov_iter data;
    loff_t offset; // target-node local offset
-   size_t size; // size of the buf
    uint16_t targetID; // target ID
    char* msgBuf; // for serialization
 
@@ -134,9 +134,8 @@ struct WritefileState
    // data for all stages
 
    // (assigned by the state-creator)
-   const char __user *buf; // the data that shall be transferred
+   struct iov_iter data;
    loff_t offset; // target-node local offset
-   size_t size; // size of the buf
    uint16_t targetID; // target ID
    char* msgBuf; // for serialization
 
@@ -160,16 +159,15 @@ struct WritefileState
 /**
  * Note: Initializes the expectedNodeResult attribute from the size argument
  */
-ReadfileState FhgfsOpsCommKit_assignReadfileState(char __user *buf, loff_t offset, size_t size,
+ReadfileState FhgfsOpsCommKit_assignReadfileState(const struct iov_iter* data, loff_t offset,
    uint16_t targetID, char* msgBuf)
 {
    ReadfileState state =
    {
       .stage = ReadfileStage_PREPARE,
 
-      .buf = buf,
+      .data = *data,
       .offset = offset,
-      .size = size,
       .targetID = targetID,
       .msgBuf = msgBuf,
 
@@ -177,7 +175,7 @@ ReadfileState FhgfsOpsCommKit_assignReadfileState(char __user *buf, loff_t offse
       .useBuddyMirrorSecond = fhgfs_false, // set via separate setter method
 
       .nodeResult = -FhgfsOpsErr_INTERNAL,
-      .expectedNodeResult = size,
+      .expectedNodeResult = data->count,
 
    };
 
@@ -188,16 +186,15 @@ ReadfileState FhgfsOpsCommKit_assignReadfileState(char __user *buf, loff_t offse
  * Note: Initializes the expectedNodeResult attribute from the size argument
  * Note: defaults to server-side mirroring enabled.
  */
-WritefileState FhgfsOpsCommKit_assignWritefileState(const char __user *buf, loff_t offset,
-   size_t size, uint16_t targetID, char* msgBuf)
+WritefileState FhgfsOpsCommKit_assignWritefileState(const struct iov_iter* data, loff_t offset,
+   uint16_t targetID, char* msgBuf)
 {
    WritefileState state =
    {
       .stage = WritefileStage_PREPARE,
 
-      .buf = buf,
+      .data = *data,
       .offset = offset,
-      .size = size,
       .targetID = targetID,
       .msgBuf = msgBuf,
 
@@ -206,7 +203,7 @@ WritefileState FhgfsOpsCommKit_assignWritefileState(const char __user *buf, loff
       .useServersideMirroring = fhgfs_true, // set via separate setter method
 
       .nodeResult = -FhgfsOpsErr_INTERNAL,
-      .expectedNodeResult = size,
+      .expectedNodeResult = data->count,
    };
 
    return state;

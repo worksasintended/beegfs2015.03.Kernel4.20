@@ -2,9 +2,11 @@
 #include <app/App.h>
 #include <common/toolkit/SocketTk.h>
 #include <common/Common.h>
+#include <fault-inject/fault-inject.h>
 #include <filesystem/FhgfsOpsSuper.h>
 #include <filesystem/FhgfsOpsInode.h>
 #include <filesystem/FhgfsOpsPages.h>
+#include <filesystem/FhgfsOpsFileNative.h>
 #include <filesystem/ProcFs.h>
 #include <components/worker/RWPagesWork.h>
 #include <net/filesystem/FhgfsOpsRemoting.h>
@@ -22,12 +24,28 @@ int Program_main(void)
    fhgfs_bool rwPageQueueRes;
    fhgfs_bool msgBufCacheRes;
    fhgfs_bool pageVecCacheRes;
+   bool faultInjectRes;
+   bool nativeModeRes;
 
    assumptionsRes = os_checkCompileTimeAssumptions();
    if(!assumptionsRes)
    {
       printk_fhgfs(KERN_WARNING, "Compile-time assumptions were wrong. "
          "Please contact support.");
+      return APPCODE_PROGRAM_ERROR;
+   }
+
+   faultInjectRes = beegfs_fault_inject_init();
+   if(!faultInjectRes)
+   {
+      printk_fhgfs(KERN_WARNING, "could not register fault-injection debugfs dentry");
+      return APPCODE_PROGRAM_ERROR;
+   }
+
+   nativeModeRes = beegfs_native_init();
+   if(!nativeModeRes)
+   {
+      printk_fhgfs(KERN_WARNING, "could not allocate emergency pools");
       return APPCODE_PROGRAM_ERROR;
    }
 
@@ -99,9 +117,13 @@ void Program_exit(void)
    FhgfsOpsPages_destroyPageListVecCache();
 
    RWPagesWork_destroyWorkQueue();
-   
+
 
    SocketTk_uninitOnce();
+
+
+   beegfs_fault_inject_release();
+   beegfs_native_release();
 
    printk_fhgfs(KERN_INFO, "BeeGFS client unloaded.\n");
 }

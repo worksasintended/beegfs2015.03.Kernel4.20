@@ -30,7 +30,7 @@ class FsckDB
 
    public:
       // FsckDB.cpp
-      FsckDB(std::string dbFilename);
+      FsckDB(const std::string& databasePath);
       virtual ~FsckDB();
 
       void init(bool clearDB = true);
@@ -378,7 +378,7 @@ class FsckDB
 
    private:
       LogContext log;
-      std::string dbFilename;
+      std::string databasePath;
       DBHandlePool* dbHandlePool;
       RWLock rwlock;
 
@@ -408,8 +408,6 @@ class FsckDB
       void createTableWrongDirAttribs();
       void createTableMissingStorageTargets();
       void createTableFilesWithMissingTargets();
-      void createTableMissingMirrorChunks();
-      void createTableMissingPrimaryChunks();
       void createTableDifferingChunkAttribs();
       void createTableChunksWithWrongPermissions();
       void createTableChunksInWrongPath();
@@ -488,10 +486,6 @@ class FsckDB
          FsckErrorCode errorCode, DBHandle* dbHandle = NULL);
       bool addIgnoreAllErrorCodes(std::string tableName, std::string whereClause,
          DBHandle* dbHandle = NULL);
-
-      // FsckDB.cpp
-      int executeQuery(DBHandle *dbHandle, std::string queryStr, std::string* sqlErrorStr = NULL,
-         bool logErrors = true);
 
    public:
       DBHandlePool* getHandlePool()

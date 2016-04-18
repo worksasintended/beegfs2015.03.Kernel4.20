@@ -21,10 +21,9 @@ import javax.swing.JOptionPane;
 public class JInternalFrameNotifications extends javax.swing.JInternalFrame
    implements JInternalFrameInterface
 {
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
       JInternalFrameNotifications.class.getCanonicalName());
    private static final long serialVersionUID = 1L;
-
    private static final String THREAD_NAME = "Notification";
 
    /**
@@ -86,7 +85,11 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            e,
+            true
+         });
       }
    }
 
@@ -168,11 +171,15 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
       }
       catch (IOException e)
       {
-         logger.log(Level.SEVERE, "IO error", e);
+         LOGGER.log(Level.SEVERE, "IO error", e);
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            e,
+            true
+         });
       }
       finally
       {
@@ -185,7 +192,7 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
          }
          catch (IOException e)
          {
-            logger.log(Level.SEVERE, "IO error", e);
+            LOGGER.log(Level.SEVERE, "IO error", e);
          }
       }
    }
@@ -203,7 +210,11 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            e,
+            true
+         });
       }
    }
 
@@ -224,7 +235,11 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            e,
+            true
+         });
       }
    }
 
@@ -273,11 +288,15 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
       }
       catch (IOException e)
       {
-         logger.log(Level.SEVERE, "IO error", e);
+         LOGGER.log(Level.SEVERE, "IO error", e);
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication Error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication Error occured", new Object[]
+         {
+            e,
+            true
+         });
       }
       finally
       {
@@ -290,7 +309,7 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
          }
          catch (IOException e)
          {
-            logger.log(Level.SEVERE, "IO error", e);
+            LOGGER.log(Level.SEVERE, "IO error", e);
          }
       }
    }

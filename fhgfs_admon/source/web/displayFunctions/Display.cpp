@@ -1031,7 +1031,7 @@ cleanup:
 int Display::listDirFromOffset(std::string pathStr, int64_t *offset,
    FileEntryList *outEntries, uint64_t *tmpTotalSize, short count)
 {
-   log.log(5, std::string("Listing content of path: ") + pathStr);
+   log.log(Log_SPAM, std::string("Listing content of path: ") + pathStr);
    // find owner node
    *tmpTotalSize = 0;
    Path path(pathStr);

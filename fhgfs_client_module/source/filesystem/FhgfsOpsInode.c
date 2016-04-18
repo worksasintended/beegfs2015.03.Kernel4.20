@@ -12,6 +12,7 @@
 #include "FhgfsOpsDir.h"
 #include "FhgfsOpsInode.h"
 #include "FhgfsOpsFile.h"
+#include "FhgfsOpsFileNative.h"
 #include "FhgfsOpsHelper.h"
 
 #include <linux/namei.h>
@@ -2147,6 +2148,8 @@ struct inode* __FhgfsOps_newInodeWithParentID(struct super_block* sb, struct kst
 
    inode->i_flags |= S_NOATIME | S_NOCMTIME; // timestamps updated by server
 
+   mapping_set_gfp_mask(&inode->i_data, GFP_USER); // avoid highmem for page cache pages
+
    // move values (no actual string copy)
    EntryInfo_copy(entryInfo, FhgfsInode_getEntryInfo(fhgfsInode) );
 
@@ -2154,6 +2157,12 @@ struct inode* __FhgfsOps_newInodeWithParentID(struct super_block* sb, struct kst
    {
       case S_IFREG: // regular file
       {
+         if(Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Native)
+         {
+            inode->i_fop = &fhgfs_file_native_ops;
+            inode->i_data.a_ops = &fhgfs_addrspace_native_ops;
+         }
+         else
          if(Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Paged)
          { // with pagecache
             inode->i_fop = &fhgfs_file_pagecache_ops;

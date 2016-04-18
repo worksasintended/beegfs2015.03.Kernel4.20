@@ -5,6 +5,7 @@ import com.beegfs.admon.gui.common.XMLParser;
 import com.beegfs.admon.gui.common.enums.NodeTypesEnum;
 import com.beegfs.admon.gui.common.exceptions.CommunicationException;
 import com.beegfs.admon.gui.common.nodes.Node;
+import com.beegfs.admon.gui.common.nodes.TypedNodes;
 import static com.beegfs.admon.gui.common.tools.DefinesTk.DEFAULT_ENCODING_UTF8;
 import com.beegfs.admon.gui.components.internalframes.management.JInternalFrameRemoteLogFiles;
 import java.io.BufferedWriter;
@@ -12,8 +13,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.util.ArrayList;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JFileChooser;
@@ -23,11 +22,9 @@ import javax.swing.JOptionPane;
 
 public class RemoteLogFileTabPanel extends javax.swing.JPanel
 {
-   private static final long serialVersionUID = 1L;
-
-   static final Logger logger = Logger.getLogger(
+   static final Logger LOGGER = Logger.getLogger(
       JInternalFrameRemoteLogFiles.class.getCanonicalName());
-
+   private static final long serialVersionUID = 1L;
    private static final String THREAD_NAME = "LoadRemoteLogs";
 
    private final NodeTypesEnum type;
@@ -42,29 +39,29 @@ public class RemoteLogFileTabPanel extends javax.swing.JPanel
       initComponents();
       type = NodeTypesEnum.STORAGE;
       baseUrl = "";
-      initComboBox(new ArrayList<TreeMap<String, String>>(0));
+      initComboBox(new TypedNodes(NodeTypesEnum.STORAGE));
    }
 
    /**
     * Creates new form RemoteLogFilePanel
     */
-   public RemoteLogFileTabPanel(NodeTypesEnum newType, ArrayList<TreeMap<String, String>> nodes,
+   public RemoteLogFileTabPanel(TypedNodes nodes,
       String getLogfileUrl)
    {
       initComponents();
-      type = newType;
+      type = nodes.getNodeType();
       baseUrl = getLogfileUrl;
       initComboBox(nodes);
    }
 
-   private void initComboBox(ArrayList<TreeMap<String, String>> nodes)
+   private void initComboBox(TypedNodes nodes)
    {
-      for (TreeMap<String, String> groupedNode : nodes)
+      synchronized(nodes)
       {
-         String nodeID = groupedNode.get("value");
-         int nodeNumID = Integer.parseInt(groupedNode.get("nodeNumID"));
-         String node = Node.getTypedNodeID(nodeID, nodeNumID, type);
-         jComboBoxNodes.addItem(node);
+         for (Node node : nodes)
+         {
+            jComboBoxNodes.addItem(node.getTypedNodeID());
+         }
       }
       this.revalidate();
    }
@@ -231,7 +228,7 @@ public class RemoteLogFileTabPanel extends javax.swing.JPanel
       }
       catch (CommunicationException e)
       {
-         logger.log(Level.SEVERE, "Communication error occured", new Object[]{e, true});
+         LOGGER.log(Level.SEVERE, "Communication error occured", new Object[]{e, true});
       }
       return logFile;
    }
@@ -298,7 +295,7 @@ public class RemoteLogFileTabPanel extends javax.swing.JPanel
                }
                catch (IOException e)
                {
-                  logger.log(Level.SEVERE, "IO Exception occured while saving log file",
+                  LOGGER.log(Level.SEVERE, "IO Exception occured while saving log file",
                           new Object[]{e, true});
                }
                finally
@@ -311,7 +308,7 @@ public class RemoteLogFileTabPanel extends javax.swing.JPanel
                      }
                      catch (IOException ex)
                      {
-                        logger.log(Level.SEVERE, "IO Exception occured while saving log file",
+                        LOGGER.log(Level.SEVERE, "IO Exception occured while saving log file",
                           new Object[]{ex, true});
                      }
                   }

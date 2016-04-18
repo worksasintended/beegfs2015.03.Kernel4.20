@@ -17,18 +17,20 @@ import javax.swing.JTextPane;
 
 public class LogHandlerGui extends FileHandler
 {
-   static final Logger logger = Logger.getLogger(LogHandlerGui.class.getCanonicalName());
+   static final Logger LOGGER = Logger.getLogger(LogHandlerGui.class.getCanonicalName());
 
    private static final int INTERNAL_LOGGER_MAX_LOG_FILE_SIZE = 20971520; // 20MB
    private static final int INTERNAL_LOGGER_MAX_LOG_FILE_COUNT = 5;
 
-   private final Formatter formatter;
    private final TreeMap<String, Long> loggedData;
+
+   private final Formatter formatter;
 
    public LogHandlerGui() throws IOException
    {
       super(FilePathsEnum.LOG_FILE.getPath(), INTERNAL_LOGGER_MAX_LOG_FILE_SIZE,
               INTERNAL_LOGGER_MAX_LOG_FILE_COUNT, false);
+
       formatter = new LogFormatter(this.getLevel());
       setFormatter(formatter);
 
@@ -70,7 +72,7 @@ public class LogHandlerGui extends FileHandler
             }
             catch (NullPointerException npe)
             {
-               logger.log(Level.SEVERE, npe.getMessage(), npe);
+               LOGGER.log(Level.SEVERE, npe.getMessage(), npe);
             }
          }
       }

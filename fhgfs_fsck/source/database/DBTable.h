@@ -9,14 +9,17 @@ class DBTable
 {
    public:
       DBTable() : tableName(""), autoIncID(false) { };
-      DBTable(std::string tableName) : tableName(tableName), autoIncID(false) { };
+      DBTable(std::string schemaName, std::string tableName) : schemaName(schemaName),
+         tableName(tableName), autoIncID(false) { };
+      DBTable(std::string tableName) : schemaName(tableName), tableName(tableName),
+         autoIncID(false) { };
       virtual ~DBTable() { }
 
    private:
+      std::string schemaName;
       std::string tableName;
       DBFieldList fields;
       StringList primaryKey;
-      DBForeignKeyList foreignKeys;
       DBIndexList indices;
       bool autoIncID;
 
@@ -24,11 +27,6 @@ class DBTable
       DBFieldList getFields() const
       {
          return fields;
-      }
-
-      DBForeignKeyList getForeignKeys() const
-      {
-         return foreignKeys;
       }
 
       DBIndexList getIndices() const
@@ -39,6 +37,11 @@ class DBTable
       StringList getPrimaryKey() const
       {
          return primaryKey;
+      }
+
+      std::string getSchemaName() const
+      {
+         return schemaName;
       }
 
       std::string getTableName() const
@@ -61,11 +64,6 @@ class DBTable
          this->fields = fields;
       }
 
-      void setForeignKeys(DBForeignKeyList foreignKeys)
-      {
-         this->foreignKeys = foreignKeys;
-      }
-
       void setIndices(DBIndexList indices)
       {
          this->indices = indices;
@@ -84,11 +82,6 @@ class DBTable
       void addField(DBField field)
       {
          this->fields.push_back(field);
-      }
-
-      void addForeignKey(DBForeignKey foreignKey)
-      {
-         this->foreignKeys.push_back(foreignKey);
       }
 
       void addIndex(DBIndex index)

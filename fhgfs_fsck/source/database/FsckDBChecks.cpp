@@ -56,33 +56,23 @@ bool FsckDB::checkForAndInsertDirEntriesWithoutFileInode()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -125,33 +115,23 @@ bool FsckDB::checkForAndInsertDirEntriesWithoutDirInode()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -209,33 +189,23 @@ bool FsckDB::checkForAndInsertDirEntriesWithWrongFileOwner()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -280,33 +250,23 @@ bool FsckDB::checkForAndInsertDirEntriesWithWrongDirOwner()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -346,33 +306,23 @@ bool FsckDB::checkForAndInsertInodesWithWrongOwner()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -394,17 +344,7 @@ bool FsckDB::checkForAndInsertDirEntriesWithBrokenByIDFile()
 
    // NOTE: Only do this check for dentries, which have inlined inodes
    char* selectStmtStr = NULL;
-   /* size_t selectStmtStrLen =
-    asprintf(&selectStmtStr,
-    "SELECT %s,%s,%s FROM %s WHERE %s AND NOT EXISTS (SELECT * FROM %s WHERE %s.%s=%s.%s "
-    "AND %s.%s=%s.%s AND %s.%s=%s.%s AND %s.%s=%s.%s AND %s.%s=%s.%s) AND ~%s&%i",
-    "name", "parentDirID", "saveNodeID", tableNameDentries, "hasInlinedInode", tableNameFsIDs,
-    tableNameFsIDs, "id", tableNameDentries, "id", tableNameFsIDs, "parentDirID",
-    tableNameDentries, "parentDirID", tableNameFsIDs, "saveNodeID", tableNameDentries,
-    "saveNodeID", tableNameFsIDs, "saveDevice", tableNameDentries, "saveDevice",
-    tableNameFsIDs, "saveInode", tableNameDentries, "saveInode",
-    IGNORE_ERRORS_FIELD, FsckErrorCode_BROKENFSID);
-    */
+
 
    size_t selectStmtStrLen = asprintf(&selectStmtStr,
       "SELECT %s,%s,%s FROM %s WHERE %s AND %s!='%s' AND ~%s&%i EXCEPT "
@@ -432,33 +372,23 @@ bool FsckDB::checkForAndInsertDirEntriesWithBrokenByIDFile()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -483,7 +413,7 @@ bool FsckDB::checkForAndInsertOrphanedDentryByIDFiles()
    size_t selectStmtStrLen = asprintf(&selectStmtStr,
       "SELECT %s,%s,%s FROM %s WHERE ~%s&%i EXCEPT SELECT %s.%s,%s.%s,%s.%s FROM %s,%s "
          "WHERE %s.%s=%s.%s AND %s.%s=%s.%s AND %s.%s=%s.%s", "id", "parentDirID", "saveNodeID",
-      tableNameFsIDs, IGNORE_ERRORS_FIELD, FsckErrorCode_BROKENFSID, tableNameFsIDs, "id",
+      tableNameFsIDs, IGNORE_ERRORS_FIELD, FsckErrorCode_ORPHANEDFSID, tableNameFsIDs, "id",
       tableNameFsIDs, "parentDirID", tableNameFsIDs, "saveNodeID", tableNameDentries,
       tableNameFsIDs, tableNameFsIDs, "id", tableNameDentries, "id", tableNameFsIDs, "parentDirID",
       tableNameDentries, "parentDirID", tableNameFsIDs, "saveNodeID", tableNameDentries,
@@ -503,33 +433,24 @@ bool FsckDB::checkForAndInsertOrphanedDentryByIDFiles()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -573,33 +494,23 @@ bool FsckDB::checkForAndInsertOrphanedDirInodes()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -649,33 +560,23 @@ bool FsckDB::checkForAndInsertOrphanedFileInodes()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -717,33 +618,23 @@ bool FsckDB::checkForAndInsertOrphanedChunks()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -784,13 +675,6 @@ bool FsckDB::checkForAndInsertInodesWithoutContDir()
       return false;
    }
 
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
 
    /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
@@ -799,19 +683,17 @@ bool FsckDB::checkForAndInsertInodesWithoutContDir()
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -853,33 +735,23 @@ bool FsckDB::checkForAndInsertOrphanedContDirs()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -1003,16 +875,12 @@ bool FsckDB::checkForAndInsertWrongInodeFileAttribs()
                + " (internalID) VALUES ('" + StringTk::uint64ToStr(currentInode->getInternalID())
                + "'); COMMIT;";
 
-            SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-            if ( executeQuery(cursor->getHandle(), queryStr) != SQLITE_OK )
+            if ( cursor->getHandle()->sqliteBlockingExec(queryStr) != SQLITE_OK )
             {
                retVal = false;
                // explicitely end transaction if something went wrong
-               executeQuery(cursor->getHandle(), "COMMIT");
+               cursor->getHandle()->sqliteBlockingExec("COMMIT");
             }
-
-            safeLock.unlock();
          }
 
          currentInode = cursor->step();
@@ -1098,15 +966,6 @@ bool FsckDB::checkForAndInsertWrongInodeDirAttribs()
    }
 
    { // perform the query
-
-      /*
-       * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-       * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-       * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-       * coordinate access to the DB
-       */
-      SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
       /*
        * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
        * by opening the handle here (and not inside executeQuery), we make sure that we have one and
@@ -1114,16 +973,14 @@ bool FsckDB::checkForAndInsertWrongInodeDirAttribs()
        */
       DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-      if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+      if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
       {
          retVal = false;
          // explicitely end transaction if something went wrong
-         executeQuery(dbHandle, "COMMIT");
+         dbHandle->sqliteBlockingExec("COMMIT");
       }
 
       this->dbHandlePool->releaseHandle(dbHandle);
-
-      safeLock.unlock();
    }
 
    cleanup:
@@ -1180,15 +1037,7 @@ bool FsckDB::checkForAndInsertMissingStripeTargets(TargetMapper* targetMapper,
    std::string selectStmt = "SELECT id, targetIDType FROM " + tableNameUsedTargets + " WHERE "
       + whereClause;
    std::string queryStr = "BEGIN TRANSACTION; INSERT INTO " + tableName + "(id,targetIDType) "
-      + selectStmt + ";COMMIT;";
-
-   /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
+      + selectStmt + "; COMMIT;";
 
    /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
@@ -1197,17 +1046,15 @@ bool FsckDB::checkForAndInsertMissingStripeTargets(TargetMapper* targetMapper,
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       // we must call COMMIT here, because if query did not succeed transaction was most likely
       // not closed
       retVal = false;
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -1264,33 +1111,23 @@ bool FsckDB::checkForAndInsertFilesWithMissingStripeTargets()
       + "(name,parentDirID,saveNodeID) " + selectStmtStr + ";COMMIT;";
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       // we must call COMMIT here, because if query did not succeed transaction was most likely
       // not closed
       retVal = false;
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    this->dbHandlePool->releaseHandle(dbHandle);
 
    SAFE_FREE(selectStmtStr);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -1335,33 +1172,23 @@ bool FsckDB::checkForAndInsertChunksWithWrongPermissions()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
     */
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
-   if ( executeQuery(dbHandle, queryStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }
@@ -1404,14 +1231,6 @@ bool FsckDB::checkForAndInsertChunksInWrongPath()
    }
 
    /*
-    * When writing to the DB in parallel, the DB locks itself. SQLITE_BUSY is returned, and we have
-    * to retry until it works. We want to avoid SQLITE_BUSY results, because we experienced
-    * degraded performance with the "retry-methods". Therefore we use a RWLock ourselves to
-    * coordinate access to the DB
-    */
-   SafeRWLock safeLock(&this->rwlock, SafeRWLock_WRITE);
-
-   /*
     * take all into one transaction (SQLite would treat every INSERT as transaction otherwise);
     * by opening the handle here (and not inside executeQuery), we make sure that we have one and
     * the same handle for the complete transaction
@@ -1419,19 +1238,17 @@ bool FsckDB::checkForAndInsertChunksInWrongPath()
    DBHandle *dbHandle = this->dbHandlePool->acquireHandle();
 
    std::string errorStr;
-   if ( executeQuery(dbHandle, queryStr, &errorStr) != SQLITE_OK )
+   if ( dbHandle->sqliteBlockingExec(queryStr, &errorStr) != SQLITE_OK )
    {
       retVal = false;
       // explicitely end transaction if something went wrong
-      executeQuery(dbHandle, "COMMIT");
+      dbHandle->sqliteBlockingExec("COMMIT");
    }
 
    SAFE_FREE(selectStmtStr);
    SAFE_FREE(queryStr);
 
    this->dbHandlePool->releaseHandle(dbHandle);
-
-   safeLock.unlock();
 
    return retVal;
 }

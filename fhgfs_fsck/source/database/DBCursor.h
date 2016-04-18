@@ -80,8 +80,8 @@ class DBCursor
          int sqlite_retVal = SQLITE_BUSY;
          while (sqlite_retVal == SQLITE_BUSY)
          {
-            sqlite_retVal = sqlite3_prepare_v2( this->dbHandle->getHandle(), this->queryStr.c_str(),
-               this->queryStr.length(), &(this->stmt), NULL );
+            sqlite_retVal = dbHandle->sqliteBlockingPrepare(queryStr.c_str(), queryStr.length(),
+               &stmt, NULL );
          }
 
          if ( sqlite_retVal != SQLITE_OK)
@@ -94,9 +94,9 @@ class DBCursor
             return NULL;
          }
 
-         if( sqlite3_step( this->stmt ) == SQLITE_ROW )
+         if( dbHandle->sqliteBlockingStep(stmt) == SQLITE_ROW )
          {
-            DatabaseTk::createObjectFromRow(this->stmt, this->currentRow, this->resultColShift);
+            DatabaseTk::createObjectFromRow(stmt, currentRow, resultColShift);
             return this->currentRow;
          }
          else
@@ -108,10 +108,10 @@ class DBCursor
        */
       void close()
       {
-         if (this->dbHandle)
-            this->dbHandlePool->releaseHandle(dbHandle);
+         if (dbHandle)
+            dbHandlePool->releaseHandle(dbHandle);
 
-         sqlite3_finalize( this->stmt );
+         sqlite3_finalize( stmt );
       }
 
       /*
@@ -119,13 +119,13 @@ class DBCursor
        */
       sqlite3_stmt* stepRaw()
       {
-         if (!this->stmt)
+         if (!stmt)
          {
             log.log(3, "SQLite Statement is NULL. DBCursor was problably not opened.");
          }
 
-         if( sqlite3_step( this->stmt ) == SQLITE_ROW )
-            return this->stmt;
+         if( dbHandle->sqliteBlockingStep( stmt ) == SQLITE_ROW )
+            return stmt;
          else
             return NULL;
       }
@@ -137,15 +137,15 @@ class DBCursor
        */
       T* step()
       {
-         if (!this->stmt)
+         if (!stmt)
          {
             log.log(3, "SQLite Statement is NULL. DBCursor was problably not opened.");
             return NULL;
          }
 
-         if( sqlite3_step( this->stmt ) == SQLITE_ROW )
+         if( dbHandle->sqliteBlockingStep( stmt ) == SQLITE_ROW )
          {
-            DatabaseTk::createObjectFromRow(this->stmt, this->currentRow, this->resultColShift);
+            DatabaseTk::createObjectFromRow(stmt, currentRow, resultColShift);
             return this->currentRow;
          }
          else

@@ -12,6 +12,12 @@
 
 #include <sqlite3.h>
 
+#define DATABASE_MAINSCHEMANAME "beegfsfsck"
+
+const char* const dbSchemas[] =
+   { "dirEntries", "fileInodes", "dirInodes", "chunks", "contDirs", "fsIDs", "usedTargets",
+      "modificationEvents", "errors"};
+
 class FsckDB;
 
 class DatabaseTk
@@ -89,6 +95,9 @@ class DatabaseTk
 
       static std::string calculateExpectedChunkPath(std::string entryID, unsigned origParentUID,
          std::string origParentEntryID, int pathInfoFlags);
+
+      static bool removeDatabaseFiles(const std::string& databasePath);
+      static bool databaseFilesExist(const std::string& databasePath);
 };
 
 #endif /* DATABASETK_H_ */
