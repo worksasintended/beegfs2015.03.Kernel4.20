@@ -1,0 +1,280 @@
+#!/bin/bash
+
+#
+# this file defines the beegfs version for shell build/packaging scripts, so it
+# has to be sourcable.
+# to override the values, export $VER and $RELEASE_STR.
+# (see define_numeric_version_code() comments for format requirements.)
+#
+
+# echo to stderr
+echoerr()
+{
+   echo "$@" 1>&2
+}
+
+# print usage information
+print_usage_and_exit()
+{
+   echo "Arguments (only one of them may be specified):"
+   echo
+   echo "   --help / -h              print help and exit"
+   echo "   --print_version          print BEEGFS_VERSION result"
+   echo "   --print_major_version    print BEEGFS_MAJOR_RELEASE result"
+   echo "   --print_release_version  print BEEGFS_SUBRELEASE result"
+   echo "   --print_version_code     print BEEGFS_VERSION_CODE result"
+   echo "   --verbose                print given values and result values"
+
+   exit 1
+}
+
+# parse command line arguments and set corresponding variables
+parse_agruments()
+{
+   PARAM=$1
+
+   if [ -z "$1" ]; then
+      return 0
+   fi
+
+   case $PARAM in
+      -h | --help)
+         print_usage_and_exit
+         ;;
+      --print_version)
+         param_print_version=1
+         ;;
+      --print_major_version)
+         param_print_major_version=1
+         ;;
+      --print_release_version)
+         param_print_release_version=1
+         ;;
+      --print_version_code)
+         param_print_version_code=1
+         ;;
+      --verbose)
+         param_verbose=1
+         ;;
+      *)
+         echoerr "Error: Unknown parameter: '$PARAM'"
+         exit 1
+         ;;
+   esac
+}
+
+# default values for internal git builds.
+# these are not the actual variables that you want to override externally for
+# stable or beta releases.
+#
+# note that the format is important. see define_numeric_version_code() comments
+# before changing it.
+#
+# version default is current year and month, e.g. "2012.08"
+# release string default is "git<day_of_month>.<hour><minute><second>"
+define_internal_version_defaults()
+{
+   _default_version=`date +%Y.%m`
+   _default_release_str=git`date +%d.%H%M%S`
+}
+
+# assemble numeric beegfs version code from separate parameters.
+# this is not intended to be called only by define_numeric_version_code and not
+# directly.
+#
+# format of BEEGFS_VERSION_CODE is (4 bytes):
+# 1 byte release_type number
+# 1 byte ver_year-2000, e.g. 2012-2000=12 (-2000 to make it fit into 1 byte)
+# 1 byte ver_month
+# 1 byte release_num
+assemble_numeric_version_code()
+{
+   local release_type=$1
+   local ver_year=$2
+   local ver_month=$3
+   local release_num=$4
+
+   local max_one_byte_val=255
+   local ver_year_minus_2000=$[ver_year-2000]
+   local ver_month_stripped=`echo $ver_month | sed -r 's/^0*//'` # strip leading 0s
+   local release_num_stripped=`echo $release_num | sed -r 's/^0*//'` # strip leading 0s
+
+   # define $release_type_num from $release_type
+
+   case $release_type in
+      git)
+         release_type_num=1
+         ;;
+      beta)
+         release_type_num=2
+         ;;
+      r)
+         release_type_num=3
+         ;;
+      *)
+         echoerr "Error: release_type=$release_type: format is invalid"
+         exit 1
+         ;;
+   esac
+
+   # check ranges
+   if [ $ver_year_minus_2000 -gt $max_one_byte_val ]; then
+      echoerr "Error: ver_year_minus_2000=$ver_year_minus_2000: format is invalid"
+      exit 1
+   fi
+
+   if [ $ver_month_stripped -gt $max_one_byte_val ]; then
+      echoerr "Error: ver_month=$ver_month format is invalid"
+      exit 1
+   fi
+
+   if [ $release_num_stripped -gt $max_one_byte_val ]; then
+      echoerr "Error: release_num=$release_num: format is invalid"
+      exit 1
+   fi
+
+   # compute final BEEGFS_VERSION_CODE integer.
+   # note: $[...] interprets leading 0s as octal values, that's why they need
+   # to be stripped.
+
+   BEEGFS_VERSION_CODE=$[                       \
+      $release_type_num    * 256 * 256 * 256 + \
+      $ver_year_minus_2000 * 256 * 256 +       \
+      $ver_month_stripped  * 256 +             \
+      $release_num_stripped                    \
+      ]
+}
+
+# generate numeric beegfs version code and export as BEEGFS_VERSION_CODE.
+# this function parses $VER and $RELEASE_STR. it assumes a certain format of
+# these strings, so be careful. (the function will exit on parsing errors.)
+#
+# currently supported formats:
+# - VER is always assumed to be "<year>.<two_digit_month>"
+# - RELEASE_STR can have different formats:
+#   1) "r<release_number>" (e.g. "r1") for stable releases
+#   2) "beta<release_number>" (e.g. "beta1") for unstable releases
+#   3) "git<day_of_month>.<hour><minute><second>" for internal builds
+#
+# note: since release version is currently stored as a 8 bit value, it may not
+# be larger than 255 (so we test for three digits below).
+define_numeric_version_code()
+{
+   local is_ver_valid=`echo $VER | grep -E '^201[2-9]\.[0-1][0-9]$'`
+
+   if [ -z "$is_ver_valid" ]; then
+      echoerr "Error: VER=${VER}: format is invalid"
+      exit 1;
+   fi
+
+   # split VER into year and month
+
+   local ver_year=`echo $VER | cut -d. -f1`
+   local ver_month=`echo $VER | cut -d. -f2`
+
+   # test for stable release string ("r...")
+
+   local is_stable_rel_str=`echo $RELEASE_STR | grep -E '^r[0-9][0-9]?[0-9]?$'`
+   if [ ! -z $is_stable_rel_str ]; then
+      local release_type=`echo $RELEASE_STR | sed -r s/[0-9]+//`
+      local release_num=`echo $RELEASE_STR | sed -r s/r//`
+
+      assemble_numeric_version_code $release_type $ver_year $ver_month $release_num
+      return 0
+   fi
+
+   # test for beta release string ("beta...")
+
+   local is_stable_rel_str=`echo $RELEASE_STR | grep -E '^beta[0-9][0-9]?[0-9]?$'`
+   if [ ! -z $is_stable_rel_str ]; then
+      local release_type=`echo $RELEASE_STR | sed -r s/[0-9]+//`
+      local release_num=`echo $RELEASE_STR | sed -r s/beta//`
+
+      assemble_numeric_version_code $release_type $ver_year $ver_month $release_num
+      return 0
+   fi
+
+   # test for internal build release string ("gitNUM1.NUM2")
+
+   local is_stable_rel_str=`echo $RELEASE_STR | grep -E '^git[0-3][0-9]\.[0-9]+$'`
+   if [ ! -z $is_stable_rel_str ]; then
+      local release_str_stripped=`echo $RELEASE_STR | cut -d. -f1`
+
+      local release_type=`echo $release_str_stripped | sed -r s/[0-9]+//`
+      local release_num=`echo $release_str_stripped | sed -r s/git//`
+
+      assemble_numeric_version_code $release_type $ver_year $ver_month $release_num
+      return 0
+   fi
+
+   # if we got here, none of the know release string formats matched => error
+   echoerr "Error: RELEASE_STR=$RELEASE_STR: format is invalid"
+   exit 1;
+}
+
+# defines the debian version for .deb packaging
+# note: not related to the actual beegfs version, just another variable used in
+# build/packaging scripts
+define_debian_version()
+{
+   DEBIAN_VERSION=`lsb_release -r -s | sed -e 's/\..*$//'`
+}
+
+#
+############### END OF FUNCTION DEFINITIONS ###############
+#
+
+parse_agruments $*
+
+if [ ! -z "$param_show_help" ]; then
+   print_usage_and_exit
+fi
+
+# print initial verbose info
+if [ ! -z "$param_verbose" ]; then
+   echo Given values: VER=\'$VER\', RELEASE_STR=\'$RELEASE_STR\'
+fi
+
+# define default versions based on current date/time for internal git builds
+define_internal_version_defaults
+
+# these are the variables that are to be used in build scripts.
+# values can be overridden on the shell by "export VER=..." and
+# "export RELEASE_STR=...".
+# (if they are undefined, the internal git build defaults will be used)
+VER=${VER:-$_default_version}
+RELEASE_STR=${RELEASE_STR:-$_default_release_str}
+
+BEEGFS_VERSION="${VER}-${RELEASE_STR}"
+
+# generate $BEEGFS_VERSION_CODE based on $VER and $RELEASE_STR
+define_numeric_version_code
+
+# miscellaneous other definitions for build scripts etc...
+# (not related to the actual beegfs version definition)
+define_debian_version
+
+
+# special output (required when this is called from a makefile)
+
+if [ ! -z "$param_print_version" ]; then
+   echo $BEEGFS_VERSION
+fi
+
+if [ ! -z "$param_print_major_version" ]; then
+   echo ${VER}
+fi
+
+if [ ! -z "$param_print_release_version" ]; then
+   echo $RELEASE_STR
+fi
+
+if [ ! -z "$param_print_version_code" ]; then
+   echo $BEEGFS_VERSION_CODE
+fi
+
+# print final verbose info
+if [ ! -z "$param_verbose" ]; then
+   echo Result values: BEEGFS_VERSION=\'$BEEGFS_VERSION\', \
+      BEEGFS_VERSION_CODE=\'$BEEGFS_VERSION_CODE\'
+fi

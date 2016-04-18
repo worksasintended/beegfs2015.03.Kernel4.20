@@ -1,0 +1,6 @@
+__NAME__ (__VER__.__RELEASE_STR__.debian__DEBIAN_VERSION__) stable; urgency=low
+
+  * initial native debian packaging
+
+ -- BeeGFS Maintainers <packages@beegfs.com>  Wed, 16 Mar 2011 15:47:00 +0100
+

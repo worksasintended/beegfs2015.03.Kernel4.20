@@ -1,0 +1,47 @@
+#!/bin/bash 
+
+set -e
+
+NAME="beegfs-opentk-lib"
+
+source ../../beegfs-version
+
+BEEGFS_COMMON_PATH=${BEEGFS_COMMON_PATH:-`readlink -f ../../beegfs_common`}
+
+CHANGELOG="debian/changelog"
+RULES="debian/rules"
+
+sed \
+	-e "s/__NAME__/$NAME/g" 			\
+	-e "s/__VER__/$VER/"				\
+	-e "s/__RELEASE_STR__/$RELEASE_STR/"		\
+	-e "s/__DEBIAN_VERSION__/$DEBIAN_VERSION/g"   	\
+	${CHANGELOG}.in > ${CHANGELOG}
+
+sed \
+	-e "s#__BEEGFS_COMMON_PATH__#$BEEGFS_COMMON_PATH#g" 	\
+	-e "s/__BEEGFS_VERSION__/$BEEGFS_VERSION/g"   		\
+	-e "s/__VER__/$VER/g"					\
+	-e "s/__RELEASE_STR__/$RELEASE_STR/g"			\
+	-e "s/__NAME__/$NAME/g" 				\
+	-e "s/__USER_CXXFLAGS__/$USER_CXXFLAGS/g"		\
+	-e "s/__USER_LDFLAGS__/$USER_LDFLAGS/g"			\
+	${RULES}.in > ${RULES}
+
+chmod +x debian/rules
+
+#cp debian/package.lintian-overrides.in debian/${NAME}.lintian-overrides
+#sed -i -e "s/__NAME__/$NAME/g" debian/${NAME}.lintian-overrides
+
+# build the package and supress lintian warnings. Lintian in Lenny cannot
+# do that itself yet
+# NOTE: package not signed yet! (-us -uc)
+debuild -us -uc 2>&1 | egrep -v "dir-or-file-in-opt | file-in-unusual-dir"
+debuild clean
+
+if [ -z "$DEBIAN_ARCHIVE_DIR" ]; then
+	DEBIAN_ARCHIVE_DIR=`mktemp -d /tmp/debian_archive.XXXXXXXXX`
+fi
+
+mv ../*.build ../*.changes ../*.deb ../*.dsc ../*.tar.gz $DEBIAN_ARCHIVE_DIR/
+echo "Wrote package files to $DEBIAN_ARCHIVE_DIR"

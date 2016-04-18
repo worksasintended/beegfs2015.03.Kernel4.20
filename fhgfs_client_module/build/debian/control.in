@@ -1,0 +1,27 @@
+Source: beegfs-client
+Section: misc
+Priority: optional
+Maintainer: BeeGFS Maintainers <packages@beegfs.com>
+Build-Depends: debhelper (>= 7.0.0), lsb-release, module-init-tools
+Standards-Version: 3.8.0
+
+Package: beegfs-client
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends}, build-essential
+Recommends: linux-headers-2.6-686 | linux-headers-2.6-amd64 | linux-headers-generic | linux-headers
+Conflicts: beegfs-client-opentk-src (< __VER__)
+Description: BeeGFS client 
+ This package contains scripts, config and source files to build and start beegfs-client.
+
+Package: beegfs-client-compat-__VER__
+Architecture: all
+Description: BeeGFS client compat module, allows to run two different client versions.
+ This package allows to build and to run a compatbility client kernel module 
+ on a system that has a newer beegfs-client version installed.
+Depends: ${shlibs:Depends}, ${misc:Depends}, build-essential
+
+Package: beegfs-client-opentk-src
+Architecture: all
+Description: beegfs-client-opentk-src dummy upgrade package
+ This package can be safely removed. It merely exists to provide an upgrade path.
+

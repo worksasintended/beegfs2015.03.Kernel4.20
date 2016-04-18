@@ -1,0 +1,88 @@
+%define release_str %RELEASE_STR%
+%define ver %VER%
+%define buildarch %BUILDARCH%
+%define BEEGFS_VERSION %VER%-%RELEASE_STR%
+%define MAKE_CONCURRENCY %MAKE_CONCURRENCY%
+
+%define is_fedora %(test -e /etc/fedora-release && echo 1 || echo 0)
+%define is_redhat %(test -e /etc/redhat-release && echo 1 || echo 0)
+%define is_suse %(test -e /etc/SuSE-release && echo 1 || echo 0)
+%define is_mandrake %(test -e /etc/mandrake-release && echo 1 || echo 0)
+
+%if %is_mandrake
+%define disttag mdk
+%endif
+
+%if %is_suse
+%define disttag suse
+%define distver %(relpackage="`rpm -qf /etc/SuSE-release`"; release="`rpm -q --queryformat='%{VERSION}' $relpackage 2> /dev/null | tr . : | sed s/:.*$//g`" ; if test $? != 0 ; then release="" ; fi ; echo "$release")
+%endif
+
+%if %is_fedora
+%define disttag fc
+%endif
+
+%if %is_redhat
+%define disttag el
+%define distver %(relpackage="`rpm -qf /etc/redhat-release`"; release="`rpm -q --queryformat='%{VERSION}' $relpackage 2> /dev/null | tr . : | sed s/:.*$//g`" ; if test $? != 0 ; then release="" ; fi ; echo "$release")
+%endif
+
+%if %{defined disttag}
+%define release %{disttag}%{distver}
+%else
+%define release generic
+%endif
+
+%define debug_package %{nil}
+
+#
+# beeond creator
+#
+Summary: BeeOND
+Name: %NAME%
+Version: %{ver}.%{release_str}
+Release: %release
+License: BeegFS EULA
+Group: Software/Other
+Source: %NAME%-%{ver}-%{release_str}.tgz
+URL: http://www.beegfs.com
+Vendor: Fraunhofer ITWM
+BuildRoot: %{_tmppath}/%NAME%-root
+BuildArch: %{buildarch}
+requires: beeond-thirdparty-gpl = %{ver}.%{release_str}, beegfs-utils = %{ver}.%{release_str}, beegfs-mgmtd = %{ver}.%{release_str}, beegfs-meta = %{ver}.%{release_str}, beegfs-storage = %{ver}.%{release_str}, beegfs-client = %{ver}.%{release_str}, beegfs-helperd = %{ver}.%{release_str}
+
+%description
+This package contains BeeOND.
+
+
+%prep
+%setup -c
+
+%build
+# Nothing to do here.
+
+%install
+cd build
+mkdir -p ${RPM_BUILD_ROOT}
+mkdir -p ${RPM_BUILD_ROOT}
+mkdir -p ${RPM_BUILD_ROOT}/opt/beegfs/sbin
+mkdir -p ${RPM_BUILD_ROOT}/opt/beegfs/lib
+mkdir -p ${RPM_BUILD_ROOT}/usr/bin
+install -D ../source/beeond ${RPM_BUILD_ROOT}/opt/beegfs/sbin/beeond
+install -D ../source/beeond-cp ${RPM_BUILD_ROOT}/opt/beegfs/sbin/beeond-cp
+cp ../scripts/lib/* ${RPM_BUILD_ROOT}/opt/beegfs/lib/
+ln -s /opt/beegfs/sbin/beeond ${RPM_BUILD_ROOT}/usr/bin/beeond
+ln -s /opt/beegfs/sbin/beeond-cp ${RPM_BUILD_ROOT}/usr/bin/beeond-cp
+
+%post
+
+%preun
+
+%files
+%defattr(-,root,root)
+/opt/beegfs/sbin/beeond
+/usr/bin/beeond
+/opt/beegfs/sbin/beeond-cp
+/usr/bin/beeond-cp
+/opt/beegfs/lib/beeond-lib
+/opt/beegfs/lib/beegfs-ondemand-stoplocal
