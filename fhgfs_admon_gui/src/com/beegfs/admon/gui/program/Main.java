@@ -94,13 +94,32 @@ public class Main
        * Security.setProperty(BeeGFS_JAVA_NEGATIV_DNS_CACHE, "-1");
        */
 
+      String osName = System.getProperty("os.name");
+      boolean isMacOsx = osName.startsWith("Mac");
+      logger.log(Level.INFO, "Used operating system: {0} ", osName);
+
       // first tell SkinLF which theme to use
       try
       {
-         BeegfsLookAndFeel lf = new BeegfsLookAndFeel();
-         UIManager.setLookAndFeel(lf);
+         if(isMacOsx)
+         { // set Mac OSX specific configuraions
+
+            // take the menu bar off the jframe
+            System.setProperty("apple.laf.useScreenMenuBar", "true");
+
+            // set the name of the application menu item
+            System.setProperty("com.apple.mrj.application.apple.menu.about.name", "BeeGFS admon");
+
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName() );
+         }
+         else
+         { // use BeeGFS look and feel for all other OS
+            BeegfsLookAndFeel lf = new BeegfsLookAndFeel();
+            UIManager.setLookAndFeel(lf);
+         }
       }
-      catch (UnsupportedLookAndFeelException ex)
+      catch (ClassNotFoundException | InstantiationException | IllegalAccessException |
+         UnsupportedLookAndFeelException ex)
       {
          logger.log(Level.SEVERE, "Error", ex);
       }

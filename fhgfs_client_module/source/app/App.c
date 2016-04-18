@@ -444,7 +444,6 @@ fhgfs_bool __App_initDataObjects(App* this, MountConfig* mountConfig)
    switch(Config_getTuneFileCacheTypeNum(this->cfg) )
    {
       case FILECACHETYPE_Buffered:
-      case FILECACHETYPE_Hybrid:
          numCacheBufs = Config_getTuneFileCacheBufNum(this->cfg);
          break;
 
@@ -716,8 +715,7 @@ void __App_startComponents(App* this)
    Thread_start( (Thread*)this->internodeSyncer);
    Thread_start( (Thread*)this->ackManager);
 
-   if( (Config_getTuneFileCacheTypeNum(this->cfg) == FILECACHETYPE_Buffered) ||
-       (Config_getTuneFileCacheTypeNum(this->cfg) == FILECACHETYPE_Hybrid) )
+   if(Config_getTuneFileCacheTypeNum(this->cfg) == FILECACHETYPE_Buffered)
       Thread_start( (Thread*)this->flusher);
 
    Logger_log(this->logger, Log_DEBUG, logContext, "Components running.");
@@ -730,9 +728,7 @@ void __App_stopComponents(App* this)
    if(this->logger)
       Logger_log(this->logger, Log_WARNING, logContext, "Stopping components...");
 
-   if(this->flusher &&
-      ( (Config_getTuneFileCacheTypeNum(this->cfg) == FILECACHETYPE_Buffered) ||
-        (Config_getTuneFileCacheTypeNum(this->cfg) == FILECACHETYPE_Hybrid) ) )
+   if(this->flusher && Config_getTuneFileCacheTypeNum(this->cfg) == FILECACHETYPE_Buffered)
       Thread_selfTerminate( (Thread*)this->flusher);
    if(this->ackManager)
       Thread_selfTerminate( (Thread*)this->ackManager);
@@ -753,8 +749,7 @@ void __App_joinComponents(App* this)
       Logger_log(this->logger, 4, logContext, "Waiting for components to self-terminate...");
 
 
-   if( (Config_getTuneFileCacheTypeNum(this->cfg) == FILECACHETYPE_Buffered) ||
-       (Config_getTuneFileCacheTypeNum(this->cfg) == FILECACHETYPE_Hybrid) )
+   if(Config_getTuneFileCacheTypeNum(this->cfg) == FILECACHETYPE_Buffered)
       __App_waitForComponentTermination(this, (Thread*)this->flusher);
 
    __App_waitForComponentTermination(this, (Thread*)this->ackManager);

@@ -73,7 +73,7 @@ void ModeEnableQuota::printHeaderInformation()
    time(&t);
    std::string timeStr = std::string(ctime(&t));
    FsckTkEx::fsckOutput(
-      "Started FhGFS fsck in enableQuota mode [" + timeStr.substr(0, timeStr.length() - 1)
+      "Started BeeGFS fsck in enableQuota mode [" + timeStr.substr(0, timeStr.length() - 1)
          + "]\nLog will be written to " + cfg->getLogStdFile() + "\nDatabase will be saved as "
          + cfg->getDatabaseFile(), OutputOptions_LINEBREAK | OutputOptions_HEADLINE);
 }

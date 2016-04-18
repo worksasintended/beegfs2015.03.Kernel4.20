@@ -33,7 +33,7 @@ void ModeHelp::printGeneralHelp()
    std::cout << std::endl;
    std::cout << "MODES:" << std::endl;
    std::cout << " --checkfs     => Perform a full check and optional repair of " << std::endl;
-   std::cout << "                  a FhGFS instance." << std::endl;
+   std::cout << "                  a BeeGFS instance." << std::endl;
    std::cout << " --enablequota => Set attributes needed for quota support in FhGFS." << std::endl;
    std::cout << "                  Can be used to enable quota support on an existing" << std::endl;
    std::cout << "                  system." << std::endl;

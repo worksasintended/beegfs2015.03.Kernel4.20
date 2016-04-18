@@ -369,7 +369,7 @@ void FhgfsOps_killSB(struct super_block* sb)
 
    RWPagesWork_flushWorkQueue();
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32) && LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
    /**
     * s_fs_info might be NULL
     */

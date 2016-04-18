@@ -89,11 +89,11 @@ class ModeMigrate : public Mode
       bool getAndCheckEntryInfo(Node* ownerNode, std::string entryID);
       int addNodesToNodeStore(App* app, NodeStoreServers* mgmtNodes, Node** outMgmtNode);
       int getParams();
-      bool findFiles(std::string fileName, std::string dirName, int fileType);
+      int findFiles(std::string fileName, std::string dirName, int fileType);
       bool processDir(std::string& path);
       bool startFileMigration(std::string fileName, int fileType, std::string path,
          int dirFD, int numTargets, EntryInfo **inOutEntryInfo, bool isBuddyMirrored);
-      bool testFile(std::string& path, bool isDir, unsigned* outNumTargets,
+      int testFile(std::string& path, bool isDir, unsigned* outNumTargets,
          bool* outIsBuddyMirrored);
       bool getEntryTargets(std::string& path, StripePattern** outStripePattern,
          uint16_t* outMetaOwnerNodeID);

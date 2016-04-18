@@ -22,11 +22,6 @@ void FhgfsInode_initOnce(FhgfsInode* fhgfsInode)
    Mutex_init(&fhgfsInode->appendMutex);
    RWLock_init(&fhgfsInode->fileCacheLock);
    FhgfsInode_setNumDirtyPages(fhgfsInode, 0);
-
-   Mutex_init(&fhgfsInode->hybridModeMutex);
-   Condition_init(&fhgfsInode->hybridModeCond);
-   fhgfsInode->numHybridReaders = 0;
-   fhgfsInode->numHybridWriters = 0;
 }
 
 /**

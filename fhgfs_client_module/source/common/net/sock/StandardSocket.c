@@ -160,7 +160,11 @@ fhgfs_bool _StandardSocket_initSock(StandardSocket* this, int domain, int type, 
    #endif // KERNEL_HAS_CURRENT_NSPROXY
 
    // prepare/create socket
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
    createRes = sock_create_kern(domain, type, protocol, &this->sock);
+#else
+   createRes = sock_create_kern(&init_net, domain, type, protocol, &this->sock);
+#endif
    if(createRes < 0)
    {
       //printk_fhgfs(KERN_WARNING, "Failed to create socket\n");
@@ -712,7 +716,11 @@ ssize_t _StandardSocket_sendto(Socket* this, const void *buf, size_t len, int fl
 
    ACQUIRE_PROCESS_CONTEXT(oldfs);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
    sendRes = sock_sendmsg(thisCast->sock, &msg, len);
+#else
+   sendRes = sock_sendmsg(thisCast->sock, &msg);
+#endif
 
    RELEASE_PROCESS_CONTEXT(oldfs);
 

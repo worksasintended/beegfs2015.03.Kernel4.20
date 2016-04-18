@@ -719,9 +719,8 @@ int FhgfsOps_setattr(struct dentry* dentry, struct iattr* iattr)
    { // flush all dirty file data
       filemap_write_and_wait(inode->i_mapping);
 
-      if( (Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Buffered) ||
-          (Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Hybrid) )
-         FhgfsOpsHelper_flushCache(app, fhgfsInode, fhgfs_false);
+      if(Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Buffered)
+         FhgfsOpsHelper_flushCache(app, fhgfsInode, false);
    }
 
    OsTypeConv_iattrOsToFhgfs(iattr, &fhgfsAttr, &validFhgfsAttribs);
@@ -1752,11 +1751,10 @@ errorOldPath:
 }
 
 
-void* FhgfsOps_follow_link(struct dentry* dentry, struct nameidata* nd)
+static void __beegfs_follow_link(struct dentry* dentry, char** linkBody, void** cookie)
 {
-   void* retVal = NULL;
-
-   App* app = FhgfsOps_getApp(dentry->d_sb);
+   struct inode* inode = dentry->d_inode;
+   App* app = FhgfsOps_getApp(inode->i_sb);
    Logger* log = App_getLogger(app);
    const char* logContext = "FhgfsOps_follow_link";
 
@@ -1764,7 +1762,6 @@ void* FhgfsOps_follow_link(struct dentry* dentry, struct nameidata* nd)
    char* bufPage = (char*)__os_get_free_page();
    char* destination = bufPage;
 
-   struct inode* inode = dentry->d_inode;
    FhgfsInode* fhgfsParentInode = BEEGFS_INODE(inode);
 
    if(unlikely(Logger_getLogLevel(log) >= 5) )
@@ -1790,26 +1787,55 @@ void* FhgfsOps_follow_link(struct dentry* dentry, struct nameidata* nd)
    }
 
    // store link destination
-   nd_set_link(nd, destination);
-
-   // clean-up
+   *linkBody = destination;
+   *cookie = bufPage;
 
    if(IS_ERR(destination) )
-      os_free_page( (unsigned long)bufPage);
+   {
+      free_page( (unsigned long)bufPage);
+      *cookie = destination;
+   }
 
    // Note: free_page() is called by the put_link method in the success case
-
-   return retVal;
 }
 
-
-void FhgfsOps_put_link(struct dentry *dentry, struct nameidata* nd, void* p)
+static void __beegfs_put_link(struct inode* inode, void* cookie)
 {
-   char* destination = nd_get_link(nd);
-
-   if(!IS_ERR(destination) )
-      os_free_page( (unsigned long)destination);
+   free_page( (unsigned long)cookie);
 }
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
+void* FhgfsOps_follow_link(struct dentry* dentry, struct nameidata* nd)
+{
+   char* destination;
+   void* cookie;
+
+   __beegfs_follow_link(dentry, &destination, &cookie);
+   nd_set_link(nd, destination);
+   return cookie;
+}
+
+
+void FhgfsOps_put_link(struct dentry* dentry, struct nameidata* nd, void* p)
+{
+   if(!IS_ERR(p) )
+      __beegfs_put_link(dentry->d_inode, p);
+}
+#else
+const char* FhgfsOps_follow_link(struct dentry* dentry, void** cookie)
+{
+   char* destination;
+
+   __beegfs_follow_link(dentry, &destination, cookie);
+   return destination;
+}
+
+
+void FhgfsOps_put_link(struct inode* inode, void* cookie)
+{
+   __beegfs_put_link(inode, cookie);
+}
+#endif
 
 
 int FhgfsOps_rename(struct inode* inodeDirFrom, struct dentry* dentryFrom,
@@ -2128,12 +2154,6 @@ struct inode* __FhgfsOps_newInodeWithParentID(struct super_block* sb, struct kst
    {
       case S_IFREG: // regular file
       {
-         if(Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Hybrid)
-         { // with hybrid cache (read paged, write buffered)
-            inode->i_fop = &fhgfs_file_hybridcache_ops;
-            inode->i_data.a_ops = &fhgfs_address_pagecache_ops;
-         }
-         else
          if(Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Paged)
          { // with pagecache
             inode->i_fop = &fhgfs_file_pagecache_ops;
@@ -2330,9 +2350,7 @@ int __FhgfsOps_flushInodeFileCache(App* app, struct inode* inode)
       }
    }
 
-   if(S_ISREG(inode->i_mode) &&
-      ( (Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Buffered) ||
-        (Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Hybrid) ) )
+   if(S_ISREG(inode->i_mode) && Config_getTuneFileCacheTypeNum(cfg) == FILECACHETYPE_Buffered)
    { // regular file and buffered mode => flush write cache for correct file size
       FhgfsOpsErr flushRes = FhgfsOpsHelper_flushCache(app, fhgfsInode, fhgfs_false);
       if(unlikely(flushRes != FhgfsOpsErr_SUCCESS) )

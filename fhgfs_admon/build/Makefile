@@ -96,10 +96,10 @@ all: admon
 admon: test_version $(SOURCES) $(EXE)
 
 admon_gui:
-	set -e 						&& \
-	pushd $(ADMON_GUI_PATH)				&& \
-	ant -lib $(ANT_FINDBUGS_LIB) clean || true	&& \
-	ant -lib $(ANT_FINDBUGS_LIB)			&& \
+	set -e 										&& \
+	pushd $(ADMON_GUI_PATH)								&& \
+	ant -lib $(ANT_FINDBUGS_LIB) -DBEEGFS_VERSION=$(BEEGFS_VERSION) clean || true	&& \
+	ant -lib $(ANT_FINDBUGS_LIB) -DBEEGFS_VERSION=$(BEEGFS_VERSION)			&& \
 	popd # ADMON_GUI_PATH
 
 test_version:

@@ -643,7 +643,9 @@ unsigned InternodeSyncer::dropIdleConnsByStore(NodeStoreServersEx* nodes)
  */
 void InternodeSyncer::clearStaleCapacityReports(const NodeType nodeType)
 {
-   TargetStateStore* targetStateStore = Program::getApp()->getTargetStateStore();
+   TargetStateStore* stateStore = (nodeType == NODETYPE_Meta)
+      ? Program::getApp()->getMetaStateStore()
+      : Program::getApp()->getTargetStateStore();
 
    RWLock* reportsRWLock = (nodeType == NODETYPE_Meta)
       ? &nodeCapacityReportMapLock
@@ -665,7 +667,7 @@ void InternodeSyncer::clearStaleCapacityReports(const NodeType nodeType)
 
       CombinedTargetState targetState;
 
-      bool getStateRes = targetStateStore->getState(targetID, targetState);
+      bool getStateRes = stateStore->getState(targetID, targetState);
 
       if ( !getStateRes || (targetState != onlineGoodState) )
          capacityReportMap.erase(reportIter++);

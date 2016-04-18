@@ -74,53 +74,13 @@ struct file_operations fhgfs_file_pagecache_ops =
 {
    .open                = FhgfsOps_open,
    .release             = FhgfsOps_release,
-   .read                = FhgfsOps_readPaged,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
-   .write               = new_sync_write, // "new" here means iter-based (so it calls write_iter() )
    .read_iter           = FhgfsOps_read_iter, // replacement for aio_read
    .write_iter          = FhgfsOps_write_iter, // replacement for aio_write
 #else
    .write               = do_sync_write, // (calls aio_write() )
    .aio_read            = FhgfsOps_aio_read,
    .aio_write           = FhgfsOps_aio_write,
-#endif // LINUX_VERSION_CODE
-   .fsync               = FhgfsOps_fsync,
-   .flush               = FhgfsOps_flush,
-   .llseek              = FhgfsOps_llseek,
-   .flock               = FhgfsOps_flock,
-   .lock                = FhgfsOps_lock,
-   .mmap                = FhgfsOps_mmap,
-   .unlocked_ioctl      = FhgfsOpsIoctl_ioctl,
-#ifdef CONFIG_COMPAT
-   .compat_ioctl        = FhgfsOpsIoctl_compatIoctl,
-#endif // CONFIG_COMPAT
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
-   .splice_read  = generic_file_splice_read,
-   .splice_write = iter_file_splice_write,
-#else
-   .splice_read  = generic_file_splice_read,
-   .splice_write = generic_file_splice_write,
-#endif // LINUX_VERSION_CODE
-
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,22)
-   .sendfile   = generic_file_sendfile, // removed in 2.6.23 (now handled via splice)
-#endif // LINUX_VERSION_CODE
-};
-
-/**
- * Operations for files with cache type "hybrid" (i.e. read paged, write buffered).
- */
-struct file_operations fhgfs_file_hybridcache_ops =
-{
-   .open                = FhgfsOps_open,
-   .release             = FhgfsOps_release,
-   .read                = FhgfsOps_readPagedHybrid,
-   .write               = FhgfsOps_writeHybrid,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
-   .read_iter           = FhgfsOps_read_iter, // replacement for aio_read
-#else
-   .aio_read            = FhgfsOps_aio_read,
 #endif // LINUX_VERSION_CODE
    .fsync               = FhgfsOps_fsync,
    .flush               = FhgfsOps_flush,
@@ -988,93 +948,6 @@ ssize_t FhgfsOps_read(struct file* file, char __user *buf, size_t size, loff_t *
    return readRes;
 }
 
-ssize_t FhgfsOps_readPaged(struct file* file, char __user *buf, size_t size, loff_t* offsetPointer)
-{
-   ssize_t readRes;
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
-   struct inode* inode = file->f_mapping->host;
-
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, __func__, "(offset: %lld; size: %lld)",
-      (long long)*offsetPointer, (long long)size);
-   IGNORE_UNUSED_VARIABLE(app);
-   IGNORE_UNUSED_VARIABLE(inode);
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
-   readRes = new_sync_read(file, buf, size, offsetPointer); // (will update offsetPointer)
-#else
-   readRes = do_sync_read(file, buf, size, offsetPointer); // (will update offsetPointer)
-#endif // LINUX_VERSION_CODE
-
-
-   // note: we have no special sparse file read handling here, because that is already included in
-      // readpage_sync() and kernel just looks at i_size for file length
-
-   return readRes;
-}
-
-/**
- * Read method for hybrid mode.
- * Flush write buffers and call paged read method.
- */
-ssize_t FhgfsOps_readPagedHybrid(struct file* file, char __user *buf, size_t size,
-   loff_t *offsetPointer)
-{
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
-
-   struct inode* inode = file->f_mapping->host;
-   FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
-   Mutex* hybridModeMutex;
-   Condition* hybridModeCond;
-   unsigned short* numHybridReaders;
-   unsigned short* numHybridWriters;
-   FhgfsOpsErr flushRes;
-   ssize_t readRes;
-
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, __func__, "(offset: %lld; size: %lld)",
-      (long long)*offsetPointer, (long long)size);
-   IGNORE_UNUSED_VARIABLE(app);
-
-   FhgfsInode_getHybridModeInfo(fhgfsInode, &hybridModeMutex, &hybridModeCond,
-      &numHybridReaders, &numHybridWriters);
-
-   Mutex_lock(hybridModeMutex); // L O C K
-
-   while(*numHybridWriters)
-   {
-      cond_wait_res_t waitRes = Condition_waitInterruptible(hybridModeCond, hybridModeMutex);
-      if(waitRes == COND_WAIT_SIGNAL)
-         return -EINTR;
-   }
-
-   (*numHybridReaders)++;
-
-   Mutex_unlock(hybridModeMutex); // U N L O C K
-
-
-   // flush buffer cache
-   flushRes = FhgfsOpsHelper_flushCache(app, fhgfsInode, fhgfs_false);
-   if(unlikely(flushRes != FhgfsOpsErr_SUCCESS) )
-   { // error
-      readRes = FhgfsOpsErr_toSysErr(flushRes);
-      goto cleanup_and_exit;
-   }
-
-   readRes = FhgfsOps_readPaged(file, buf, size, offsetPointer);
-
-
-cleanup_and_exit:
-   Mutex_lock(hybridModeMutex); // L O C K
-
-   (*numHybridReaders)--;
-
-   if(!*numHybridReaders)
-      Condition_broadcast(hybridModeCond); // wake up blocked writers
-
-   Mutex_unlock(hybridModeMutex); // U N L O C K
-
-   return readRes;
-}
-
 /**
  * Special reading mode that is slower (e.g. not parallel) but compatible with sparse files.
  *
@@ -1197,7 +1070,7 @@ ssize_t FhgfsOps_write(struct file* file, const char __user *buf, size_t size,
    FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, __func__, "(offset: %lld; size: %lld)",
       (long long)*offsetPointer, (long long)size);
 
-   writeCheckRes = generic_write_checks(file, offsetPointer, &size, S_ISBLK(inode->i_mode) );
+   writeCheckRes = os_generic_write_checks(file, offsetPointer, &size, S_ISBLK(inode->i_mode) );
    if(unlikely(writeCheckRes) )
       return writeCheckRes;
 
@@ -1277,62 +1150,6 @@ unlockappend_and_exit:
    return writeRes;
 }
 
-/**
- * Write method for hybrid cache mode.
- * Flush read pages and call buffered write method.
- */
-ssize_t FhgfsOps_writeHybrid(struct file* file, const char __user *buf, size_t size,
-   loff_t* offsetPointer)
-{
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
-
-   struct inode* inode = file->f_mapping->host;
-   FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
-   Mutex* hybridModeMutex;
-   Condition* hybridModeCond;
-   unsigned short* numHybridReaders;
-   unsigned short* numHybridWriters;
-   ssize_t writeRes;
-
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, __func__, "(offset: %lld; size: %lld)",
-      (long long)*offsetPointer, (long long)size);
-   IGNORE_UNUSED_VARIABLE(app);
-
-   FhgfsInode_getHybridModeInfo(fhgfsInode, &hybridModeMutex, &hybridModeCond,
-      &numHybridReaders, &numHybridWriters);
-
-
-   Mutex_lock(hybridModeMutex); // L O C K
-
-   while(*numHybridReaders)
-   {
-      cond_wait_res_t waitRes = Condition_waitInterruptible(hybridModeCond, hybridModeMutex);
-      if(waitRes == COND_WAIT_SIGNAL)
-         return -EINTR;
-   }
-
-   (*numHybridWriters)++;
-
-   Mutex_unlock(hybridModeMutex); // U N L O C K
-
-
-   invalidate_remote_inode(inode); // invalidate read pages
-
-   writeRes = FhgfsOps_write(file, buf, size, offsetPointer);
-
-
-   Mutex_lock(hybridModeMutex); // L O C K
-
-   (*numHybridWriters)--;
-
-   if(!*numHybridWriters)
-      Condition_broadcast(hybridModeCond); // wake up blocked readers
-
-   Mutex_unlock(hybridModeMutex); // U N L O C K
-
-   return writeRes;
-}
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
 
 ssize_t FhgfsOps_aio_write(struct kiocb *iocb, const char __user *buf, size_t count, loff_t pos)
@@ -1387,7 +1204,7 @@ ssize_t FhgfsOps_write_iter(struct kiocb *iocb, struct iov_iter *from)
          return retVal;
    }
 
-   writeCheckRes = generic_write_checks(file, &pos, &count, S_ISBLK(inode->i_mode) );
+   writeCheckRes = os_generic_write_checks(file, &pos, &count, S_ISBLK(inode->i_mode) );
    if(unlikely(writeCheckRes) )
       return writeCheckRes;
 
@@ -1896,7 +1713,14 @@ int FhgfsOps_write_end(struct file* file, struct address_space* mapping,
  * @param pos file offset
  * @param nr_segs length of iov array
  */
-#ifdef KERNEL_HAS_DIRECT_IO_ITER
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+ssize_t FhgfsOps_directIO(struct kiocb *iocb, struct iov_iter *iter, loff_t pos)
+{
+   int rw = iov_iter_rw(iter);
+   const struct iovec* iov = iter->iov;
+   unsigned long nr_segs = iter->nr_segs;
+
+#elif defined(KERNEL_HAS_DIRECT_IO_ITER)
 
 ssize_t FhgfsOps_directIO(int rw, struct kiocb *iocb, struct iov_iter *iter, loff_t pos)
 {

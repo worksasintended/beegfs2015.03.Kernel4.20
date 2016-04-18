@@ -24,7 +24,7 @@ int ModeHelp::execute()
 
 void ModeHelp::printGeneralHelp()
 {
-   std::cout << "FhGFS Command-Line Control Tool (http://www.fhgfs.com)" << std::endl;
+   std::cout << "BeeGFS Command-Line Control Tool (http://www.beegfs.com)" << std::endl;
    std::cout << "Version: " << BEEGFS_VERSION << std::endl;
    std::cout << std::endl;
    std::cout << "GENERAL USAGE:" << std::endl;
@@ -66,7 +66,7 @@ void ModeHelp::printGeneralHelp()
    std::cout << "*) Marked modes require root privileges." << std::endl;
    std::cout << std::endl;
    std::cout << "USAGE:" << std::endl;
-   std::cout << " This is the FhGFS command-line control tool." << std::endl;
+   std::cout << " This is the BeeGFS command-line control tool." << std::endl;
    std::cout << std::endl;
    std::cout << " Choose a control mode from the list above and use the parameter \"--help\" to" << std::endl;
    std::cout << " show arguments and usage examples for that particular mode." << std::endl;

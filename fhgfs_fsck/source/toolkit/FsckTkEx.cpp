@@ -263,7 +263,7 @@ void FsckTkEx::printVersionHeader(bool toStdErr, bool noLogFile)
    }
 
    FsckTkEx::fsckOutput("\n", optionFlags);
-   FsckTkEx::fsckOutput("FhGFS File System Check Version : " + std::string(BEEGFS_VERSION),
+   FsckTkEx::fsckOutput("BeeGFS File System Check Version : " + std::string(BEEGFS_VERSION),
       optionFlags);
    FsckTkEx::fsckOutput("----", optionFlags);
 }

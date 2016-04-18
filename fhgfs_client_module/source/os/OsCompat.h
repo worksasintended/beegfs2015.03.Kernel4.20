@@ -204,4 +204,30 @@ static inline int os_posix_acl_to_xattr(const struct posix_acl* acl, void* buffe
 #endif
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+# define os_generic_write_checks generic_write_checks
+#else
+static inline int os_generic_write_checks(struct file* filp, loff_t* offset, size_t* size,
+   int isblk)
+{
+   struct iovec iov = { 0, *size };
+   struct iov_iter iter;
+   ssize_t checkRes;
+   struct kiocb iocb;
+
+   iov_iter_init(&iter, WRITE, &iov, 1, *size);
+   init_sync_kiocb(&iocb, filp);
+   iocb.ki_pos = *offset;
+
+   checkRes = generic_write_checks(&iocb, &iter);
+   if(checkRes < 0)
+      return checkRes;
+
+   *offset = iocb.ki_pos;
+   *size = iter.count;
+
+   return 0;
+}
+#endif
+
 #endif /* OSCOMPAT_H_ */

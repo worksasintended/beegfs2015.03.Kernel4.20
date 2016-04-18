@@ -34,6 +34,11 @@ int ModeGenericDebug::execute()
 
    StringMapIter iter;
 
+   // check privileges
+
+   if(!ModeHelper::checkRootPrivileges() )
+      return APPCODE_RUNTIME_ERROR;
+
    // check arguments
 
    NodeType nodeType = ModeHelper::nodeTypeFromCfg(cfg);

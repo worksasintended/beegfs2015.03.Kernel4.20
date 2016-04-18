@@ -72,31 +72,32 @@
    -->
 
    <target name="-pre-compile">
-      <property environment="env"/>
-      <condition property="VERSION" value="${env.BEEGFS_VERSION}" else="DEBUG">
-         <isset property="env.BEEGFS_VERSION"/>
+      <condition property="VERSION" value="${BEEGFS_VERSION}" else="DEBUG">
+         <isset property="BEEGFS_VERSION"/>
       </condition>
+      <echo>BEEGFS_VERSION: ${VERSION}</echo>
       <replace file="${src.dir}/com/beegfs/admon/gui/program/Main.java" token="@VERSION@"
                value="${VERSION}"/>
-
-      <property environment="env"/>
-      <condition property="VERSION" value="${env.BEEGFS_VERSION}" else="DEBUG">
-         <isset property="env.BEEGFS_VERSION"/>
-      </condition>
-      <replace file="manifest.mf" token="@VERSION@" value="${VERSION}"/>
    </target>
 
    <target name="-post-compile">
-      <property environment="env"/>
-      <condition property="VERSION" value="${env.BEEGFS_VERSION}" else="DEBUG">
-         <isset property="env.BEEGFS_VERSION"/>
+      <condition property="VERSION" value="${BEEGFS_VERSION}" else="DEBUG">
+         <isset property="BEEGFS_VERSION"/>
       </condition>
       <replace file="${src.dir}/com/beegfs/admon/gui/program/Main.java" value="@VERSION@"
                token="${VERSION}"/>
    </target>
 
+   <target name="-pre-jar">
+      <condition property="VERSION" value="${BEEGFS_VERSION}" else="DEBUG">
+         <isset property="BEEGFS_VERSION"/>
+      </condition>
+      <echo>BEEGFS_VERSION: ${VERSION}</echo>
+      <replace file="manifest.mf" token="@VERSION@" value="${VERSION}"/>
+   </target>
+
    <taskdef name="one-jar" classname="com.simontuffs.onejar.ant.OneJarTask"
-            classpath="one-jar/one-jar-ant-task-0.96.jar" onerror="report"/>
+            classpath="one-jar/one-jar-ant-task-0.97.jar" onerror="report"/>
 
    <target name="-post-jar">
       <move file="${dist.dir}/${ant.project.name}.jar" tofile="${dist.dir}/main.jar"/>
@@ -124,9 +125,8 @@
       <delete dir="${dist.dir}/lib"/>
       <delete file="${dist.dir}/main.jar"/>
 
-      <property environment="env"/>
-      <condition property="VERSION" value="${env.BEEGFS_VERSION}" else="DEBUG">
-         <isset property="env.BEEGFS_VERSION"/>
+      <condition property="VERSION" value="${BEEGFS_VERSION}" else="DEBUG">
+         <isset property="BEEGFS_VERSION"/>
       </condition>
       <replace file="manifest.mf" value="@VERSION@" token="${VERSION}"/>
    </target>
@@ -144,9 +144,8 @@
    </target>
 
    <target name="-post-clean">
-      <property environment="env"/>
-      <condition property="VERSION" value="${env.BEEGFS_VERSION}" else="DEBUG">
-         <isset property="env.BEEGFS_VERSION"/>
+      <condition property="VERSION" value="${BEEGFS_VERSION}" else="DEBUG">
+         <isset property="BEEGFS_VERSION"/>
       </condition>
       <replace file="manifest.mf" value="@VERSION@" token="${VERSION}"/>
    </target>

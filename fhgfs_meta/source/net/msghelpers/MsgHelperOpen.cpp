@@ -40,7 +40,7 @@ FhgfsOpsErr MsgHelperOpen::openFile(EntryInfo* entryInfo, unsigned accessFlags,
    if(unlikely( (chunkSize < STRIPEPATTERN_MIN_CHUNKSIZE) ||
                 !MathTk::isPowerOfTwo(chunkSize) ) )
    { // validity check failed => don't open this file (we would risk corrupting it otherwise)
-      LogContext(logContext).logErr("This version of FhGFS is not compatible with this "
+      LogContext(logContext).logErr("This version of BeeGFS is not compatible with this "
          "chunk size: " + StringTk::uintToStr(chunkSize) + ". "
          "Refusing to open file. "
          "parentInfo: " + entryInfo->getParentEntryID() + " "

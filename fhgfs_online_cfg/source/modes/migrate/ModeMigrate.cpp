@@ -13,9 +13,12 @@
 
 #define MGMT_TIMEOUT_MS 2500
 
+#define MODE_FIND_ERR_SUCCESS     0 // file is located on given target
+#define MODE_FIND_ERR_INTERNAL   -1 // internal error
+#define MODE_FIND_ERR_NOT_FOUND  -2 // file not found on given targets
+
 typedef std::map<uint16_t, UInt16List*> NodeTargetMap;
 typedef NodeTargetMap::iterator NodeTargetMapIter;
-
 
 /**
  * Entry method for mode "migrate" (and for mode "find" via executeFind() with
@@ -27,7 +30,7 @@ int ModeMigrate::doExecute()
 
    NodeStoreServers* mgmtNodes = app->getMgmtNodes();
    Node* mgmtNode = NULL;
-   bool findRes;
+   int findRes = MODE_FIND_ERR_SUCCESS;
 
    int retVal = getParams();
    if (retVal != APPCODE_NO_ERROR)
@@ -81,7 +84,7 @@ int ModeMigrate::doExecute()
 
    if (!ModeHelper::fdIsOnFhgfs(this->rootFD) )
    {
-      std::cerr << this->cfgSearchPath << " is not a FhGFS directory. Aborting." << std::endl;
+      std::cerr << this->cfgSearchPath << " is not a BeeGFS directory. Aborting." << std::endl;
       return APPCODE_RUNTIME_ERROR;
    }
 
@@ -103,7 +106,13 @@ int ModeMigrate::doExecute()
     *       be shown. In general it does not work properly to throw exceptions from the
     *       signal-handler. But especially with our processDir recursion it fails at all here. */
    findRes = findFiles(fileName, dirName, fileType);
-   if(!findRes)
+   if(findRes == MODE_FIND_ERR_NOT_FOUND)
+   {
+      std::cerr << "Given file is not located on the given target." << std::endl;
+      retVal = APPCODE_RUNTIME_ERROR;
+   }
+   else
+   if(findRes == MODE_FIND_ERR_INTERNAL)
    {
       std::cerr << "Aborting after unrecoverable error." << std::endl;
       retVal = APPCODE_RUNTIME_ERROR;
@@ -583,15 +592,17 @@ void ModeMigrate::printHelpFind()
  *                    will be empty ("") if the user gave a path
  * @param dirName   - name of the parent directory, only set if the user specified a file
  * @param fileType  - fileTypes as in readdir()s dentry->d_type
+ * @return 0 file is located on given target, -1 internal error, -2 file not found on given targets
  */
-bool ModeMigrate::findFiles(std::string fileName, std::string dirName, int fileType)
+int ModeMigrate::findFiles(std::string fileName, std::string dirName, int fileType)
 {
-   bool retVal = true;
+   int retVal = MODE_FIND_ERR_SUCCESS;
 
    if (fileType == DT_DIR)
    {
       std::string rootPath = ""; // relative to this->rootFD
-      retVal = processDir(rootPath);
+      if(!processDir(rootPath) )
+         retVal = MODE_FIND_ERR_INTERNAL;
    }
    else
    { // some kind of file
@@ -599,9 +610,9 @@ bool ModeMigrate::findFiles(std::string fileName, std::string dirName, int fileT
       bool isBuddyMirrored = false;
       unsigned numTargets;
 
-      bool testRes = testFile(this->cfgSearchPath, isDir, &numTargets, &isBuddyMirrored);
+      int testRes = testFile(this->cfgSearchPath, isDir, &numTargets, &isBuddyMirrored);
 
-      if (testRes)
+      if (testRes == MODE_FIND_ERR_SUCCESS)
       { // file matches given targetID/nodeID
          EntryInfo *entryInfo = NULL;
 
@@ -618,7 +629,7 @@ bool ModeMigrate::findFiles(std::string fileName, std::string dirName, int fileT
          SAFE_DELETE(entryInfo);
       }
       else
-         retVal = false;
+         retVal = testRes;
 
    }
 
@@ -710,8 +721,8 @@ bool ModeMigrate::processDir(std::string& dirPath)
          bool isDir = false;
          bool isBuddyMirrored = false;
          unsigned numTargets;
-         bool testRes = testFile(newPath, isDir, &numTargets, &isBuddyMirrored);
-         if (testRes)
+         int testRes = testFile(newPath, isDir, &numTargets, &isBuddyMirrored);
+         if (testRes != MODE_FIND_ERR_SUCCESS)
          {
             /* getentryInfo would fail for "" if we are still in our search root
              * and didn't request it before
@@ -817,12 +828,12 @@ bool ModeMigrate::startFileMigration(std::string fileName, int fileType, std::st
  * @param isDir               is path a directory?
  * @param outNumTargets       out value for the number of desired targets
  * @param outIsBuddyMirrored  out value, true if the path is BuddyMirrored
+ * @return 0 file is located on given target, -1 internal error, -2 file not found on given targets
  */
-bool ModeMigrate::testFile(std::string& path, bool isDir, unsigned* outNumTargets,
+int ModeMigrate::testFile(std::string& path, bool isDir, unsigned* outNumTargets,
    bool* outIsBuddyMirrored)
 {
-   bool retVal = true;
-   bool checkRes = false;
+   int retVal = MODE_FIND_ERR_SUCCESS;
 
    StripePattern* stripePattern = NULL;
    uint16_t metaOwnerNodeID;
@@ -831,7 +842,7 @@ bool ModeMigrate::testFile(std::string& path, bool isDir, unsigned* outNumTarget
    if (!entryRes)
    {
       std::cerr << "Getting entry information failed for path: " << path << std::endl;
-      retVal = false;
+      retVal = MODE_FIND_ERR_INTERNAL;
       goto noEntryInfo;
    }
 
@@ -844,16 +855,20 @@ bool ModeMigrate::testFile(std::string& path, bool isDir, unsigned* outNumTarget
       property and not a file property (so getting the mirror information is difficult). */
 
    if (this->cfgNodeType == NODETYPE_Meta || this->cfgNodeType == NODETYPE_Invalid)
-      checkRes = checkOwner(metaOwnerNodeID, this->cfgNodeID);
+   {
+      if(!checkOwner(metaOwnerNodeID, this->cfgNodeID) )
+         retVal = MODE_FIND_ERR_NOT_FOUND;
+   }
 
-   if(!checkRes && !isDir &&
+   if( (retVal == MODE_FIND_ERR_SUCCESS) && !isDir &&
       (this->cfgNodeType == NODETYPE_Storage || this->cfgNodeType == NODETYPE_Invalid) )
-      checkRes = checkFileStripes(stripePattern);
+   {
+      if(!checkFileStripes(stripePattern) )
+         retVal = MODE_FIND_ERR_NOT_FOUND;
+   }
 
    *outNumTargets = stripePattern->getDefaultNumTargets();
    delete stripePattern;
-
-   retVal = checkRes;
 
 noEntryInfo:
    return retVal;

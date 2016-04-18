@@ -139,7 +139,7 @@ bool ModeHelper::makePathRelativeToMount(std::string path, bool useParent,
       bool mountRootRes = ModeHelper::getMountRoot(realPath, inOutMountRoot);
       if (mountRootRes == false)
       {
-         std::cerr << "Failed to get the FhGFS mount point." << std::endl;
+         std::cerr << "Failed to get the BeeGFS mount point." << std::endl;
          return false;
       }
    }

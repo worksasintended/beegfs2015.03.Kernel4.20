@@ -152,8 +152,7 @@ static inline fhgfs_bool Config_getQuotaEnabled(Config* this);
 
 
 enum FileCacheType
-{ FILECACHETYPE_None = 0, FILECACHETYPE_Buffered = 1, FILECACHETYPE_Paged = 2,
-  FILECACHETYPE_Hybrid = 3};
+{ FILECACHETYPE_None = 0, FILECACHETYPE_Buffered = 1, FILECACHETYPE_Paged = 2 };
 
 
 #define INODEIDSTYLE_HASH32HSIEH_STR   "hash32"

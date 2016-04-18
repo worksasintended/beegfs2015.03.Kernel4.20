@@ -187,9 +187,6 @@ static inline fhgfs_bool FhgfsInode_getHasDirtyPages(FhgfsInode* this);
 
 static inline void FhgfsInode_setParentNodeID(FhgfsInode* this, uint16_t parentNodeID);
 static inline uint16_t FhgfsInode_getParentNodeID(FhgfsInode* this);
-static inline void FhgfsInode_getHybridModeInfo(FhgfsInode* this, Mutex** hybridModeMutex,
-   Condition** hybridModeCond, unsigned short** numHybridReaders,
-   unsigned short** numHybridWriters);
 
 static inline void FhgfsInode_incWriteBackCounter(FhgfsInode* this);
 static inline void FhgfsInode_decWriteBackCounter(FhgfsInode* this);
@@ -259,11 +256,6 @@ struct FhgfsInode
       order, e.g. when a new r/w-call comes in while we're about to disable caching) */
 
    AtomicInt64 numPageCacheDirtyPages; // number of written (=> dirty) bytes since last flush
-
-   Mutex hybridModeMutex; // to make sure no readers and writers at the same time
-   Condition hybridModeCond; // to wake up blocked readers/writers
-   unsigned short numHybridReaders; // number of currently granted readers
-   unsigned short numHybridWriters; // number of currently granted writers
 
    /* writeBackCounter and lastWriteBackEndOrIsizeWriteTime are hints for refreshInode to
     * ingore the servers inode size */
@@ -587,15 +579,6 @@ void FhgfsInode_setParentNodeID(FhgfsInode* this, uint16_t parentNodeID)
 uint16_t FhgfsInode_getParentNodeID(FhgfsInode* this)
 {
    return this->parentNodeID;
-}
-
-void FhgfsInode_getHybridModeInfo(FhgfsInode* this, Mutex** hybridModeMutex,
-   Condition** hybridModeCond, unsigned short** numHybridReaders, unsigned short** numHybridWriters)
-{
-   *hybridModeMutex = &this->hybridModeMutex;
-   *hybridModeCond = &this->hybridModeCond;
-   *numHybridReaders = &this->numHybridReaders;
-   *numHybridWriters = &this->numHybridWriters;
 }
 
 void FhgfsInode_incWriteBackCounter(FhgfsInode* this)

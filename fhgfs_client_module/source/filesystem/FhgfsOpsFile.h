@@ -33,7 +33,6 @@ struct App;
 
 extern struct file_operations fhgfs_file_buffered_ops;
 extern struct file_operations fhgfs_file_pagecache_ops;
-extern struct file_operations fhgfs_file_hybridcache_ops;
 
 extern struct file_operations fhgfs_dir_ops;
 
@@ -78,13 +77,7 @@ extern int FhgfsOps_readlink(struct dentry* dentry, char __user* buf, int size);
 
 extern ssize_t FhgfsOps_read(struct file* file, char __user *buf, size_t size,
    loff_t* offsetPointer);
-extern ssize_t FhgfsOps_readPaged(struct file* file, char __user *buf, size_t size,
-   loff_t* offsetPointer);
-extern ssize_t FhgfsOps_readPagedHybrid(struct file* file, char __user *buf, size_t size,
-   loff_t* offsetPointer);
 extern ssize_t FhgfsOps_write(struct file* file, const char __user *buf, size_t size,
-   loff_t* offsetPointer);
-extern ssize_t FhgfsOps_writeHybrid(struct file* file, const char __user *buf, size_t size,
    loff_t* offsetPointer);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
@@ -115,7 +108,9 @@ extern int FhgfsOps_mmap(struct file *, struct vm_area_struct *);
       loff_t pos, unsigned len, unsigned copied, struct page* page, void* fsdata);
 #endif // LINUX_VERSION_CODE
 
-#ifdef KERNEL_HAS_DIRECT_IO_ITER
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+   extern ssize_t FhgfsOps_directIO(struct kiocb *iocb, struct iov_iter *iter, loff_t pos);
+#elif defined(KERNEL_HAS_DIRECT_IO_ITER)
    extern ssize_t FhgfsOps_directIO(int rw, struct kiocb *iocb, struct iov_iter *iter, loff_t pos);
 #else // KERNEL_HAS_DIRECT_IO_ITER
    extern ssize_t FhgfsOps_directIO(int rw, struct kiocb *iocb, const struct iovec *iov, loff_t pos,

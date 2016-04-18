@@ -17,7 +17,6 @@
 #define FILECACHETYPE_NONE_STR      "none"
 #define FILECACHETYPE_BUFFERED_STR  "buffered"
 #define FILECACHETYPE_PAGED_STR     "paged"
-#define FILECACHETYPE_HYBRID_STR    "hybrid" // read paged, write buffered
 
 #define LOGGERTYPE_HELPERD_STR      "helperd"
 #define LOGGERTYPE_SYSLOG_STR       "syslog"
@@ -1052,9 +1051,6 @@ void __Config_initTuneFileCacheTypeNum(Config* this)
    if(!os_strnicmp(valueStr, FILECACHETYPE_PAGED_STR, os_strlen(FILECACHETYPE_PAGED_STR) ) )
       this->tuneFileCacheTypeNum = FILECACHETYPE_Paged;
    else
-   if(!os_strnicmp(valueStr, FILECACHETYPE_HYBRID_STR, os_strlen(FILECACHETYPE_HYBRID_STR) ) )
-      this->tuneFileCacheTypeNum = FILECACHETYPE_Hybrid;
-   else
       this->tuneFileCacheTypeNum = FILECACHETYPE_None;
 }
 
@@ -1066,8 +1062,6 @@ const char* Config_fileCacheTypeNumToStr(FileCacheType cacheType)
          return FILECACHETYPE_BUFFERED_STR;
       case FILECACHETYPE_Paged:
          return FILECACHETYPE_PAGED_STR;
-      case FILECACHETYPE_Hybrid:
-         return FILECACHETYPE_HYBRID_STR;
 
       default:
          return FILECACHETYPE_NONE_STR;
