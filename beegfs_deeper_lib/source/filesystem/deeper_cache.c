@@ -38,6 +38,12 @@ int deeper_cache_prefetch(const char* path, int deeper_prefetch_flags)
    return DeeperCache::getInstance()->cache_prefetch(path, deeper_prefetch_flags);
 }
 
+int deeper_cache_prefetch_crc(const char* path, int deeper_prefetch_flags,
+   unsigned long* outChecksum)
+{
+   return DeeperCache::getInstance()->cache_prefetch_crc(path, deeper_prefetch_flags, outChecksum);
+}
+
 int deeper_cache_prefetch_range(const char* path, off_t start_pos, size_t num_bytes,
    int deeper_prefetch_flags)
 {
@@ -53,6 +59,11 @@ int deeper_cache_prefetch_wait(const char* path, int deeper_prefetch_flags)
 int deeper_cache_flush(const char* path, int deeper_flush_flags)
 {
    return DeeperCache::getInstance()->cache_flush(path, deeper_flush_flags);
+}
+
+int deeper_cache_flush_crc(const char* path, int deeper_flush_flags, unsigned long* outChecksum)
+{
+   return DeeperCache::getInstance()->cache_flush_crc(path, deeper_flush_flags, outChecksum);
 }
 
 int deeper_cache_flush_range(const char* path, off_t start_pos, size_t num_bytes, 

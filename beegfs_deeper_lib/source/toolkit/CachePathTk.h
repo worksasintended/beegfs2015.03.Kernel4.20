@@ -10,6 +10,7 @@
 class CachePathTk
 {
    public:
+      static bool isRootPath(const std::string& path, const std::string& rootPath);
       static bool isGlobalPath(const std::string& path, const Config* deeperLibConfig);
       static bool isCachePath(const std::string& path, const Config* deeperLibConfig);
       static bool globalPathToCachePath(std::string& inOutPath, const Config* deeperLibConfig,
@@ -31,11 +32,13 @@ class CachePathTk
       static bool readLink(const char* sourcePath, const struct stat* statSource,
          std::string& outLinkContent, Logger* log);
 
+      static void preparePaths(std::string& inOutString);
+
+
    private:
       CachePathTk();
 
       static bool bothCharactersAreSlashes(char a, char b);
-      static void preparePaths(std::string& inOutString);
 };
 
 #endif /* TOOLKIT_STRINGPATHTK_H_ */

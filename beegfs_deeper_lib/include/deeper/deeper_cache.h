@@ -129,6 +129,22 @@ int deeper_cache_close(int fildes);
 int deeper_cache_prefetch(const char* path, int deeper_prefetch_flags);
 
 /**
+ * Prefetch a file from global storage to the current cache domain of the cache layer,
+ * asynchronously. A CRC checksum of the given file is calculated.
+ * Contents of existing files with the same name on the cache layer will be overwritten.
+ *
+ * @param path path to file or directory, which should be prefetched.
+ * @param deeper_prefetch_flags zero or a combination of the following flags:
+ *        DEEPER_PREFETCH_WAIT to make this a synchronous operation.
+ *        DEEPER_PREFETCH_FOLLOWSYMLINKS to copy the destination file or directory and do not
+ *           create symbolic links when a symbolic link was found;
+ * @param outChecksum The checksum of the file.
+ * @return 0 on success, -1 and errno set in case of error.
+ */
+int deeper_cache_prefetch_crc(const char* path, int deeper_prefetch_flags,
+   unsigned long* outChecksum);
+
+/**
  * Prefetch a file similar to deeper_cache_prefetch(), but prefetch only a certain range, not the
  * whole file.
  * 
@@ -169,6 +185,23 @@ int deeper_cache_prefetch_wait(const char* path, int deeper_prefetch_flags);
  * @return 0 on success, -1 and errno set in case of error.
  */
 int deeper_cache_flush(const char* path, int deeper_flush_flags);
+
+/**
+ * Flush a file from the current cache domain to global storage, asynchronously. A CRC checksum of
+ * the given file is calculated.
+ * Contents of an existing file with the same name on global storage will be overwritten.
+ *
+ * @param path path to file, which should be flushed.
+ * @param deeper_flush_flags zero or a combination of the following flags:
+ *        DEEPER_FLUSH_WAIT to make this a synchronous operation, which means return only after
+ *           flushing is complete;
+ *        DEEPER_FLUSH_DISCARD to remove the file from the cache layer after it has been flushed.
+ *        DEEPER_FLUSH_FOLLOWSYMLINKS to copy the destination file or directory and do not create
+ *           symbolic links when a symbolic link was found;
+ * @param outChecksum The checksum of the file.
+ * @return 0 on success, -1 and errno set in case of error.
+ */
+int deeper_cache_flush_crc(const char* path, int deeper_flush_flags, unsigned long* outChecksum);
 
 /**
  * Flush a file similar to deeper_cache_flush(), but flush only a certain range, not the whole

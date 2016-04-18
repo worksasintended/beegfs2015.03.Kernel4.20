@@ -1,8 +1,11 @@
 #include <common/toolkit/StringTk.h>
 #include <common/toolkit/UnitTk.h>
+#include <toolkit/CachePathTk.h>
 #include "Config.h"
 
+
 #define CONFIG_DEFAULT_CFGFILENAME              "/etc/beegfs/beegfs-deeper-lib.conf"
+
 
 
 /**
@@ -100,18 +103,6 @@ std::string Config::createDefaultCfgFilename()
 void Config::initImplicitVals() throw(InvalidConfigException)
 {
    cfgFile = createDefaultCfgFilename();
-   trimPaths();
-}
-
-/*
- * removes the the trailing / from the paths sysMountPointCache and sysMountPointGlobal, this make
- * it easier to replace the paths
- */
-void Config::trimPaths()
-{
-   if(this->sysMountPointCache[this->sysMountPointCache.size() - 1] != '/')
-      this->sysMountPointCache += "/";
-
-   if(this->sysMountPointGlobal[this->sysMountPointGlobal.size() - 1] != '/')
-      this->sysMountPointGlobal += "/";
+   CachePathTk::preparePaths(this->sysMountPointCache);
+   CachePathTk::preparePaths(this->sysMountPointGlobal);
 }

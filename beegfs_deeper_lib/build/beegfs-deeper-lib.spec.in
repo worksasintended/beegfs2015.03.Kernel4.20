@@ -51,6 +51,7 @@ URL: http://www.beegfs.com
 Vendor: Fraunhofer ITWM
 BuildRoot: %{_tmppath}/%NAME%-root
 BuildArch: %{buildarch}
+Requires: zlib
 Conflicts: beegfs_deeper_lib
 
 %description

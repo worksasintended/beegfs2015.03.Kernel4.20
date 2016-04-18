@@ -27,7 +27,7 @@ CXXFLAGS = -D_FILE_OFFSET_BITS=64 -I../source -I../include \
 CXXFLAGS_RELEASE = -O3 -Wuninitialized
 CXXFLAGS_DEBUG = -O0 -ggdb3 -D_FORTIFY_SOURCE=2 -DBEEGFS_DEBUG
 LDFLAGS = -L$(BEEGFS_COMMON_PATH)/build -static -pthread \
-	-lbeegfs-common-opentk -ldl -rdynamic $(USER_LDFLAGS)
+	-lbeegfs-common-opentk -lz -ldl -rdynamic $(USER_LDFLAGS)
 LDFLAGS_SHARED = -L$(BEEGFS_COMMON_PATH)/build -L$(BEEGFS_THIRDPARTY_PATH)/build \
 	-shared -pthread -Wl,-whole-archive -lbeegfs-common-opentk -lcppunit \
 	-Wl,-no-whole-archive -ldl -rdynamic $(USER_LDFLAGS)

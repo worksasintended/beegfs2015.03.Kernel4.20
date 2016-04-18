@@ -53,7 +53,7 @@ URL: http://www.beegfs.com
 Vendor: Fraunhofer ITWM
 BuildRoot: %{_tmppath}/%NAME%-root
 BuildArch: %{buildarch}
-Conflicts: beegfs_client, beegfs-client-opentk-src < %{ver}
+Conflicts: beegfs_client
 Summary: BeeGFS client kernel module
 
 %description
@@ -67,17 +67,9 @@ Group: Software/Other
 Summary: BeeGFS client compat module, allows to run two different client versions.
 requires: make, gcc, gcc-c++
 
-%package opentk-src
-Group: Software/Other
-Summary: beegfs-client-opentk-src dummy upgrade package
-
-
 %description %{COMPAT}
 This package allows to build and to run a compatbility %NAME% kernel module 
 on a system that has a newer %NAME% version installed.
-
-%description opentk-src
-This package can be safely removed. It merely exists to provide an upgrade path.
 
 
 %prep
@@ -177,5 +169,3 @@ fi
 %defattr(-,root,root)
 %{CLIENT_COMPAT_DIR}
 
-%files opentk-src
-%defattr(-,root,root)

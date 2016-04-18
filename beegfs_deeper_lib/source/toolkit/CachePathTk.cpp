@@ -3,6 +3,22 @@
 
 
 /**
+ * checks a path if the root path is equals to a given path
+ *
+ * @path the path to check
+ * @param rootPath the expected root path of the given path
+ * @return true if the given path has the expected root path
+ */
+bool CachePathTk::isRootPath(const std::string& path, const std::string& rootPath)
+{
+   size_t startPos = path.find(rootPath);
+   if(startPos)
+      return false;
+
+   return true;
+}
+
+/**
  * checks if a path point to a file/directory on the global BeeGFS, requires an absolute path
  *
  * @param path the path to test
@@ -11,13 +27,7 @@
  */
 bool CachePathTk::isGlobalPath(const std::string& path, const Config* deeperLibConfig)
 {
-   std::string globalPath = deeperLibConfig->getSysMountPointGlobal();
-   size_t startPos = path.find(globalPath);
-
-   if(startPos == 0)
-      return true;
-
-   return false;
+   return CachePathTk::isRootPath(path, deeperLibConfig->getSysMountPointGlobal() );
 }
 
 /**
@@ -29,13 +39,7 @@ bool CachePathTk::isGlobalPath(const std::string& path, const Config* deeperLibC
  */
 bool CachePathTk::isCachePath(const std::string& path, const Config* deeperLibConfig)
 {
-   std::string cachePath = deeperLibConfig->getSysMountPointCache();
-   size_t startPos = path.find(cachePath);
-
-   if(startPos == 0)
-      return true;
-
-   return false;
+   return CachePathTk::isRootPath(path, deeperLibConfig->getSysMountPointCache() );
 }
 
 /**
@@ -110,10 +114,8 @@ bool CachePathTk::replaceRootPath(std::string& inOutPath, const std::string& ori
          return false;
    }
 
-   size_t startPos = inOutPath.find(origPath);
-
-   if(startPos == 0)
-      inOutPath.replace(startPos, origPath.length(), newPath);
+   if(CachePathTk::isRootPath(inOutPath, origPath) )
+      inOutPath.replace(0, origPath.length(), newPath);
    else
    {
       log->logErr(__FUNCTION__, "The given path " + inOutPath + " is not located on the "
@@ -399,14 +401,13 @@ bool CachePathTk::bothCharactersAreSlashes(char a, char b)
 
 void CachePathTk::preparePaths(std::string& inOutString)
 {
-   std::string::iterator iter = std::unique(inOutString.begin(), inOutString.end(),
+   std::string::iterator iterUnique = std::unique(inOutString.begin(), inOutString.end(),
       bothCharactersAreSlashes);
 
-   if(iter != inOutString.end() )
-   {
-      if(*--iter == '/')
-         inOutString.erase(iter, inOutString.end() );
-      else
-         inOutString.erase(++iter, inOutString.end() );
-   }
+   std::string::iterator iterRemove = std::remove(inOutString.begin(), iterUnique, ' ');
+
+   if(*--iterRemove == '/')
+      inOutString.erase(iterRemove, inOutString.end() );
+   else
+      inOutString.erase(++iterRemove, inOutString.end() );
 }

@@ -18,7 +18,7 @@ function init_multi_mode()
          rebuild)
             # Just rebuild modules. The user needs to call "restart" to make use
             # of those new modules.
-            build_beegfss
+            build_beegfs
             ERROR=$?
             if [ $ERROR -eq 0 ]; then
                rm -f $FORCE_AUTO_BUILD
@@ -48,14 +48,14 @@ function init_multi_mode()
             ;;
          esac
    else
-      BEEGFS_MOUNT_CONF="/etc/beegfss/${CONFIG}.d/beegfss-mounts.conf"
+      BEEGFS_MOUNT_CONF="/etc/beegfs/${CONFIG}.d/beegfs-mounts.conf"
 
-      if [ -e "/etc/beegfss/${CONFIG}.d" ]
+      if [ -e "/etc/beegfs/${CONFIG}.d" ]
       then
          init_multi_mode_single_configuration $ACTION $CONFIG
          ERROR=$?
       else
-         echo "Configuration folder /etc/beegfss/${CONFIG}.d doesn't exist."
+         echo "Configuration folder /etc/beegfs/${CONFIG}.d doesn't exist."
          ERROR=1
       fi
    fi
@@ -67,12 +67,12 @@ do_central_loop()
    ACTION=$1
    LOOP_ERROR=0
 
-   for CONFIG_FOLDER in $( ls -d /etc/beegfss/*.d )
+   for CONFIG_FOLDER in $( ls -d /etc/beegfs/*.d )
    do
-      if [ -r ${CONFIG_FOLDER}/beegfss-client.conf ]
+      if [ -r ${CONFIG_FOLDER}/beegfs-client.conf ]
       then
          CONFIG=$( basename $CONFIG_FOLDER .d )
-         BEEGFS_MOUNT_CONF="${CONFIG_FOLDER}/beegfss-mounts.conf"
+         BEEGFS_MOUNT_CONF="${CONFIG_FOLDER}/beegfs-mounts.conf"
 
          init_multi_mode_single_configuration $ACTION $CONFIG
 
@@ -131,7 +131,7 @@ function init_multi_mode_single_configuration()
          if [ $rc -ne 0 ]
          then
             set -e
-            build_beegfss
+            build_beegfs
             modprobe $CLIENT_MOD || (warn_on_ofed_mismatch && false)
             rm -f $FORCE_AUTO_BUILD
             set +e
@@ -174,7 +174,7 @@ function init_multi_mode_single_configuration()
                continue
             fi
 
-            mount -t beegfss | grep "${mnt} " >/dev/null 2>&1 
+            mount -t beegfs | grep "${mnt} " >/dev/null 2>&1 
             if [ $? -eq 0 ]; then
                # already mounted
                continue
@@ -192,7 +192,7 @@ function init_multi_mode_single_configuration()
                fi
             fi
 
-            mount -t beegfss beegfss_${CONFIG} ${mnt} -ocfgFile=${cfg},_netdev,${SELINUX_OPT}
+            mount -t beegfs beegfs_${CONFIG} ${mnt} -ocfgFile=${cfg},_netdev,${SELINUX_OPT}
             if [ $? -ne 0 ]
             then
                echo "Couldn't mount ${mnt}."
@@ -251,8 +251,8 @@ function init_multi_mode_single_configuration()
 
          IFS="$OLDIFS"
 
-         # tests if other beegfss mounts exists
-         mount -t beegfss | grep beegfss >/dev/null 2>&1		
+         # tests if other beegfs mounts exists
+         mount -t beegfs | grep beegfs >/dev/null 2>&1		
          if [ $? -ne 0 ]
          then
             echo "- Unloading modules"
@@ -287,9 +287,9 @@ function init_multi_mode_single_configuration()
          if [ $? -eq 0 ]
          then
             echo "is running..."
-            mount -t beegfss | grep beegfss_${CONFIG} >/dev/null 2>&1
+            mount -t beegfs | grep beegfs_${CONFIG} >/dev/null 2>&1
             if [ $? -eq 0 ]; then
-               mount -t beegfss | grep beegfss_${CONFIG} | cut "-d " -f1-3
+               mount -t beegfs | grep beegfs_${CONFIG} | cut "-d " -f1-3
                echo
                RETVAL=0
             else
@@ -314,7 +314,7 @@ function init_multi_mode_single_configuration()
       rebuild)
          # Just rebuild modules. The user needs to call "restart" to make use
          # of those new modules.
-         build_beegfss
+         build_beegfs
          RETVAL=$?
          if [ $RETVAL -eq 0 ]; then
             rm -f $FORCE_AUTO_BUILD

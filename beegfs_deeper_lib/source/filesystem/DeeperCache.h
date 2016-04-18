@@ -29,11 +29,14 @@ class DeeperCache
       int cache_close(int fildes);
 
       int cache_prefetch(const char* path, int deeper_prefetch_flags);
+      int cache_prefetch_crc(const char* path, int deeper_prefetch_flags,
+         unsigned long* outChecksum);
       int cache_prefetch_range(const char* path, off_t start_pos, size_t num_bytes,
          int deeper_prefetch_flags);
       int cache_prefetch_wait(const char* path, int deeper_prefetch_flags);
 
       int cache_flush(const char* path, int deeper_flush_flags);
+      int cache_flush_crc(const char* path, int deeper_flush_flags, unsigned long* outChecksum);
       int cache_flush_range(const char* path, off_t start_pos, size_t num_bytes,
          int deeper_flush_flags);
       int cache_flush_wait(const char* path, int deeper_flush_flags);
@@ -109,7 +112,7 @@ class DeeperCache
       void getAndRemoveEntryFromSessionMap(DeeperCacheSession& inOutSession);
 
       int copyFile(const char* sourcePath, const char* destPath, const struct stat* statSource,
-         bool deleteSource);
+         bool deleteSource, bool doCRC, unsigned long* crcOutValue);
       int copyFileRange(const char* sourcePath, const char* destPath, const struct stat* statSource,
          off_t* offset, size_t numBytes);
       int copyDir(const char* source, const char* dest, bool copyToCache, bool deleteSource,
@@ -119,7 +122,8 @@ class DeeperCache
       int handleSubdirectoryFlag(const char* source, const char* dest, bool copyToCache,
          bool deleteSource, bool followSymlink);
       int handleFollowSymlink(std::string sourcePath, std::string destPath,
-         const struct stat* statSourceSymlink, bool copyToCache, bool deleteSource, bool ignoreDir);
+         const struct stat* statSourceSymlink, bool copyToCache, bool deleteSource, bool ignoreDir,
+         bool doCRC, unsigned long* crcOutValue);
 
 
 

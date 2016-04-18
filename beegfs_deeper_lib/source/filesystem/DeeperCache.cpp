@@ -8,6 +8,7 @@
 #include <ftw.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include <zlib.h>
 
 
 #ifndef BEEGFS_VERSION
@@ -323,7 +324,8 @@ int DeeperCache::cache_prefetch(const char* path, int deeper_prefetch_flags)
          {
             this->setThreadKeyNftwFollowSymlink(true);
 
-            retVal = handleFollowSymlink(path, cachePath.c_str(),  &statSource, true, false, true);
+            retVal = handleFollowSymlink(path, cachePath.c_str(),  &statSource, true, false, true,
+               false, NULL);
 
             //reset thread variables
             this->setThreadKeyNftwFollowSymlink(false);
@@ -334,7 +336,7 @@ int DeeperCache::cache_prefetch(const char* path, int deeper_prefetch_flags)
       }
       else
       if(S_ISREG(statSource.st_mode) )
-         retVal = copyFile(path, cachePath.c_str(), &statSource, false);
+         retVal = copyFile(path, cachePath.c_str(), &statSource, false, false, NULL);
       else
       if(S_ISDIR(statSource.st_mode) )
       {
@@ -349,6 +351,91 @@ int DeeperCache::cache_prefetch(const char* path, int deeper_prefetch_flags)
          this->logger->logErr(__FUNCTION__, std::string("Unsupported file type for path: ") + path);
          retVal = DEEPER_RETVAL_ERROR;
       }
+   }
+
+   return retVal;
+}
+
+/**
+ * Prefetch a file from global storage to the current cache domain of the cache layer,
+ * asynchronously. A CRC checksum of the given file is calculated.
+ * Contents of existing files with the same name on the cache layer will be overwritten.
+ *
+ * @param path path to file or directory, which should be prefetched.
+ * @param deeper_prefetch_flags zero or a combination of the following flags:
+ *        DEEPER_PREFETCH_WAIT to make this a synchronous operation.
+ *        DEEPER_PREFETCH_FOLLOWSYMLINKS to copy the destination file or directory and do not
+ *           create symbolic links when a symbolic link was found;
+ * @param outChecksum The checksum of the file.
+ * @return 0 on success, -1 and errno set in case of error.
+ */
+int DeeperCache::cache_prefetch_crc(const char* path, int deeper_prefetch_flags,
+   unsigned long* outChecksum)
+{
+   int retVal = DEEPER_RETVAL_ERROR;
+
+   std::string cachePath(path);
+
+#ifdef BEEGFS_DEBUG
+   this->logger->logErr(__FUNCTION__, "path: " + cachePath);
+#endif
+
+   if(!CachePathTk::globalPathToCachePath(cachePath, this->cfg, this->logger) )
+   {
+      errno = EINVAL;
+      return retVal;
+   }
+
+   if(!CachePathTk::createPath(cachePath, cfg->getSysMountPointGlobal(),
+      cfg->getSysMountPointCache(), true, this->logger) )
+         return DEEPER_RETVAL_ERROR;
+
+   struct stat statSource;
+   int funcError = lstat(path, &statSource);
+   if(funcError != 0)
+   {
+      this->logger->logErr(__FUNCTION__, "Could not stat source file/directory " +
+         cachePath + " Errno: " + System::getErrString(errno) );
+      return DEEPER_RETVAL_ERROR;
+   }
+
+   if(S_ISREG(statSource.st_mode) )
+      retVal = copyFile(path, cachePath.c_str(), &statSource, false, true, outChecksum);
+   else
+   if(S_ISLNK(statSource.st_mode) )
+   {
+      if(deeper_prefetch_flags & DEEPER_PREFETCH_FOLLOWSYMLINKS)
+      {
+         this->setThreadKeyNftwFollowSymlink(true);
+
+         retVal = handleFollowSymlink(path, cachePath.c_str(),  &statSource, true, false, true,
+            true, outChecksum);
+
+         //reset thread variables
+         this->setThreadKeyNftwFollowSymlink(false);
+         this->resetThreadKeyNftwNumFollowedSymlinks();
+      }
+      else
+      {
+         errno = ENOLINK;
+         this->logger->logErr(__FUNCTION__, std::string("Given path is a symlink. CRC checksum "
+            "calculation requires a file or the DEEPER_PREFETCH_FOLLOWSYMLINKS flag: ") + path);
+         retVal = DEEPER_RETVAL_ERROR;
+      }
+   }
+   else
+   if(S_ISDIR(statSource.st_mode) )
+   {
+      errno = EISDIR;
+      this->logger->logErr(__FUNCTION__, std::string("Given path is an directory. CRC checksum "
+         "calculation doesn't support directories: ") + path);
+      retVal = DEEPER_RETVAL_ERROR;
+   }
+   else
+   {
+      errno = EINVAL;
+      this->logger->logErr(__FUNCTION__, std::string("Unsupported file type for path: ") + path);
+      retVal = DEEPER_RETVAL_ERROR;
    }
 
    return retVal;
@@ -463,7 +550,7 @@ int DeeperCache::cache_flush(const char* path, int deeper_flush_flags)
             this->setThreadKeyNftwFollowSymlink(true);
 
             retVal = handleFollowSymlink(cachePath.c_str(), path, &statSource, false,
-               deeper_flush_flags & DEEPER_FLUSH_DISCARD, true);
+               deeper_flush_flags & DEEPER_FLUSH_DISCARD, true, false, NULL);
 
             //reset thread variables
             this->setThreadKeyNftwFollowSymlink(false);
@@ -476,7 +563,7 @@ int DeeperCache::cache_flush(const char* path, int deeper_flush_flags)
       else
       if(S_ISREG(statSource.st_mode) )
          retVal = copyFile(cachePath.c_str(), path, &statSource,
-            deeper_flush_flags & DEEPER_FLUSH_DISCARD);
+            deeper_flush_flags & DEEPER_FLUSH_DISCARD, false, NULL);
       else
       if(S_ISDIR(statSource.st_mode) )
       {
@@ -491,6 +578,94 @@ int DeeperCache::cache_flush(const char* path, int deeper_flush_flags)
          this->logger->logErr(__FUNCTION__, std::string("Unsupported file type for path: ") + path);
          retVal = DEEPER_RETVAL_ERROR;
       }
+   }
+
+   return retVal;
+}
+
+/**
+ * Flush a file from the current cache domain to global storage, asynchronously. A CRC checksum of
+ * the given file is calculated.
+ * Contents of an existing file with the same name on global storage will be overwritten.
+ *
+ * @param path path to file, which should be flushed.
+ * @param deeper_flush_flags zero or a combination of the following flags:
+ *        DEEPER_FLUSH_WAIT to make this a synchronous operation, which means return only after
+ *           flushing is complete;
+ *        DEEPER_FLUSH_DISCARD to remove the file from the cache layer after it has been flushed.
+ *        DEEPER_FLUSH_FOLLOWSYMLINKS to copy the destination file or directory and do not create
+ *           symbolic links when a symbolic link was found;
+ * @param outChecksum The checksum of the file.
+ * @return 0 on success, -1 and errno set in case of error.
+ */
+int DeeperCache::cache_flush_crc(const char* path, int deeper_flush_flags,
+   unsigned long* outChecksum)
+{
+   int retVal = DEEPER_RETVAL_ERROR;
+
+   std::string cachePath(path);
+
+#ifdef BEEGFS_DEBUG
+   this->logger->logErr(__FUNCTION__, "path: " + cachePath);
+#endif
+
+   if(!CachePathTk::globalPathToCachePath(cachePath, this->cfg, this->logger) )
+   {
+      errno = EINVAL;
+      return retVal;
+   }
+
+   if(!CachePathTk::createPath(path, cfg->getSysMountPointCache(), cfg->getSysMountPointGlobal(),
+         true, this->logger) )
+      return DEEPER_RETVAL_ERROR;
+
+   struct stat statSource;
+   int funcError = lstat(cachePath.c_str(), &statSource);
+   if(funcError != 0)
+   {
+      this->logger->logErr(__FUNCTION__, "Could not stat source file/directory " +
+         cachePath + " Errno: " + System::getErrString(errno) );
+      return DEEPER_RETVAL_ERROR;
+   }
+
+   if(S_ISREG(statSource.st_mode) )
+      retVal = copyFile(cachePath.c_str(), path, &statSource,
+         deeper_flush_flags & DEEPER_FLUSH_DISCARD, true, outChecksum);
+   else
+   if(S_ISLNK(statSource.st_mode) )
+   {
+      if(deeper_flush_flags & DEEPER_FLUSH_FOLLOWSYMLINKS)
+      {
+         this->setThreadKeyNftwFollowSymlink(true);
+
+         retVal = handleFollowSymlink(cachePath.c_str(), path, &statSource, false,
+            deeper_flush_flags & DEEPER_FLUSH_DISCARD, true, true, outChecksum);
+
+         //reset thread variables
+         this->setThreadKeyNftwFollowSymlink(false);
+         this->resetThreadKeyNftwNumFollowedSymlinks();
+      }
+      else
+      {
+         errno = ENOLINK;
+         this->logger->logErr(__FUNCTION__, std::string("Given path is a symlink. CRC checksum "
+            "calculation requires a file or the DEEPER_FLUSH_FOLLOWSYMLINKS flag: ") + path);
+         retVal = DEEPER_RETVAL_ERROR;
+      }
+   }
+   else
+   if(S_ISDIR(statSource.st_mode) )
+   {
+      errno = EISDIR;
+      this->logger->logErr(__FUNCTION__, std::string("Given path is an directory. CRC checksum "
+         "calculation doesn't support directories: ") + path);
+      retVal = DEEPER_RETVAL_ERROR;
+   }
+   else
+   {
+      errno = EINVAL;
+      this->logger->logErr(__FUNCTION__, std::string("Unsupported file type for path: ") + path);
+      retVal = DEEPER_RETVAL_ERROR;
    }
 
    return retVal;
@@ -583,6 +758,8 @@ int DeeperCache::cache_id(const char* path, uint64_t* out_cache_id)
 {
    std::string newPath(path);
 
+   CachePathTk::preparePaths(newPath);
+
 #ifdef BEEGFS_DEBUG
    this->logger->logErr(__FUNCTION__, "path: " + newPath);
 #endif
@@ -593,8 +770,7 @@ int DeeperCache::cache_id(const char* path, uint64_t* out_cache_id)
          return DEEPER_RETVAL_ERROR;
    }
 
-   size_t startPos = newPath.find(cfg->getSysMountPointGlobal() );
-   if(startPos != 0)
+   if(!CachePathTk::isRootPath(newPath, cfg->getSysMountPointGlobal() ) )
    {
       this->logger->logErr(__FUNCTION__, "The given path doesn't point to a global BeeGFS: " +
          std::string(path) );
@@ -666,10 +842,12 @@ void DeeperCache::getAndRemoveEntryFromSessionMap(DeeperCacheSession& inOutSessi
  * @param statSource the stat of the source file, if this pointer is NULL this function stats the
  *        source file
  * @param deleteSource true if the file should be deleted after the file was copied
+ * @param doCRC true if a CRC checksum should be calculated
+ * @param crcOutValue out value for the checksum if a checksum should be calculated
  * @return 0 on success, -1 and errno set in case of error.
  */
 int DeeperCache::copyFile(const char* sourcePath, const char* destPath,
-   const struct stat* statSource, bool deleteSource)
+   const struct stat* statSource, bool deleteSource, bool doCRC, unsigned long* crcOutValue)
 {
    int retVal = DEEPER_RETVAL_ERROR;
 
@@ -688,7 +866,7 @@ int DeeperCache::copyFile(const char* sourcePath, const char* destPath,
    int readSize;
    int writeSize;
 
-   char* buf = (char*)malloc(BUFFER_SIZE);
+   Byte* buf = (Byte*)malloc(BUFFER_SIZE);
    if(!buf)
    {
       this->logger->logErr(__FUNCTION__, "Could not allocate memory to copy the file: " +
@@ -739,9 +917,14 @@ int DeeperCache::copyFile(const char* sourcePath, const char* destPath,
       goto close_source;
    }
 
+   if(doCRC && (crcOutValue != NULL) )
+      *crcOutValue = crc32(0L, Z_NULL, 0); // init checksum
 
    while ( (readSize = read(source, buf, BUFFER_SIZE) ) > 0)
    {
+      if(doCRC)
+         *crcOutValue = crc32(*crcOutValue, buf, readSize);
+
       writeSize = write(dest, buf, readSize);
 
       if(unlikely(writeSize != readSize) )
@@ -1007,7 +1190,6 @@ free_buf:
  *        is set nothing will be deleted, the second nftw run must also delete the files
  * @param followSymlink true if the destination file or directory should be copied and do not create
  *        symbolic links when a symbolic link was found
- * @param setLinkPathsToThreadVar
  * @return 0 on success, -1 and errno set in case of error.
  */
 int DeeperCache::copyDir(const char* source, const char* dest, bool copyToCache, bool deleteSource,
@@ -1049,7 +1231,7 @@ int DeeperCache::copyDir(const char* source, const char* dest, bool copyToCache,
       if(!CachePathTk::createPath(dest, mountOfSource, mountOfDest, true, this->logger) )
          return DEEPER_RETVAL_ERROR;
 
-      retVal = copyFile(source, dest, &statSource, deleteSource);
+      retVal = copyFile(source, dest, &statSource, deleteSource, false, NULL);
    }
    else
    if(S_ISLNK(statSource.st_mode) )
@@ -1058,7 +1240,8 @@ int DeeperCache::copyDir(const char* source, const char* dest, bool copyToCache,
          return DEEPER_RETVAL_ERROR;
 
       if(followSymlink)
-         retVal= handleFollowSymlink(source, dest, &statSource, copyToCache, deleteSource, false);
+         retVal= handleFollowSymlink(source, dest, &statSource, copyToCache, deleteSource, false,
+            false, NULL);
       else
          retVal = createSymlink(source, dest, &statSource, copyToCache, deleteSource);
    }
@@ -1226,10 +1409,13 @@ int DeeperCache::handleSubdirectoryFlag(const char* source, const char* dest, bo
  *        copied
  * @param ignoreDir true if directories should be ignored, should be set if the flag
  *        DEEPER_..._SUBDIRS wasn't used
+ * @param doCRC true if a CRC checksum should be calculated
+ * @param crcOutValue out value for the checksum if a checksum should be calculated
  * @return 0 on success, -1 and errno set in case of error.
  */
 int DeeperCache::handleFollowSymlink(std::string sourcePath, std::string destPath,
-   const struct stat* statSourceSymlink, bool copyToCache, bool deleteSource, bool ignoreDir)
+   const struct stat* statSourceSymlink, bool copyToCache, bool deleteSource, bool ignoreDir,
+   bool doCRC, unsigned long* crcOutValue)
 {
    int retVal = DEEPER_RETVAL_ERROR;
 
@@ -1304,7 +1490,7 @@ int DeeperCache::handleFollowSymlink(std::string sourcePath, std::string destPat
    else
    if(S_ISDIR(statNewSourcePath.st_mode) )
    {
-      if(unlikely(ignoreDir) )
+      if(unlikely(ignoreDir || doCRC) )
       {
          errno = EISDIR;
          this->logger->logErr(__FUNCTION__, "Symlink points to directory, but the flag "
@@ -1319,12 +1505,13 @@ int DeeperCache::handleFollowSymlink(std::string sourcePath, std::string destPat
    }
    else
    if(S_ISREG(statNewSourcePath.st_mode) )
-      retVal = copyFile(pathFromLink.c_str(), destPath.c_str(), &statNewSourcePath, deleteSource);
+      retVal = copyFile(pathFromLink.c_str(), destPath.c_str(), &statNewSourcePath, deleteSource,
+         doCRC, crcOutValue);
    else
    if(S_ISLNK(statNewSourcePath.st_mode) )
    {
       retVal = handleFollowSymlink(pathFromLink.c_str(), destPath, &statNewSourcePath, copyToCache,
-         deleteSource, ignoreDir);
+         deleteSource, ignoreDir, doCRC, crcOutValue);
    }
    else
    {
@@ -1504,7 +1691,8 @@ int DeeperCache::nftwHandleFlags(std::string sourcePath, std::string destPath,
       this->logger->logErr("handleFlags", "source path: " + sourcePath + " - type: file");
 #endif
 
-      retValInternal = this->copyFile(sourcePath.c_str(), destPath.c_str(), sb, deleteSource);
+      retValInternal = this->copyFile(sourcePath.c_str(), destPath.c_str(), sb, deleteSource,
+         false, NULL);
       if(retValInternal == DEEPER_RETVAL_ERROR)
       {
          this->logger->logErr("handleFlags", "Could not copy file from " +
@@ -1551,7 +1739,7 @@ int DeeperCache::nftwHandleFlags(std::string sourcePath, std::string destPath,
 #endif
       if(followSymlink)
          retValInternal = handleFollowSymlink(sourcePath, destPath, sb, copyToCache, deleteSource,
-            false);
+            false, false, NULL);
       else
          retValInternal = createSymlink(sourcePath.c_str(), destPath.c_str(), sb, copyToCache,
             deleteSource);

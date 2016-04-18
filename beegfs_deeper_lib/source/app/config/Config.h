@@ -29,7 +29,6 @@ class Config : public AbstractConfig
          throw(InvalidConfigException);
       std::string createDefaultCfgFilename();
       void initImplicitVals() throw(InvalidConfigException);
-      void trimPaths();
 
 
       
