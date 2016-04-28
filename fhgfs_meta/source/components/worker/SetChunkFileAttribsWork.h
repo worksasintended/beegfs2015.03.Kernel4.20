@@ -20,11 +20,12 @@ class SetChunkFileAttribsWork : public Work
        */
       SetChunkFileAttribsWork(std::string entryID, int validAttribs, SettableFileAttribs* attribs,
          bool enableCreation, StripePattern* pattern, uint16_t targetID, PathInfo* pathInfo,
-         FhgfsOpsErr* outResult, SynchronizedCounter* counter) :
+         DynamicFileAttribs* outDynamicAttribs, FhgfsOpsErr* outResult,
+         SynchronizedCounter* counter) :
          entryID(entryID), validAttribs(validAttribs), attribs(attribs),
          enableCreation(enableCreation), pattern(pattern), targetID(targetID), pathInfo(pathInfo),
-         outResult(outResult), counter(counter), quotaChown(false), useBuddyMirrorSecond(false),
-         msgUserID(NETMSG_DEFAULT_USERID)
+         outDynamicAttribs(outDynamicAttribs), outResult(outResult), counter(counter),
+         quotaChown(false), useBuddyMirrorSecond(false), msgUserID(NETMSG_DEFAULT_USERID)
       {
          // all assignments done in initializer list
       }
@@ -43,6 +44,8 @@ class SetChunkFileAttribsWork : public Work
       StripePattern* pattern;
       uint16_t targetID;
       PathInfo* pathInfo;
+      DynamicFileAttribs* outDynamicAttribs; // will hold the chunks dynamic attribs as stat'ed on
+                                             // the storage server
       FhgfsOpsErr* outResult;
       SynchronizedCounter* counter;
 

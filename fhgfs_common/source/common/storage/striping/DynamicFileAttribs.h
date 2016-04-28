@@ -31,7 +31,7 @@ class DynamicFileAttribs
       uint64_t storageVersion; // use 0 as initial version and then only monotonic increase
 
       int64_t fileSize;
-      uint64_t numBlocks;   // number of used blocks by this chunk
+      int64_t numBlocks;   // number of used blocks by this chunk
       int64_t modificationTimeSecs;
       int64_t lastAccessTimeSecs;
 

@@ -6,10 +6,12 @@
 #include <common/storage/StorageDefinitions.h>
 
 
-#define SETLOCALATTRMSG_FLAG_USE_QUOTA            1 /* if the message contains quota informations */
-#define SETLOCALATTRMSG_FLAG_BUDDYMIRROR          2 /* given targetID is a buddymirrorgroup ID */
-#define SETLOCALATTRMSG_FLAG_BUDDYMIRROR_SECOND   4 /* secondary of group, otherwise primary */
+#define SETLOCALATTRMSG_FLAG_USE_QUOTA             1 // if the message contains quota informations
+#define SETLOCALATTRMSG_FLAG_BUDDYMIRROR           2 // given targetID is a buddymirrorgroup ID
+#define SETLOCALATTRMSG_FLAG_BUDDYMIRROR_SECOND    4 // secondary of group, otherwise primary
 
+#define SETLOCALATTRMSG_COMPAT_FLAG_EXTEND_REPLY   1 // send the attribs and a storage version in
+                                                     // reply
 
 class SetLocalAttrMsg : public NetMessage
 {

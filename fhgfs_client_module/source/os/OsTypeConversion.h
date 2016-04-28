@@ -67,8 +67,8 @@ void OsTypeConv_kstatFhgfsToOs(fhgfs_stat* fhgfsStat, struct kstat* kStat)
 
    kStat->mode = fhgfsStat->mode;
    kStat->nlink = fhgfsStat->nlink;
-   kStat->uid = make_kuid(current_user_ns(), fhgfsStat->uid);
-   kStat->gid = make_kgid(current_user_ns(), fhgfsStat->gid);
+   kStat->uid = make_kuid(&init_user_ns, fhgfsStat->uid);
+   kStat->gid = make_kgid(&init_user_ns, fhgfsStat->gid);
    kStat->size = fhgfsStat->size;
    kStat->blocks = fhgfsStat->blocks;
    kStat->atime.tv_sec = fhgfsStat->atime.tv_sec;
@@ -96,13 +96,13 @@ void OsTypeConv_iattrOsToFhgfs(struct iattr* iAttr, SettableFileAttribs* fhgfsAt
    if(iAttr->ia_valid & ATTR_UID)
    {
       (*outValidAttribs) |= SETATTR_CHANGE_USERID;
-      fhgfsAttr->userID = from_kuid(current_user_ns(), iAttr->ia_uid);
+      fhgfsAttr->userID = from_kuid(&init_user_ns, iAttr->ia_uid);
    }
 
    if(iAttr->ia_valid & ATTR_GID)
    {
       (*outValidAttribs) |= SETATTR_CHANGE_GROUPID;
-      fhgfsAttr->groupID = from_kgid(current_user_ns(), iAttr->ia_gid);
+      fhgfsAttr->groupID = from_kgid(&init_user_ns, iAttr->ia_gid);
    }
 
    if(iAttr->ia_valid & ATTR_MTIME_SET)

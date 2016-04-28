@@ -37,6 +37,9 @@ FhgfsOpsErr SetChunkFileAttribsWork::communicate()
    if(quotaChown)
       setAttrMsg.addMsgHeaderFeatureFlag(SETLOCALATTRMSG_FLAG_USE_QUOTA);
 
+   if(outDynamicAttribs) // caller is interested in chunk's actual dynamic attributes
+      setAttrMsg.addMsgHeaderCompatFeatureFlag(SETLOCALATTRMSG_COMPAT_FLAG_EXTEND_REPLY);
+
    setAttrMsg.setMsgHeaderUserID(msgUserID);
 
    // prepare communication
@@ -80,12 +83,18 @@ FhgfsOpsErr SetChunkFileAttribsWork::communicate()
       return setRespVal;
    }
 
-   // success: chunk file unlinked
+   // success
    LOG_DEBUG(logContext, Log_DEBUG,
       "Set attribs of chunk file on target. " +
       std::string( (pattern->getPatternType() == STRIPEPATTERN_BuddyMirror) ? "Mirror " : "") +
       "TargetID: " + StringTk::uintToStr(targetID) + "; "
       "EntryID: " + entryID);
+
+   if ((outDynamicAttribs)
+      && (setRespMsg->isMsgHeaderCompatFeatureFlagSet(SETLOCALATTRRESPMSG_COMPAT_FLAG_HAS_ATTRS)))
+   {
+      setRespMsg->getDynamicAttribs(outDynamicAttribs);
+   }
 
    return FhgfsOpsErr_SUCCESS;
 }

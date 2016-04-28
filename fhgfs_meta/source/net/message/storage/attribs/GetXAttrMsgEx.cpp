@@ -31,13 +31,18 @@ bool GetXAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock, 
       goto resp;
    }
 
-   if(size > XATTR_SIZE_MAX)
-   {
-      getXAttrRes = FhgfsOpsErr_RANGE;
-      goto resp;
-   }
+   if(size > MsgHelperXAttr::MAX_SIZE)
+      size = MsgHelperXAttr::MAX_SIZE + 1;
 
    getXAttrRes = MsgHelperXAttr::getxattr(entryInfo, name, xAttrValue, size);
+
+   if (size >= MsgHelperXAttr::MAX_SIZE + 1 && getXAttrRes == FhgfsOpsErr_SUCCESS)
+   {
+      // The xattr on disk is at least one byte too large. In this case, we have to return
+      // an internal error because it won't fit the net message.
+      xAttrValue.clear();
+      getXAttrRes = FhgfsOpsErr_INTERNAL;
+   }
 
 resp:
    GetXAttrRespMsg respMsg(xAttrValue, size, getXAttrRes);

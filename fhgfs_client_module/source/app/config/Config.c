@@ -234,7 +234,7 @@ void _Config_loadDefaults(Config* this)
    _Config_configMapRedefine(this, "tuneUseGlobalFileLocks",           "false");
    _Config_configMapRedefine(this, "tuneRefreshOnGetAttr",             "false");
    _Config_configMapRedefine(this, "tuneInodeBlockBits",               "19");
-   _Config_configMapRedefine(this, "tuneEarlyCloseResponse",           "true");
+   _Config_configMapRedefine(this, "tuneEarlyCloseResponse",           "false");
    _Config_configMapRedefine(this, "tuneUseGlobalAppendLocks",         "false");
    _Config_configMapRedefine(this, "tuneUseBufferedAppend",            "true");
    _Config_configMapRedefine(this, "tuneStatFsCacheSecs",              "10");

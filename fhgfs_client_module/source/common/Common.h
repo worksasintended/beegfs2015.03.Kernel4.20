@@ -196,14 +196,14 @@ unsigned FhgfsCommon_getCurrentUserID(void)
 {
    kuid_t kernelUID = FhgfsCommon_getCurrentKernelUserID();
 
-   return from_kuid(current_user_ns(), kernelUID);
+   return from_kuid(&init_user_ns, kernelUID);
 }
 
 unsigned FhgfsCommon_getCurrentGroupID(void)
 {
    kgid_t kernelUID = FhgfsCommon_getCurrentKernelGroupID();
 
-   return from_kgid(current_user_ns(), kernelUID);
+   return from_kgid(&init_user_ns, kernelUID);
 }
 
 

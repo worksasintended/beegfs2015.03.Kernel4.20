@@ -22,7 +22,6 @@ bool SetLocalAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
 
    App* app = Program::getApp();
 
-
    const SettableFileAttribs* attribs = getAttribs();
    int validAttribs = getValidAttribs();
 
@@ -30,6 +29,7 @@ bool SetLocalAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
    bool chunkLocked = false;
    int targetFD;
    FhgfsOpsErr clientErrRes = FhgfsOpsErr_SUCCESS;
+   DynamicFileAttribs currentDynAttribs(0, 0, 0, 0, 0);
 
    // select the right targetID
 
@@ -104,17 +104,67 @@ bool SetLocalAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
 
       // update timestamps...
 
-      int utimeRes = MsgHelperIO::utimensat(targetFD, pathStr.c_str(), times, 0);
-      if(utimeRes == -1)
+      // in case we need this extra information on the metadata server, generate a storageVersion,
+      // set the new times while holding the lock and return the current attribs and a
+      // storageVersion in response later
+      if (isMsgHeaderCompatFeatureFlagSet (SETLOCALATTRMSG_COMPAT_FLAG_EXTEND_REPLY))
       {
-         int errCode = errno;
+         uint64_t storageVersion = Program::getApp()->getSyncedStoragePaths()->lockPath(
+            getEntryID(), targetID);
 
-         if (errCode != ENOENT)
+         int utimeRes = MsgHelperIO::utimensat(targetFD, pathStr.c_str(), times, 0);
+
+         if (utimeRes == 0)
          {
+            bool getDynAttribsRes = StorageTkEx::getDynamicFileAttribs(targetFD, pathStr.c_str(),
+               &currentDynAttribs.fileSize, &currentDynAttribs.numBlocks,
+               &currentDynAttribs.modificationTimeSecs, &currentDynAttribs.lastAccessTimeSecs);
+
+            // If stat failed (after utimensat worked!), something really bad happened, so the
+            // attribs are definitely invalid. Otherwise set storageVersion in dynAttribs
+            if (getDynAttribsRes)
+            {
+               currentDynAttribs.storageVersion = storageVersion;
+            }
+         }
+         else if (errno == ENOENT)
+         {
+            // Entry doesn't exist. Not an error, but we need to return fake dynamic attributes for
+            // the metadata server to calc the values (fake in this sense means, we send the
+            // timestamps back that we tried to set, but have real filesize and numBlocks, i.e. 0
+            currentDynAttribs.storageVersion = storageVersion;
+            currentDynAttribs.fileSize = 0;
+            currentDynAttribs.numBlocks = 0;
+            currentDynAttribs.modificationTimeSecs = attribs->modificationTimeSecs;
+            currentDynAttribs.lastAccessTimeSecs = attribs->lastAccessTimeSecs;
+         }
+         else
+         {
+            int errCode = errno;
+
             LogContext(logContext).logErr("Unable to change file time: " + pathStr + ". "
-               "SysErr: " + System::getErrString() );
+               "SysErr: " + System::getErrString());
 
             clientErrRes = fhgfsErrFromSysErr(errCode);
+         }
+
+         Program::getApp()->getSyncedStoragePaths()->unlockPath(getEntryID(), targetID);
+      }
+      else
+      {
+         int utimeRes = MsgHelperIO::utimensat(targetFD, pathStr.c_str(), times, 0);
+
+         if (utimeRes == -1)
+         {
+            int errCode = errno;
+
+            if (errCode != ENOENT)
+            {
+               LogContext(logContext).logErr("Unable to change file time: " + pathStr + ". "
+                  "SysErr: " + System::getErrString() );
+
+               clientErrRes = fhgfsErrFromSysErr(errCode);
+            }
          }
       }
    }
@@ -162,7 +212,7 @@ send_response:
       app->getChunkLockStore()->unlockChunk(targetID, getEntryID() );
 
    { // send response...
-      SetLocalAttrRespMsg respMsg(clientErrRes);
+      SetLocalAttrRespMsg respMsg(clientErrRes, currentDynAttribs);
       respMsg.serialize(respBuf, bufLen);
       sock->sendto(respBuf, respMsg.getMsgLength(), 0,
          (struct sockaddr*)fromAddr, sizeof(struct sockaddr_in) );

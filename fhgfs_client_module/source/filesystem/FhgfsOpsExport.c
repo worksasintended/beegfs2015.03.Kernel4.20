@@ -146,24 +146,47 @@ int __FhgfsOpsExport_encodeNfsFileHandleV2(struct inode* inode, __u32* file_hand
 
    entryInfo = FhgfsInode_getEntryInfo(fhgfsInode);
 
-   parseParentIDRes = __FhgfsOpsExport_parseEntryIDForNfsHandle(entryInfo->parentEntryID,
-      &fhgfsNfsHandle->parentEntryIDCounter, &fhgfsNfsHandle->parentEntryIDTimestamp,
-      &fhgfsNfsHandle->parentEntryIDNodeID);
+   if (strcmp(META_ROOTDIR_ID_STR, entryInfo->entryID) == 0)
+   {
+      // special case: this is the root ID, which doesn't have the usual three components. We
+      // only need to set the entryID components to 0. The remaining part does not matter, because
+      // when decoding those 3 parts will tell us that it's the root ID
+      fhgfsNfsHandle->entryIDCounter = 0;
+      fhgfsNfsHandle->entryIDTimestamp = 0;
+      fhgfsNfsHandle->entryIDNodeID = 0;
 
-   if(unlikely(!parseParentIDRes) )
+      goto cleanup;
+   }
+
+   // not the root inode
+   parseEntryIDRes = __FhgfsOpsExport_parseEntryIDForNfsHandle(entryInfo->entryID,
+      &fhgfsNfsHandle->entryIDCounter, &fhgfsNfsHandle->entryIDTimestamp,
+      &fhgfsNfsHandle->entryIDNodeID);
+
+   if (unlikely(!parseEntryIDRes) )
    { // parsing failed (but we have no real way to return an error)
       retVal = FhgfsNfsHandle_INVALID;
       goto cleanup;
    }
 
-   parseEntryIDRes = __FhgfsOpsExport_parseEntryIDForNfsHandle(entryInfo->entryID,
-      &fhgfsNfsHandle->entryIDCounter, &fhgfsNfsHandle->entryIDTimestamp,
-      &fhgfsNfsHandle->entryIDNodeID);
+   if (strcmp(META_ROOTDIR_ID_STR, entryInfo->parentEntryID) == 0)
+   {
+      // parent entry is root => set parentEntryID components to 0
+      fhgfsNfsHandle->parentEntryIDCounter = 0;
+      fhgfsNfsHandle->parentEntryIDTimestamp = 0;
+      fhgfsNfsHandle->parentEntryIDNodeID = 0;
+   }
+   else
+   {
+      parseParentIDRes = __FhgfsOpsExport_parseEntryIDForNfsHandle(entryInfo->parentEntryID,
+      &fhgfsNfsHandle->parentEntryIDCounter, &fhgfsNfsHandle->parentEntryIDTimestamp,
+      &fhgfsNfsHandle->parentEntryIDNodeID);
 
-   if(unlikely(!parseEntryIDRes) )
-   { // parsing failed (but we have no real way to return an error)
-      retVal = FhgfsNfsHandle_INVALID;
-      goto cleanup;
+      if (unlikely(!parseParentIDRes) )
+      { // parsing failed (but we have no real way to return an error)
+         retVal = FhgfsNfsHandle_INVALID;
+         goto cleanup;
+      }
    }
 
    fhgfsNfsHandle->ownerNodeID = entryInfo->ownerNodeID;
@@ -508,8 +531,6 @@ err_cleanup_entryinfo:
 /**
  * Parse an entryID string to get its three components.
  *
- * Note: META_ROOTDIR_ID_STR is a special case (all three components are set to 0).
- *
  * @return fhgfs_false on error
  */
 fhgfs_bool __FhgfsOpsExport_parseEntryIDForNfsHandle(const char* entryID, uint32_t* outCounter,
@@ -519,15 +540,6 @@ fhgfs_bool __FhgfsOpsExport_parseEntryIDForNfsHandle(const char* entryID, uint32
 
    uint32_t nodeID32; // just a tmp variable, because 16-bit outNodeID cannot be used with sscanf %X
    int scanRes;
-
-   if(!strcmp(META_ROOTDIR_ID_STR, entryID) )
-   { // special case: this is the root ID, which doesn't have the usual three components
-      *outCounter = 0;
-      *outTimestamp = 0;
-      *outNodeID = 0;
-
-      return fhgfs_true;
-   }
 
    scanRes = os_sscanf(entryID, "%X-%X-%X", outCounter, outTimestamp, &nodeID32);
 

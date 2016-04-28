@@ -1626,6 +1626,7 @@ FhgfsOpsErr DirInode::listXAttr(const std::string& fileName, StringVector& outAt
       switch(err)
       {
          case ERANGE:
+         case E2BIG:
             res = FhgfsOpsErr_RANGE;
             break;
 
@@ -1671,20 +1672,13 @@ FhgfsOpsErr DirInode::getXAttr(const std::string& fileName, const std::string& x
    std::string dentryPath = entries.getDirEntryPath() + "/" + fileName;
    int err;
 
-   if(inOutSize == 0) // size == 0 means the user just wants to know the size, and not the actual data
-   {
-      // "workaround": just return a vector of the correct size, filled with zeros.
-      inOutSize = getxattr(dentryPath.c_str(), xAttrName.c_str(), NULL, 0);
-   }
-   else
-   {
-      outValue.resize(inOutSize);
-      inOutSize = getxattr(dentryPath.c_str(), xAttrName.c_str(), &outValue.front(), inOutSize);
-   }
+   outValue.resize(inOutSize);
+   inOutSize = getxattr(dentryPath.c_str(), xAttrName.c_str(), &outValue.front(), inOutSize);
 
    if(inOutSize < 0)
    {
       err = errno;
+      outValue.clear();
 
       switch(err)
       {
@@ -1692,6 +1686,7 @@ FhgfsOpsErr DirInode::getXAttr(const std::string& fileName, const std::string& x
             return FhgfsOpsErr_NODATA;
 
          case ERANGE:
+         case E2BIG:
             return FhgfsOpsErr_RANGE;
 
          case ENOENT:
@@ -1705,6 +1700,7 @@ FhgfsOpsErr DirInode::getXAttr(const std::string& fileName, const std::string& x
    }
    else
    {
+      outValue.resize(inOutSize);
       // onOutSize is already set to the correct size, so we just need to return success here.
       return FhgfsOpsErr_SUCCESS;
    }
@@ -1727,6 +1723,7 @@ FhgfsOpsErr DirInode::removeXAttr(const std::string& fileName, const std::string
             return FhgfsOpsErr_NODATA;
 
          case ERANGE:
+         case E2BIG:
             return FhgfsOpsErr_RANGE;
 
          case ENOENT:
@@ -1764,6 +1761,7 @@ FhgfsOpsErr DirInode::setXAttr(const std::string& fileName, const std::string& x
             return FhgfsOpsErr_NODATA;
 
          case ERANGE:
+         case E2BIG:
             return FhgfsOpsErr_RANGE;
 
          case ENOENT:

@@ -831,7 +831,7 @@ void MsgHelperRepair::fixChunkPermissions(Node* node, FsckChunkList& chunkList,
       {
          SetLocalAttrRespMsg* setLocalAttrRespMsg = (SetLocalAttrRespMsg*) respMsg;
 
-         if ( setLocalAttrRespMsg->getValue() != FhgfsOpsErr_SUCCESS )
+         if ( setLocalAttrRespMsg->getResult() != FhgfsOpsErr_SUCCESS )
          {
             LogContext(logContext).logErr(
                "Failed to set uid/gid for chunk. chunkID: " + chunkID + "; targetID: "

@@ -362,20 +362,19 @@ void StatData::updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePat
    /* note: we assume that in most cases, the user will stat not-opened files (which have
       all storageVersions set to 0), so we optimize for that case. */
 
-   int firstValidDynAttribIndex = -1; // -1 means "no valid index found"
+   unsigned numValidDynAttribs = 0;
 
    size_t numStripeTargets = stripePattern->getNumStripeTargetIDs();
 
-   for(size_t i=0; i < fileInfoVec.size(); i++)
+   for (size_t i=0; i < fileInfoVec.size(); i++)
    {
-      if(fileInfoVec[i].getStorageVersion() )
+      if (fileInfoVec[i].getStorageVersion() )
       {
-         firstValidDynAttribIndex = i;
-         break;
+         numValidDynAttribs++;
       }
    }
 
-   if(firstValidDynAttribIndex == -1)
+   if (numValidDynAttribs == 0)
    { // no valid dyn attrib element found => use static attribs and nothing to do
       return;
    }
@@ -389,18 +388,34 @@ void StatData::updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePat
    // the first mtime on the metadata server can be newer then the mtime on the storage server due
    // to minor time difference between the servers, so the ctime should be updated after every
    // close, this issue should be fixed by the usage of the max(...) function
-   int64_t oldModificationTimeSecs = std::max(fileInfoVec[0].getModificationTimeSecs(),
-      this->settableFileAttribs.modificationTimeSecs);
-   int64_t newModificationTimeSecs = oldModificationTimeSecs; // initialize with the old value
+   // note: only use max(MDS, first chunk) if we don't have information from all chunks, because
+   // if we have information from all chunks and the info on the MDS differs, info on the MDS must
+   // be wrong and therefore should be overwritten
+   int64_t oldModificationTimeSecs;
+   int64_t newModificationTimeSecs;
+   int64_t newLastAccessTimeSecs;
+   if (numValidDynAttribs == numStripeTargets)
+   {
+      oldModificationTimeSecs = fileInfoVec[0].getModificationTimeSecs();
+      newModificationTimeSecs = oldModificationTimeSecs; // initialize with the old value
 
-   int64_t newLastAccessTimeSecs = std::max(fileInfoVec[0].getLastAccessTimeSecs(),
-      this->settableFileAttribs.lastAccessTimeSecs);
+      newLastAccessTimeSecs = fileInfoVec[0].getLastAccessTimeSecs();
+   }
+   else
+   {
+      oldModificationTimeSecs = std::max(fileInfoVec[0].getModificationTimeSecs(),
+         settableFileAttribs.modificationTimeSecs);
+      newModificationTimeSecs = oldModificationTimeSecs; // initialize with the old value
 
-   this->setTargetChunkBlocks(0, fileInfoVec[0].getNumBlocks(), numStripeTargets);
+      newLastAccessTimeSecs = std::max(fileInfoVec[0].getLastAccessTimeSecs(),
+         settableFileAttribs.lastAccessTimeSecs);
+   }
+
+   setTargetChunkBlocks(0, fileInfoVec[0].getNumBlocks(), numStripeTargets);
 
    int64_t newFileSize;
 
-   for(unsigned target = 1; target < fileInfoVec.size(); target++)
+   for (unsigned target = 1; target < fileInfoVec.size(); target++)
    {
       /* note: we cannot ignore storageVersion==0 here, because that would lead to wrong file
        *       length computations.
@@ -426,7 +441,7 @@ void StatData::updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePat
       if(currentLastAccessTimeSecs > newLastAccessTimeSecs)
          newLastAccessTimeSecs = currentLastAccessTimeSecs;
 
-      this->setTargetChunkBlocks(target, fileInfoVec[target].getNumBlocks(), numStripeTargets);
+      setTargetChunkBlocks(target, fileInfoVec[target].getNumBlocks(), numStripeTargets);
    }
 
    if(maxNumChunks)
@@ -450,12 +465,12 @@ void StatData::updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePat
       newFileSize = totalLength;
 
       uint64_t calcBlocks = newFileSize >> STATDATA_SIZETOBLOCKSBIT_SHIFT;
-      uint64_t usedBlockSum = this->getNumBlocks();
+      uint64_t usedBlockSum = getNumBlocks();
 
       if (usedBlockSum + STATDATA_SPARSE_GRACEBLOCKS < calcBlocks)
-         this->setSparseFlag();
+         setSparseFlag();
       else
-         this->unsetSparseFlag();
+         unsetSparseFlag();
 
    }
    else
@@ -463,18 +478,17 @@ void StatData::updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePat
       newFileSize = 0;
    }
 
-
    // now update class values
 
-   this->setLastAccessTimeSecs(newLastAccessTimeSecs);
-   this->setModificationTimeSecs(newModificationTimeSecs);
+   setLastAccessTimeSecs(newLastAccessTimeSecs);
+   setModificationTimeSecs(newModificationTimeSecs);
 
-   int64_t oldFileSize = this->getFileSize();
+   int64_t oldFileSize = getFileSize();
 
    // mtime or fileSize updated, so also ctime needs to be updated
    if (newModificationTimeSecs != oldModificationTimeSecs || oldFileSize != newFileSize)
-      this->setAttribChangeTimeSecs(TimeAbs().getTimeval()->tv_sec);
+      setAttribChangeTimeSecs(TimeAbs().getTimeval()->tv_sec);
 
-   this->setFileSize(newFileSize);
+   setFileSize(newFileSize);
 }
 

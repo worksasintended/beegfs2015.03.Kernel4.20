@@ -6,14 +6,10 @@
 const std::string MsgHelperXAttr::XATTR_PREFIX = std::string("user.bgXA.");
 const std::string MsgHelperXAttr::CURRENT_DIR_FILENAME = std::string(".");
 
-FhgfsOpsErr MsgHelperXAttr::listxattr(EntryInfo* entryInfo, char* outBuf, ssize_t& inOutSize)
+FhgfsOpsErr MsgHelperXAttr::listxattr(EntryInfo* entryInfo, StringVector& outNames)
 {
-   MetaStore* metaStore = Program::getApp()->getMetaStore();
-
-   StringVector fullAttrList;
-   StringVector filteredAttrList;
-   ssize_t outListSize = 0;
    FhgfsOpsErr retVal;
+   MetaStore* metaStore = Program::getApp()->getMetaStore();
 
    if (entryInfo->getEntryType() == DirEntryType_DIRECTORY)
    {
@@ -23,7 +19,7 @@ FhgfsOpsErr MsgHelperXAttr::listxattr(EntryInfo* entryInfo, char* outBuf, ssize_
       if (unlikely(!dir) )
          return FhgfsOpsErr_INTERNAL;
 
-      retVal = dir->listXAttr(CURRENT_DIR_FILENAME, fullAttrList);
+      retVal = dir->listXAttr(CURRENT_DIR_FILENAME, outNames);
 
       metaStore->releaseDir(dirEntryID);
    }
@@ -36,7 +32,7 @@ FhgfsOpsErr MsgHelperXAttr::listxattr(EntryInfo* entryInfo, char* outBuf, ssize_
       if (unlikely(!dir) )
          return FhgfsOpsErr_INTERNAL;
 
-      retVal = dir->listXAttr(fileName, fullAttrList);
+      retVal = dir->listXAttr(fileName, outNames);
 
       metaStore->releaseDir(parentID);
    }
@@ -45,43 +41,15 @@ FhgfsOpsErr MsgHelperXAttr::listxattr(EntryInfo* entryInfo, char* outBuf, ssize_
       return retVal;
 
    // filter list for xattr prefixes, remove prefixes from attributes
-   for(StringVectorConstIter attrIter = fullAttrList.begin(); attrIter != fullAttrList.end();
-       ++attrIter)
+   for (size_t i = 0; i < outNames.size(); i++)
    {
-      const std::string attr = *attrIter;
-
-      if(attr.compare(0, XATTR_PREFIX.length(), XATTR_PREFIX) == 0)
-      {
-         std::string attrName = attr.substr(XATTR_PREFIX.length() );
-         filteredAttrList.push_back(attrName);
-         outListSize += attrName.length() + 1;
-      }
+      if(outNames[i].compare(0, XATTR_PREFIX.length(), XATTR_PREFIX) == 0)
+         outNames[i].erase(0, XATTR_PREFIX.length());
+      else
+         outNames.erase(outNames.begin() + (i--));
    }
 
-   if(inOutSize == 0)
-   {
-      inOutSize = outListSize;
-   }
-   else
-   if(inOutSize >= outListSize)
-   {
-      inOutSize = outListSize;
-      char* bufPos = outBuf;
-
-      for(StringVectorConstIter attrIter = filteredAttrList.begin();
-          attrIter != filteredAttrList.end(); ++attrIter)
-      {
-         std::copy(attrIter->begin(), attrIter->end(), bufPos);
-         bufPos += attrIter->length();
-         *(bufPos++) = '\0'; // add null terminator / list separator
-      }
-   }
-   else
-   {
-      retVal = FhgfsOpsErr_RANGE;
-   }
-
-   return retVal;
+   return FhgfsOpsErr_SUCCESS;
 }
 
 

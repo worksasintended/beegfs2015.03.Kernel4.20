@@ -371,6 +371,9 @@ void InternodeSyncer::publishTargetState(uint16_t targetID, TargetConsistencySta
       SetTargetConsistencyStatesRespMsg* respMsgCast = (SetTargetConsistencyStatesRespMsg*)respMsg;
       if ( (FhgfsOpsErr)respMsgCast->getValue() != FhgfsOpsErr_SUCCESS)
          log.log(Log_CRITICAL, "Management node did not accept target state.");
+
+      SAFE_DELETE(respMsg);
+      SAFE_FREE(respBuf);
    }
 }
 
@@ -418,6 +421,7 @@ bool InternodeSyncer::publishTargetStateChanges(UInt16List& targetIDs, UInt8List
 {
    App* app = Program::getApp();
    NodeStore* mgmtNodes = app->getMgmtNodes();
+   bool res;
 
    log.log(Log_DEBUG, "Publishing target state change");
 
@@ -438,7 +442,7 @@ bool InternodeSyncer::publishTargetStateChanges(UInt16List& targetIDs, UInt8List
    if (!sendRes)
    {
       log.log(Log_CRITICAL, "Pushing target state changes to management node failed.");
-      return false; // Retry.
+      res = false; // Retry.
    }
    else
    {
@@ -448,11 +452,18 @@ bool InternodeSyncer::publishTargetStateChanges(UInt16List& targetIDs, UInt8List
       if ( (FhgfsOpsErr)respMsgCast->getValue() != FhgfsOpsErr_SUCCESS)
       {
          log.log(Log_CRITICAL, "Management node did not accept target state changes.");
-         return false; // States were changed while we evaluated the state changed. Try again.
+         res = false; // States were changed while we evaluated the state changed. Try again.
       }
+      else
+         res = true;
 
-      return true;
+      SAFE_DELETE(respMsg);
+      SAFE_FREE(respBuf);
    }
+
+   mgmtNodes->releaseNode(&mgmtNode);
+
+   return res;
 }
 
 void InternodeSyncer::requestBuddyTargetStates()

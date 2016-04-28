@@ -19,9 +19,9 @@ class SetAttrMsgEx : public SetAttrMsg
    
    private:
       FhgfsOpsErr setAttrRoot();
-      FhgfsOpsErr setChunkFileAttribs(FileInode* file);
-      FhgfsOpsErr setChunkFileAttribsSequential(FileInode* file);
-      FhgfsOpsErr setChunkFileAttribsParallel(FileInode* file);
+      FhgfsOpsErr setChunkFileAttribs(FileInode* file, bool requestDynamicAttribs);
+      FhgfsOpsErr setChunkFileAttribsSequential(FileInode* file, bool requestDynamicAttribs);
+      FhgfsOpsErr setChunkFileAttribsParallel(FileInode* file, bool requestDynamicAttribs);
 };
 
 

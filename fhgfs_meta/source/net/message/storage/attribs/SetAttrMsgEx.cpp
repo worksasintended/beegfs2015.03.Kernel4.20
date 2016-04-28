@@ -34,43 +34,65 @@ bool SetAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
       getMsgHeaderUserID() );
 
 
-   if(entryInfo->getParentEntryID().empty() )
+   if ( entryInfo->getParentEntryID().empty() )
    { // special case: setAttr for root directory
       setAttrRes = setAttrRoot();
    }
-   else
-   if(!DirEntryType_ISFILE(entryInfo->getEntryType() ) )
+   else if ( !DirEntryType_ISFILE(entryInfo->getEntryType()) )
    { // a directory
-      setAttrRes = metaStore->setAttr(entryInfo, getValidAttribs(), getAttribs() );
+      setAttrRes = metaStore->setAttr(entryInfo, getValidAttribs(), getAttribs());
    }
    else
    { // a file
-      // we need to reference the inode first, as we want to use it several times
+     // we need to reference the inode first, as we want to use it several times
       FileInode* inode = metaStore->referenceFile(entryInfo);
       if (inode)
       {
-         setAttrRes = metaStore->setAttr(entryInfo, getValidAttribs(), getAttribs() );
+         // in the following we need to distinguish between several cases.
+         // 1. if times shall be updated we need to send the update to the storage servers first
+         //    because, we need to rely on storage server's attrib version to prevent races with
+         //    other messages that update the times (e.g. Close)
+         // 2. if times shall not be updated (must be chmod or chown then) and quota is enabled
+         //    we first set the local attributes and then send the update to the storage server.
+         //    if an early response optimization is set in this case we send the response between
+         //    these two steps
+         // 3. no times update (i.e. chmod or chown) and quota is enabled => only update locally,
+         //    as we don't have a reason to waste time with contacting the storage servers
 
          bool timeUpdate =
             getValidAttribs() & (SETATTR_CHANGE_MODIFICATIONTIME | SETATTR_CHANGE_LASTACCESSTIME);
 
-         if( (setAttrRes == FhgfsOpsErr_SUCCESS) &&
-            (isMsgHeaderFeatureFlagSet(SETATTRMSG_FLAG_USE_QUOTA) || timeUpdate) )
-         { // we have set timestamp or owner attribs => send info to storage targets
+         if (timeUpdate) // time update and mode/owner update can never be at the same time
+         {
+            setAttrRes = setChunkFileAttribs(inode, true);
 
-            if(cfg->getQuotaEarlyChownResponse() && !timeUpdate)
-            { // allowed only if chown for quota is set (and not if other things set as well)
+            if (setAttrRes == FhgfsOpsErr_SUCCESS)
+            {
+               setAttrRes = metaStore->setAttr(entryInfo, getValidAttribs(), getAttribs());
+            }
+         }
+         else if (isMsgHeaderFeatureFlagSet(SETATTRMSG_FLAG_USE_QUOTA))
+         {
+            setAttrRes = metaStore->setAttr(entryInfo, getValidAttribs(), getAttribs());
+
+            if (cfg->getQuotaEarlyChownResponse())
+            { // allowed only if early chown respnse for quota is set
                SetAttrRespMsg respMsg(setAttrRes);
                respMsg.serialize(respBuf, bufLen);
-               sock->sendto(respBuf, respMsg.getMsgLength(), 0,
-                  (struct sockaddr*)fromAddr, sizeof(struct sockaddr_in) );
+               sock->sendto(respBuf, respMsg.getMsgLength(), 0, (struct sockaddr*) fromAddr,
+                  sizeof(struct sockaddr_in));
 
                IncomingPreprocessedMsgWork::releaseSocket(app, &sock, this);
 
                earlyResponse = true;
             }
 
-            setAttrRes = setChunkFileAttribs(inode);
+            if (setAttrRes == FhgfsOpsErr_SUCCESS)
+               setAttrRes = setChunkFileAttribs(inode, false);
+         }
+         else
+         {
+            setAttrRes = metaStore->setAttr(entryInfo, getValidAttribs(), getAttribs());
          }
 
          metaStore->releaseFile(entryInfo->getParentEntryID(), inode);
@@ -79,25 +101,25 @@ bool SetAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
          setAttrRes = FhgfsOpsErr_PATHNOTEXISTS;
    }
 
-   if(earlyResponse)
+   if ( earlyResponse )
       return true;
 
    // send response
 
-   if(unlikely(setAttrRes == FhgfsOpsErr_COMMUNICATION) )
+   if ( unlikely(setAttrRes == FhgfsOpsErr_COMMUNICATION) )
    { // forward comm error as indirect communication error to client
       GenericResponseMsg respMsg(GenericRespMsgCode_INDIRECTCOMMERR,
          "Communication with storage target failed");
       respMsg.serialize(respBuf, bufLen);
-      sock->sendto(respBuf, respMsg.getMsgLength(), 0,
-         (struct sockaddr*)fromAddr, sizeof(struct sockaddr_in) );
+      sock->sendto(respBuf, respMsg.getMsgLength(), 0, (struct sockaddr*) fromAddr,
+         sizeof(struct sockaddr_in));
    }
    else
    { // normal response
       SetAttrRespMsg respMsg(setAttrRes);
       respMsg.serialize(respBuf, bufLen);
-      sock->sendto(respBuf, respMsg.getMsgLength(), 0,
-         (struct sockaddr*)fromAddr, sizeof(struct sockaddr_in) );
+      sock->sendto(respBuf, respMsg.getMsgLength(), 0, (struct sockaddr*) fromAddr,
+         sizeof(struct sockaddr_in));
    }
 
    return true;
@@ -122,21 +144,22 @@ FhgfsOpsErr SetAttrMsgEx::setAttrRoot()
    return FhgfsOpsErr_SUCCESS;
 }
 
-FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribs(FileInode* file)
+FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribs(FileInode* file, bool requestDynamicAttribs)
 {
    StripePattern* pattern = file->getStripePattern();
 
    if( (pattern->getStripeTargetIDs()->size() > 1) ||
        (pattern->getPatternType() == STRIPEPATTERN_BuddyMirror) )
-      return setChunkFileAttribsParallel(file);
+      return setChunkFileAttribsParallel(file, requestDynamicAttribs);
    else
-      return setChunkFileAttribsSequential(file);
+      return setChunkFileAttribsSequential(file, requestDynamicAttribs);
 }
 
 /**
  * Note: This method does not work for mirrored files; use setChunkFileAttribsParallel() for those.
  */
-FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsSequential(FileInode* inode)
+FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsSequential(FileInode* inode,
+   bool requestDynamicAttribs)
 {
    const char* logContext = "Set chunk file attribs S";
    
@@ -170,6 +193,9 @@ FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsSequential(FileInode* inode)
       if(isMsgHeaderFeatureFlagSet(SETATTRMSG_FLAG_USE_QUOTA))
          setAttrMsg.addMsgHeaderFeatureFlag(SETLOCALATTRMSG_FLAG_USE_QUOTA);
 
+      if(requestDynamicAttribs)
+         setAttrMsg.addMsgHeaderCompatFeatureFlag(SETLOCALATTRMSG_COMPAT_FLAG_EXTEND_REPLY);
+
       RequestResponseArgs rrArgs(NULL, &setAttrMsg, NETMSGTYPE_SetLocalAttrResp);
       RequestResponseTarget rrTarget(targetID, targetMapper, nodes);
 
@@ -194,19 +220,27 @@ FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsSequential(FileInode* inode)
       // correct response type received
       SetLocalAttrRespMsg* setRespMsg = (SetLocalAttrRespMsg*)rrArgs.outRespMsg;
       
-      if(setRespMsg->getValue() != FhgfsOpsErr_SUCCESS)
+      FhgfsOpsErr setRespResult = setRespMsg->getResult();
+      if (setRespResult != FhgfsOpsErr_SUCCESS)
       { // error: local inode attribs not set
          LogContext(logContext).log(Log_WARNING,
             "Target failed to set attribs of chunk file: " + StringTk::uintToStr(targetID) + "; "
             "fileID: " + inode->getEntryID() );
          
          if(retVal == FhgfsOpsErr_SUCCESS)
-            retVal = setRespMsg->getResult();
+            retVal = setRespResult;
 
          continue;
       }
       
       // success: local inode attribs set
+      if (setRespMsg->isMsgHeaderCompatFeatureFlagSet(SETLOCALATTRRESPMSG_COMPAT_FLAG_HAS_ATTRS))
+      {
+         DynamicFileAttribsVec dynAttribsVec(1);
+         setRespMsg->getDynamicAttribs(&(dynAttribsVec[0]));
+         inode->setDynAttribs(dynAttribsVec);
+      }
+
       LOG_DEBUG(logContext, Log_DEBUG,
          "Target has set attribs of chunk file: " + StringTk::uintToStr(targetID) + "; " +
          "fileID: " + inode->getEntryID() );
@@ -220,7 +254,7 @@ FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsSequential(FileInode* inode)
    return retVal;
 }
 
-FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsParallel(FileInode* inode)
+FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsParallel(FileInode* inode, bool requestDynamicAttribs)
 {
    const char* logContext = "Set chunk file attribs";
 
@@ -232,6 +266,7 @@ FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsParallel(FileInode* inode)
    size_t numTargetWorks = targetIDs->size();
 
    FhgfsOpsErr retVal = FhgfsOpsErr_SUCCESS;
+   DynamicFileAttribsVec dynAttribsVec(numTargetWorks);
    FhgfsOpsErrVec nodeResults(numTargetWorks);
    SynchronizedCounter counter;
 
@@ -244,9 +279,19 @@ FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsParallel(FileInode* inode)
    {
       bool enableFileCreation = (i == 0); // enable inode creation on first target
 
-      SetChunkFileAttribsWork* work = new SetChunkFileAttribsWork(
-         inode->getEntryID(), getValidAttribs(), getAttribs(), enableFileCreation, pattern,
-         (*targetIDs)[i], &pathInfo, &(nodeResults[i]), &counter);
+      SetChunkFileAttribsWork* work = NULL;
+      if (requestDynamicAttribs) // we are interested in the chunk's dynamic attributes, because we
+      {                          // modify timestamps and this operation might race with others
+         work = new SetChunkFileAttribsWork(inode->getEntryID(), getValidAttribs(), getAttribs(),
+            enableFileCreation, pattern, (*targetIDs)[i], &pathInfo, &(dynAttribsVec[i]),
+            &(nodeResults[i]), &counter);
+      }
+      else
+      {
+         work = new SetChunkFileAttribsWork(inode->getEntryID(), getValidAttribs(), getAttribs(),
+            enableFileCreation, pattern, (*targetIDs)[i], &pathInfo, NULL, &(nodeResults[i]),
+            &counter);
+      }
 
       work->setQuotaChown(isMsgHeaderFeatureFlagSet(SETATTRMSG_FLAG_USE_QUOTA) );
       work->setMsgUserID(getMsgHeaderUserID() );
@@ -255,11 +300,15 @@ FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsParallel(FileInode* inode)
    }
 
    // wait for work completion...
-
    counter.waitForCount(numTargetWorks);
 
-   // check target results...
+   // we set the dynamic attribs here, no matter if the remote operation suceeded or not. If it
+   // did not, storageVersion will be zero and the corresponding data will be ignored
+   // note: if the chunk's attributes were not requested from server at all, this is also OK here,
+   // because the storageVersion will be 0
+   inode->setDynAttribs(dynAttribsVec);
 
+   // check target results...
    for(size_t i=0; i < numTargetWorks; i++)
    {
       if(unlikely(nodeResults[i] != FhgfsOpsErr_SUCCESS) )
@@ -272,7 +321,6 @@ FhgfsOpsErr SetAttrMsgEx::setChunkFileAttribsParallel(FileInode* inode)
          goto error_exit;
       }
    }
-
 
 error_exit:
    return retVal;

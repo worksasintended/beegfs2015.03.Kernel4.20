@@ -180,7 +180,7 @@ bool AdjustChunkPermissionsMsgEx::sendSetAttrMsg(std::string& entryID, unsigned 
    for(size_t i=0; i < numTargetWorks; i++)
    {
       SetChunkFileAttribsWork* work = new SetChunkFileAttribsWork(
-         entryID, validAttribs, &attribs, false, pattern, (*stripeTargets)[i], pathInfo,
+         entryID, validAttribs, &attribs, false, pattern, (*stripeTargets)[i], pathInfo, NULL,
          &(nodeResults[i]), &counter);
 
       work->setQuotaChown(true);

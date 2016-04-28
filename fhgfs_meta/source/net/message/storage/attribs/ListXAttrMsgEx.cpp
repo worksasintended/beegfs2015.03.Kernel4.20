@@ -13,10 +13,10 @@ bool ListXAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
    std::string localNodeID = app->getLocalNode()->getID();
    std::string peer = fromAddr ? Socket::ipaddrToStr(&fromAddr->sin_addr) : sock->getPeername();
    EntryInfo* entryInfo = this->getEntryInfo();
-   ssize_t size = this->getSize();
+   size_t listSize = 0;
 
    LOG_DEBUG(logContext, Log_DEBUG, std::string("Received a ListXAttrMsg from: ") + peer
-      + "; size: " + StringTk::intToStr(size) + ";");
+      + "; size: " + StringTk::intToStr(this->getSize()) + ";");
 
    StringVector xAttrVec;
    FhgfsOpsErr listXAttrRes;
@@ -30,37 +30,21 @@ bool ListXAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
       goto resp;
    }
 
-   if(size > XATTR_LIST_MAX)
+   listXAttrRes = MsgHelperXAttr::listxattr(entryInfo, xAttrVec);
+
+   for (StringVectorConstIter it = xAttrVec.begin(); it != xAttrVec.end(); ++it)
+      listSize += it->size() + 1;
+
+   if (listSize >= MsgHelperXAttr::MAX_SIZE + 1 && listXAttrRes == FhgfsOpsErr_SUCCESS)
    {
-      listXAttrRes = FhgfsOpsErr_RANGE;
-      goto resp;
-   }
-
-   if(size != 0)
-   {
-      char* xAttrBuf = static_cast<char*>(malloc(size) );
-
-      listXAttrRes = MsgHelperXAttr::listxattr(entryInfo, xAttrBuf, size);
-
-      if(listXAttrRes == FhgfsOpsErr_SUCCESS)
-      {
-         // convert '\0'-separated extended attribute list into string vector
-         for(char* xAttrPtr = xAttrBuf; xAttrPtr != xAttrBuf + size;
-             xAttrPtr = strchr(xAttrPtr, '\0') + 1)
-         {
-            xAttrVec.push_back(std::string(xAttrPtr) );
-         }
-      }
-
-      free(xAttrBuf);
-   }
-   else // size is zero: User just wants to know the size needed for the buffer
-   {
-      listXAttrRes = MsgHelperXAttr::listxattr(entryInfo, NULL, size);
+      // The xattr list on disk is at least one byte too large. In this case, we have to return
+      // an internal error because it won't fit the net message.
+      xAttrVec.clear();
+      listXAttrRes = FhgfsOpsErr_TOOBIG;
    }
 
 resp:
-   ListXAttrRespMsg respMsg(xAttrVec, size, listXAttrRes);
+   ListXAttrRespMsg respMsg(xAttrVec, listSize, listXAttrRes);
 
    respMsg.serialize(respBuf, bufLen);
    sock->sendto(respBuf, respMsg.getMsgLength(), 0,

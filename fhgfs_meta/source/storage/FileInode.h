@@ -59,7 +59,6 @@ class FileInode
    friend class InodeFileStore;
    friend class SessionFile; /* (needed for entry/range locking) */
 
-
    public:
 
       /**
