@@ -76,11 +76,10 @@ class JBeeGFS {
     * Checks if the required API version of the application is compatible to current API version
     *
     * @param requiredMajorVersion the required major API version of the user application
-    * @param requiredMinorVersion the required minor API version of the user application
+    * @param requiredMinorVersion the minimal required minor API version of the user application
     * @return 0 if the required version and the API version are compatible, if not -1 is returned
     */
-   public static boolean jBeegfsApiVersionCheck(int requiredMajorVersion, int requiredMinorVersion)
-   {
+   public static boolean jBeegfsCheckApiVersion(int requiredMajorVersion, int requiredMinorVersion) {
       if(requiredMajorVersion != JBEEGFS_API_MAJOR_VERSION)
          return false;
 

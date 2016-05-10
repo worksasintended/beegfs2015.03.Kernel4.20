@@ -553,9 +553,9 @@ int ModeListTargets::printHeader()
 
    if(cfgPrintSpaceInfo)
    {
-      sizeDescription += sprintf(&description[sizeDescription], "%11s %11s %4s %11s %11s %4s ",
+      sizeDescription += sprintf(&description[sizeDescription], "%12s %12s %4s %11s %11s %4s ",
          "Total", "Free", "%", "ITotal", "IFree", "%");
-      sizeSpacer += sprintf(&spacer[sizeSpacer], "%11s %11s %4s %11s %11s %4s ",
+      sizeSpacer += sprintf(&spacer[sizeSpacer], "%12s %12s %4s %11s %11s %4s ",
          "=====", "====", "=", "======", "=====", "=");
    }
 
@@ -776,8 +776,8 @@ int ModeListTargets::addSpaceToLine(char* inOutString, int* inOutOffset, uint16_
    FhgfsOpsErr statRes;
    int64_t freeSpace = 0;
    int64_t totalSpace = 0;
-   double freeSpaceGB;
-   double totalSpaceGB;
+   double freeSpaceGiB;
+   double totalSpaceGiB;
    int64_t freeInodes = 0;
    int64_t totalInodes = 0;
    double freeInodesM; // m=mega (as in mega byte)
@@ -800,16 +800,16 @@ int ModeListTargets::addSpaceToLine(char* inOutString, int* inOutOffset, uint16_
 
    // make values human readable
 
-   freeSpaceGB = freeSpace / gb;
-   totalSpaceGB = totalSpace / gb;
+   freeSpaceGiB = freeSpace / gb;
+   totalSpaceGiB = totalSpace / gb;
    freeSpacePercent = totalSpace ? (100.0 * freeSpace / totalSpace) : 0;
    freeInodesM = freeInodes / mb;
    totalInodesM = totalInodes / mb;
    freeInodesPercent = totalInodes ? (100.0 * freeInodes / totalInodes) : 0;
 
    *inOutOffset += sprintf(&inOutString[*inOutOffset],
-      "%9.1fGB %9.1fGB %3.0f%% %10.1fM %10.1fM %3.0f%% ",
-      (float)totalSpaceGB, (float)freeSpaceGB, (float)freeSpacePercent,
+      "%9.1fGiB %9.1fGiB %3.0f%% %10.1fM %10.1fM %3.0f%% ",
+      (float)totalSpaceGiB, (float)freeSpaceGiB, (float)freeSpacePercent,
       (float)totalInodesM, (float)freeInodesM, (float)freeInodesPercent);
 
    return (statRes == FhgfsOpsErr_SUCCESS) ? APPCODE_NO_ERROR : APPCODE_RUNTIME_ERROR;

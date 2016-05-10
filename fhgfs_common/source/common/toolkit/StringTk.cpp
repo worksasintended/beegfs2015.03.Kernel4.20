@@ -226,6 +226,11 @@ bool StringTk::strToBool(const char* s)
    return false;
 }
 
+std::string StringTk::boolToStr(bool b)
+{
+   return b ? "yes" : "no";
+}
+
 std::string StringTk::intToStr(int a)
 {
    char aStr[24];

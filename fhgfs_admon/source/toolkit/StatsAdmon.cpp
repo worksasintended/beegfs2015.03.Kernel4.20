@@ -83,7 +83,7 @@ void StatsAdmon::addCountersToElement(UInt64Vector* statsVec, TiXmlElement *xmlP
       if (!this->cfgOptions->perInterval && isRWBytesOp)
       {
          value /= this->cfgOptions->intervalSecs; // value per second
-         perSecStr = "/s";
+         perSecStr = "B/s";
       }
 
       if ( (value > 0) || this->cfgOptions->allStats) // in dynamic mode we only print values > 0

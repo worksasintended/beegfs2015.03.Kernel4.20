@@ -943,7 +943,7 @@ void ModeStorageBench::printHelp()
    std::cout << "  files after benchmarking." << std::endl;
    std::cout << std::endl;
    std::cout << " Example: Start a write benchmark on all storage targets of all servers with a" << std::endl;
-   std::cout << "  blocksize of 512 KB and a file size of 200 GB, simulating 10 client streams" << std::endl;
+   std::cout << "  blocksize of 512 KiB and a file size of 200 GiB, simulating 10 client streams" << std::endl;
    std::cout << "  $ beegfs-ctl --storagebench --alltargets --write --blocksize=512K \\" << std::endl;
    std::cout << "     --size=200G --threads=10" << std::endl;
    std::cout << std::endl;

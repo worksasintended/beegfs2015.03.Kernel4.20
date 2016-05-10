@@ -4,39 +4,53 @@
 #include <math.h>
 
 
-int64_t UnitTk::petabyteToByte(double petabyte)
+const int64_t UNITTK_SIZE_CONVERT_FACTOR = 1024;
+const int64_t UNITTK_ONE_KIBIBYTE        = UNITTK_SIZE_CONVERT_FACTOR;
+const int64_t UNITTK_ONE_MEBIBYTE        = UNITTK_ONE_KIBIBYTE * UNITTK_SIZE_CONVERT_FACTOR;
+const int64_t UNITTK_ONE_GIBIBYTE        = UNITTK_ONE_MEBIBYTE * UNITTK_SIZE_CONVERT_FACTOR;
+const int64_t UNITTK_ONE_TEBIBYTE        = UNITTK_ONE_GIBIBYTE * UNITTK_SIZE_CONVERT_FACTOR;
+const int64_t UNITTK_ONE_PEBIBYTE        = UNITTK_ONE_TEBIBYTE * UNITTK_SIZE_CONVERT_FACTOR;
+const int64_t UNITTK_ONE_EXBIBYTE        = UNITTK_ONE_PEBIBYTE * UNITTK_SIZE_CONVERT_FACTOR;
+
+const int64_t UNITTK_ONE_MINUTE = 60;
+const int64_t UNITTK_ONE_HOUR   = UNITTK_ONE_MINUTE * 60;
+const int64_t UNITTK_ONE_DAY    = UNITTK_ONE_HOUR * 24;
+
+
+
+int64_t UnitTk::pebibyteToByte(double pebibyte)
 {
-   int64_t b = (int64_t) (petabyte*1024*1024*1024*1024*1024);
+   int64_t b = (int64_t) (pebibyte * UNITTK_ONE_PEBIBYTE);
    return b;
 }
 
-int64_t UnitTk::terabyteToByte(double petabyte)
+int64_t UnitTk::tebibyteToByte(double tebibyte)
 {
-   int64_t b = (int64_t) (petabyte*1024*1024*1024*1024);
+   int64_t b = (int64_t) (tebibyte * UNITTK_ONE_TEBIBYTE);
    return b;
 }
 
-int64_t UnitTk::gigabyteToByte(double gigabyte)
+int64_t UnitTk::gibibyteToByte(double gibibyte)
 {
-	int64_t b = (int64_t) (gigabyte*1024*1024*1024);
-	return b;
-}
-
-int64_t UnitTk::megabyteToByte(double megabyte)
-{
-	int64_t b = (int64_t) (megabyte*1024*1024);
+   int64_t b = (int64_t) (gibibyte * UNITTK_ONE_GIBIBYTE);
    return b;
 }
 
-int64_t UnitTk::kilobyteToByte(double kilobyte)
+int64_t UnitTk::mebibyteToByte(double mebibyte)
 {
-	int64_t b = (int64_t) (kilobyte*1024);
-	return b;
+   int64_t b = (int64_t) (mebibyte * UNITTK_ONE_MEBIBYTE);
+   return b;
 }
 
-double UnitTk::byteToMegabyte(double byte)
+int64_t UnitTk::kibibyteToByte(double kibibyte)
 {
-  return (byte/1024/1024);
+   int64_t b = (int64_t) (kibibyte * UNITTK_ONE_KIBIBYTE);
+   return b;
+}
+
+double UnitTk::byteToMebibyte(double byte)
+{
+  return (byte / UNITTK_ONE_MEBIBYTE);
 }
 
 double UnitTk::byteToXbyte(int64_t bytes, std::string *outUnit)
@@ -45,18 +59,18 @@ double UnitTk::byteToXbyte(int64_t bytes, std::string *outUnit)
 }
 
 /**
- * Convert number of bytes without a unit to the number of bytes with a unit (e.g. MB for megabyte).
+ * Convert number of bytes without a unit to the number of bytes with a unit (e.g. MiB for mebibyte)
  */
 double UnitTk::byteToXbyte(int64_t bytes, std::string *outUnit, bool round)
 {
-	double res = bytes;
+   double res = bytes;
 
-	short count = 0;
-	while ( (res > 1024) && (count < 6) )
-	{
-		res = res/1024;
-		count++;
-	}
+   short count = 0;
+   while ( (res > UNITTK_SIZE_CONVERT_FACTOR) && (count < 6) )
+   {
+      res = res / UNITTK_SIZE_CONVERT_FACTOR;
+      count++;
+   }
 
    switch(count)
    {
@@ -64,22 +78,22 @@ double UnitTk::byteToXbyte(int64_t bytes, std::string *outUnit, bool round)
          *outUnit = "Byte";
          break;
       case 1:
-         *outUnit = "KB";
+         *outUnit = "KiB";
          break;
       case 2:
-         *outUnit = "MB";
+         *outUnit = "MiB";
          break;
       case 3:
-         *outUnit = "GB";
+         *outUnit = "GiB";
          break;
       case 4:
-         *outUnit = "TB";
+         *outUnit = "TiB";
          break;
       case 5:
-         *outUnit = "PB";
+         *outUnit = "PiB";
          break;
       case 6:
-         *outUnit = "EB";
+         *outUnit = "EiB";
          break;
    }
 
@@ -91,38 +105,38 @@ double UnitTk::byteToXbyte(int64_t bytes, std::string *outUnit, bool round)
    return res;
 }
 
-double UnitTk::megabyteToXbyte(int64_t megabyte, std::string *unit)
+double UnitTk::mebibyteToXbyte(int64_t mebibyte, std::string *unit)
 {
-   return megabyteToXbyte(megabyte, unit, false);
+   return mebibyteToXbyte(mebibyte, unit, false);
 }
 
-double UnitTk::megabyteToXbyte(int64_t megabyte, std::string *unit, bool round)
+double UnitTk::mebibyteToXbyte(int64_t mebibyte, std::string *unit, bool round)
 {
-   double res = megabyte;
+   double res = mebibyte;
 
    short count = 0;
-   while (res > 1024 && count<4)
+   while (res > UNITTK_SIZE_CONVERT_FACTOR && count<4)
    {
-      res = (double)res/1024;
+      res = (double)res / UNITTK_SIZE_CONVERT_FACTOR;
       count++;
    }
 
    switch(count)
    {
       case 0:
-         *unit = "MB";
+         *unit = "MiB";
          break;
       case 1:
-         *unit = "GB";
+         *unit = "GiB";
          break;
       case 2:
-         *unit = "TB";
+         *unit = "TiB";
          break;
       case 3:
-         *unit = "PB";
+         *unit = "PiB";
          break;
       case 4:
-         *unit = "EB";
+         *unit = "EiB";
          break;
    }
 
@@ -135,35 +149,35 @@ double UnitTk::megabyteToXbyte(int64_t megabyte, std::string *unit, bool round)
 }
 
 /**
- * Convert number of bytes with a given unit (e.g. megabytes) to the number of bytes without a unit.
+ * Convert number of bytes with a given unit (e.g. mebibytes) to the number of bytes without a unit.
  */
 int64_t UnitTk::xbyteToByte(double xbyte, std::string unit)
 {
 	double res = xbyte;
 
-	if (unit == "KB")
+	if (unit == "KiB")
 	{
-		res = kilobyteToByte(res);
+		res = kibibyteToByte(res);
    }
 	else
-	if (unit == "MB")
+	if (unit == "MiB")
 	{
-		res = megabyteToByte(res);
+		res = mebibyteToByte(res);
    }
 	else
-	if (unit == "GB")
+	if (unit == "GiB")
 	{
-		res = gigabyteToByte(res);
+		res = gibibyteToByte(res);
    }
    else
-   if (unit == "TB")
+   if (unit == "TiB")
    {
-      res = terabyteToByte(res);
+      res = tebibyteToByte(res);
    }
    else
-   if (unit == "PB")
+   if (unit == "PiB")
    {
-      res = petabyteToByte(res);
+      res = pebibyteToByte(res);
    }
 
 	return (int64_t)res;
@@ -175,12 +189,6 @@ int64_t UnitTk::xbyteToByte(double xbyte, std::string unit)
  */
 int64_t UnitTk::strHumanToInt64(const char* s)
 {
-   int64_t oneKilo = 1024;
-   int64_t oneMeg  = oneKilo * 1024;
-   int64_t oneGig  = oneMeg * 1024;
-   int64_t oneTera = oneGig * 1024;
-   int64_t onePeta = oneTera * 1024;
-
    size_t sLen = strlen(s);
 
    if(sLen < 2)
@@ -193,7 +201,7 @@ int64_t UnitTk::strHumanToInt64(const char* s)
       std::string sNoUnit = s;
       sNoUnit.resize(sLen-1);
 
-      return StringTk::strToInt64(sNoUnit) * onePeta;
+      return StringTk::strToInt64(sNoUnit) * UNITTK_ONE_PEBIBYTE;
    }
    else
    if( (unit == 'T') || (unit == 't') )
@@ -201,7 +209,7 @@ int64_t UnitTk::strHumanToInt64(const char* s)
       std::string sNoUnit = s;
       sNoUnit.resize(sLen-1);
 
-      return StringTk::strToInt64(sNoUnit) * oneTera;
+      return StringTk::strToInt64(sNoUnit) * UNITTK_ONE_TEBIBYTE;
    }
    else
    if( (unit == 'G') || (unit == 'g') )
@@ -209,7 +217,7 @@ int64_t UnitTk::strHumanToInt64(const char* s)
       std::string sNoUnit = s;
       sNoUnit.resize(sLen-1);
 
-      return StringTk::strToInt64(sNoUnit) * oneGig;
+      return StringTk::strToInt64(sNoUnit) * UNITTK_ONE_GIBIBYTE;
    }
    else
    if( (unit == 'M') || (unit == 'm') )
@@ -217,14 +225,14 @@ int64_t UnitTk::strHumanToInt64(const char* s)
       std::string sNoUnit = s;
       sNoUnit.resize(sLen-1);
 
-      return StringTk::strToInt64(sNoUnit) * oneMeg;
+      return StringTk::strToInt64(sNoUnit) * UNITTK_ONE_MEBIBYTE;
    }
    if( (unit == 'K') || (unit == 'k') )
    {
       std::string sNoUnit = s;
       sNoUnit.resize(sLen-1);
 
-      return StringTk::strToInt64(sNoUnit) * oneKilo;
+      return StringTk::strToInt64(sNoUnit) * UNITTK_ONE_KIBIBYTE;
    }
    else
       return StringTk::strToInt64(s);
@@ -237,49 +245,42 @@ int64_t UnitTk::strHumanToInt64(const char* s)
  */
 std::string UnitTk::int64ToHumanStr(int64_t a)
 {
-   long long oneKilo = 1024;
-   long long oneMeg  = oneKilo * 1024;
-   long long oneGig  = oneMeg * 1024;
-   long long oneTera = oneGig * 1024;
-   long long onePeta = oneTera * 1024;
-   long long oneExa = onePeta * 1024;
-
    char aStr[24];
 
-   if( ( (a >= oneExa) || (-a >= oneExa) ) &&
-       ( (a % oneExa) == 0) )
+   if( ( (a >= UNITTK_ONE_EXBIBYTE) || (-a >= UNITTK_ONE_EXBIBYTE) ) &&
+       ( (a % UNITTK_ONE_EXBIBYTE) == 0) )
    {
-      sprintf(aStr, "%qdE", a / oneExa);
+      sprintf(aStr, "%qdE", (long long)a / UNITTK_ONE_EXBIBYTE);
    }
    else
-   if( ( (a >= onePeta) || (-a >= onePeta) ) &&
-       ( (a % onePeta) == 0) )
+   if( ( (a >= UNITTK_ONE_PEBIBYTE) || (-a >= UNITTK_ONE_PEBIBYTE) ) &&
+       ( (a % UNITTK_ONE_PEBIBYTE) == 0) )
    {
-      sprintf(aStr, "%qdP", a / onePeta);
+      sprintf(aStr, "%qdP", (long long)a / UNITTK_ONE_PEBIBYTE);
    }
    else
-   if( ( (a >= oneTera) || (-a >= oneTera) ) &&
-       ( (a % oneTera) == 0) )
+   if( ( (a >= UNITTK_ONE_TEBIBYTE) || (-a >= UNITTK_ONE_TEBIBYTE) ) &&
+       ( (a % UNITTK_ONE_TEBIBYTE) == 0) )
    {
-      sprintf(aStr, "%qdT", a / oneTera);
+      sprintf(aStr, "%qdT", (long long)a / UNITTK_ONE_TEBIBYTE);
    }
    else
-   if( ( (a >= oneGig) || (-a >= oneGig) ) &&
-       ( (a % oneGig) == 0) )
+   if( ( (a >= UNITTK_ONE_GIBIBYTE) || (-a >= UNITTK_ONE_GIBIBYTE) ) &&
+       ( (a % UNITTK_ONE_GIBIBYTE) == 0) )
    {
-      sprintf(aStr, "%qdG", a / oneGig);
+      sprintf(aStr, "%qdG", (long long)a / UNITTK_ONE_GIBIBYTE);
    }
    else
-   if( ( (a >= oneMeg) || (-a >= oneMeg) ) &&
-       ( (a % oneMeg) == 0) )
+   if( ( (a >= UNITTK_ONE_MEBIBYTE) || (-a >= UNITTK_ONE_MEBIBYTE) ) &&
+       ( (a % UNITTK_ONE_MEBIBYTE) == 0) )
    {
-      sprintf(aStr, "%qdM", a / oneMeg);
+      sprintf(aStr, "%qdM", (long long)a / UNITTK_ONE_MEBIBYTE);
    }
    else
-   if( ( (a >= oneKilo) || (-a >= oneKilo) ) &&
-       ( (a % oneKilo) == 0) )
+   if( ( (a >= UNITTK_ONE_KIBIBYTE) || (-a >= UNITTK_ONE_KIBIBYTE) ) &&
+       ( (a % UNITTK_ONE_KIBIBYTE) == 0) )
    {
-      sprintf(aStr, "%qdK", a / oneKilo);
+      sprintf(aStr, "%qdK", (long long)a / UNITTK_ONE_KIBIBYTE);
    }
    else
       sprintf(aStr, "%qd", (long long)a);
@@ -316,10 +317,6 @@ bool UnitTk::isValidHumanString(std::string humanString)
  */
 int64_t UnitTk::timeStrHumanToInt64(const char* s)
 {
-   int64_t oneMinute = 60;
-   int64_t oneHour  = oneMinute * 60;
-   int64_t oneDay  = oneHour * 24;
-
    size_t sLen = strlen(s);
 
    if(sLen < 2)
@@ -332,7 +329,7 @@ int64_t UnitTk::timeStrHumanToInt64(const char* s)
       std::string sNoUnit = s;
       sNoUnit.resize(sLen-1);
 
-      return StringTk::strToInt64(sNoUnit) * oneDay;
+      return StringTk::strToInt64(sNoUnit) * UNITTK_ONE_DAY;
    }
    else
    if( (unit == 'H') || (unit == 'h') )
@@ -340,7 +337,7 @@ int64_t UnitTk::timeStrHumanToInt64(const char* s)
       std::string sNoUnit = s;
       sNoUnit.resize(sLen-1);
 
-      return StringTk::strToInt64(sNoUnit) * oneHour;
+      return StringTk::strToInt64(sNoUnit) * UNITTK_ONE_HOUR;
    }
    else
    if( (unit == 'M') || (unit == 'm') )
@@ -348,7 +345,7 @@ int64_t UnitTk::timeStrHumanToInt64(const char* s)
       std::string sNoUnit = s;
       sNoUnit.resize(sLen-1);
 
-      return StringTk::strToInt64(sNoUnit) * oneMinute;
+      return StringTk::strToInt64(sNoUnit) * UNITTK_ONE_MINUTE;
    }
    else
       return StringTk::strToInt64(s);

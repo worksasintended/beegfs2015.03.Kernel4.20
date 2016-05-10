@@ -200,7 +200,7 @@ void RequestResponseNode_setMirrorInfo(RequestResponseNode* this,
 enum MessagingTkBufType
 {
    MessagingTkBufType_BufStore = 0,
-   MessagingTkBufType_kmalloc  = 1, // only for small response messages (<4KB)
+   MessagingTkBufType_kmalloc  = 1, // only for small response messages (<4KiB)
 };
 
 /**

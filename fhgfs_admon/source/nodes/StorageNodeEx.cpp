@@ -32,16 +32,16 @@ void StorageNodeEx::initialize()
    int queryInterval = Program::getApp()->getConfig()->getQueryInterval();
    this->maxSizeOldData = 3600 / queryInterval;
    this->writtenData.amount = 0;
-   this->writtenData.unit = "KB";
+   this->writtenData.unit = "KiB";
    this->writtenData.divideBy = 1024;
    this->readData.amount = 0;
-   this->readData.unit = "KB";
+   this->readData.unit = "KiB";
    this->readData.divideBy = 1024;
    this->netRecv.amount = 0;
-   this->netRecv.unit = "KB";
+   this->netRecv.unit = "KiB";
    this->netRecv.divideBy = 1024;
    this->netSend.amount = 0;
-   this->netSend.unit = "KB";
+   this->netSend.unit = "KiB";
    this->netSend.divideBy = 1024;
 
    generalInfo.cpuCount = 0;
@@ -267,48 +267,48 @@ void StorageNodeEx::addHighResStatsList(HighResStatsList stats)
 
       if (this->readData.amount > 1024)
       {
-         if (this->readData.unit == "KB")
+         if (this->readData.unit == "KiB")
          {
             this->readData.divideBy = this->readData.divideBy * 1024;
-            this->readData.unit = "MB";
+            this->readData.unit = "MiB";
             this->readData.amount = this->readData.amount / 1024;
          }
          else
-         if (this->readData.unit == "MB")
+         if (this->readData.unit == "MiB")
          {
             this->readData.divideBy = this->readData.divideBy * 1024;
-            this->readData.unit = "GB";
+            this->readData.unit = "GiB";
             this->readData.amount = this->readData.amount / 1024;
          }
          else
-         if (this->readData.unit == "GB")
+         if (this->readData.unit == "GiB")
          {
             this->readData.divideBy = this->readData.divideBy * 1024;
-            this->readData.unit = "TB";
+            this->readData.unit = "TiB";
             this->readData.amount = this->readData.amount / 1024;
          }
       }
 
       if (this->writtenData.amount > 1024)
       {
-         if (this->writtenData.unit == "KB")
+         if (this->writtenData.unit == "KiB")
          {
             this->writtenData.divideBy = this->writtenData.divideBy * 1024;
-            this->writtenData.unit = "MB";
+            this->writtenData.unit = "MiB";
             this->writtenData.amount = this->writtenData.amount / 1024;
          }
          else
-         if (this->writtenData.unit == "MB")
+         if (this->writtenData.unit == "MiB")
          {
             this->writtenData.divideBy = this->writtenData.divideBy * 1024;
-            this->writtenData.unit = "GB";
+            this->writtenData.unit = "GiB";
             this->writtenData.amount = this->writtenData.amount / 1024;
          }
          else
-         if (this->writtenData.unit == "GB")
+         if (this->writtenData.unit == "GiB")
          {
             this->writtenData.divideBy = this->writtenData.divideBy * 1024;
-            this->writtenData.unit = "TB";
+            this->writtenData.unit = "TiB";
             this->writtenData.amount = this->writtenData.amount / 1024;
          }
       }
@@ -319,24 +319,24 @@ void StorageNodeEx::addHighResStatsList(HighResStatsList stats)
          this->netRecv.divideBy;
       if (this->netRecv.amount > 1024)
       {
-         if (this->netRecv.unit == "KB")
+         if (this->netRecv.unit == "KiB")
          {
             this->netRecv.divideBy = this->netRecv.divideBy * 1024;
-            this->netRecv.unit = "MB";
+            this->netRecv.unit = "MiB";
             this->netRecv.amount = this->netRecv.amount / 1024;
          }
          else
-         if (this->netRecv.unit == "MB")
+         if (this->netRecv.unit == "MiB")
          {
             this->netRecv.divideBy = this->netRecv.divideBy * 1024;
-            this->netRecv.unit = "GB";
+            this->netRecv.unit = "GiB";
             this->netRecv.amount = this->netRecv.amount / 1024;
          }
          else
-         if (this->netRecv.unit == "GB")
+         if (this->netRecv.unit == "GiB")
          {
             this->netRecv.divideBy = this->netRecv.divideBy * 1024;
-            this->netRecv.unit = "TB";
+            this->netRecv.unit = "TiB";
             this->netRecv.amount = this->netRecv.amount / 1024;
          }
       }
@@ -345,24 +345,24 @@ void StorageNodeEx::addHighResStatsList(HighResStatsList stats)
          this->netSend.divideBy;
       if (this->netSend.amount > 1024)
       {
-         if (this->netSend.unit == "KB")
+         if (this->netSend.unit == "KiB")
          {
             this->netSend.divideBy = this->netSend.divideBy * 1024;
-            this->netSend.unit = "MB";
+            this->netSend.unit = "MiB";
             this->netSend.amount = this->netSend.amount / 1024;
          }
          else
-         if (this->netSend.unit == "MB")
+         if (this->netSend.unit == "MiB")
          {
             this->netSend.divideBy = this->netSend.divideBy * 1024;
-            this->netSend.unit = "GB";
+            this->netSend.unit = "GiB";
             this->netSend.amount = this->netSend.amount / 1024;
          }
          else
-         if (this->netSend.unit == "GB")
+         if (this->netSend.unit == "GiB")
          {
             this->netSend.divideBy = this->netSend.divideBy * 1024;
-            this->netSend.unit = "TB";
+            this->netSend.unit = "TiB";
             this->netSend.amount = this->netSend.amount / 1024;
          }
       }

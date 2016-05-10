@@ -53,8 +53,8 @@ void RequestStorageDataWork::process(char* bufIn, unsigned bufInLen,
       StorageNodeDataContent content = newNode->getContent();
       content.indirectWorkListSize = storageAdmonDataMsg->getIndirectWorkListSize();
       content.directWorkListSize = storageAdmonDataMsg->getDirectWorkListSize();
-      content.diskSpaceTotal = storageAdmonDataMsg->getDiskSpaceTotalMB();
-      content.diskSpaceFree = storageAdmonDataMsg->getDiskSpaceFreeMB();
+      content.diskSpaceTotal = storageAdmonDataMsg->getDiskSpaceTotalMiB();
+      content.diskSpaceFree = storageAdmonDataMsg->getDiskSpaceFreeMiB();
       storageAdmonDataMsg->parseStorageTargets(&content.storageTargets);
       newNode->setContent(content);
 

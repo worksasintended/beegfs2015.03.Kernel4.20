@@ -13,6 +13,7 @@
 #define MODEGETQUOTAINFO_ARG_UID                "--uid"
 #define MODEGETQUOTAINFO_ARG_GID                "--gid"
 #define MODEGETQUOTAINFO_ARG_ALL                "--all"
+#define MODEGETQUOTAINFO_ARG_CSV                "--csv"
 #define MODEGETQUOTAINFO_ARG_LIST               "--list"
 #define MODEGETQUOTAINFO_ARG_RANGE              "--range"
 #define MODEGETQUOTAINFO_ARG_WITHZERO           "--withzero"
@@ -244,6 +245,15 @@ int ModeGetQuotaInfo::checkConfig(StringMap* cfg)
    }
 
 
+   // parse quota argument for raw printing
+   iter = cfg->find(MODEGETQUOTAINFO_ARG_CSV);
+   if (iter != cfg->end())
+   {
+      this->cfg.cfgCSV = true;
+      cfg->erase(iter);
+   }
+
+
    // parse the ID, ID list or ID range if needed
    if(this->cfg.cfgUseRange)
    {
@@ -359,6 +369,7 @@ void ModeGetQuotaInfo::printHelp()
    std::cout << "                   for a single UID/GID and a list of UIDs/GIDs." << std::endl;
    std::cout << "    --withsystem   Print also system users/groups. It is default for a single" << std::endl;
    std::cout << "                   UID/GID and a list of UIDs/GIDs." << std::endl;
+   std::cout << "    --csv          Print quota information in comma-separated values with no units, i.e. bytes." << std::endl;
    std::cout << std::endl;
    std::cout << "USAGE:" << std::endl;
    std::cout << " This mode collects the user/group quota information for the given UIDs/GIDs" << std::endl;
@@ -388,9 +399,16 @@ void ModeGetQuotaInfo::printQuota(QuotaDataMap* usedQuota, QuotaDataMap* quotaLi
 {
    bool allValid = false;
 
-   printf("       user/group    ||           size          ||    chunk files    \n");
-   printf("     name     |  id  ||    used    |    hard    ||  used   |  hard   \n");
-   printf("--------------|------||------------|------------||---------|---------\n");
+   if(this->cfg.cfgCSV)
+   {
+      printf("name,id,size,hard,files,hard\n");
+   }
+   else
+   {
+      printf("      user/group     ||           size          ||    chunk files    \n");
+      printf("     name     |  id  ||    used    |    hard    ||  used   |  hard   \n");
+      printf("--------------|------||------------|------------||---------|---------\n");
+   }
 
    if(this->cfg.cfgUseAll || this->cfg.cfgUseList)
       allValid = printQuotaForList(usedQuota, quotaLimits);
@@ -425,9 +443,17 @@ bool ModeGetQuotaInfo::printQuotaForID(QuotaDataMap* usedQuota, QuotaDataMap* qu
          !usedQuotaIter->second.getSize() && !usedQuotaIter->second.getInodes() )
          return true;
 
-      double usedSizeValue = UnitTk::byteToXbyte(usedQuotaIter->second.getSize(), &usedSizeUnit);
-      int precision = ( (usedSizeUnit == "Byte") || (usedSizeUnit == "B") ) ? 0 : 2;
-      usedSize = StringTk::doubleToStr(usedSizeValue, precision);
+      if(this->cfg.cfgCSV)
+      {
+         usedSize = StringTk::doubleToStr(usedQuotaIter->second.getSize(), 0);
+         usedSizeUnit = "Byte";
+      }
+      else
+      {
+         double usedSizeValue = UnitTk::byteToXbyte(usedQuotaIter->second.getSize(), &usedSizeUnit);
+         int precision = ( (usedSizeUnit == "Byte") || (usedSizeUnit == "B") ) ? 0 : 2;
+         usedSize = StringTk::doubleToStr(usedSizeValue, precision);
+      }
 
       usedInodes = usedQuotaIter->second.getInodes();
    }
@@ -443,7 +469,6 @@ bool ModeGetQuotaInfo::printQuotaForID(QuotaDataMap* usedQuota, QuotaDataMap* qu
       return true;
 
 
-
    // prepare hard limit values
    std::string hardLimitSize;
    std::string hardLimitSizeUnit;
@@ -452,10 +477,18 @@ bool ModeGetQuotaInfo::printQuotaForID(QuotaDataMap* usedQuota, QuotaDataMap* qu
    QuotaDataMapIter limitsIter = quotaLimits->find(id);
    if(limitsIter != quotaLimits->end() )
    {
-      double hardLimitSizeValue = UnitTk::byteToXbyte(limitsIter->second.getSize(),
-         &hardLimitSizeUnit);
-      int precision = ( (hardLimitSizeUnit == "Byte") || (hardLimitSizeUnit == "B") ) ? 0 : 2;
-      hardLimitSize = StringTk::doubleToStr(hardLimitSizeValue, precision);
+      if( this->cfg.cfgCSV )
+      {
+         hardLimitSize = StringTk::doubleToStr(limitsIter->second.getSize(), 0);
+         hardLimitSizeUnit = "Byte";
+      }
+      else
+      {
+         double hardLimitSizeValue = UnitTk::byteToXbyte(limitsIter->second.getSize(),
+            &hardLimitSizeUnit);
+         int precision = ( (hardLimitSizeUnit == "Byte") || (hardLimitSizeUnit == "B") ) ? 0 : 2;
+         hardLimitSize = StringTk::doubleToStr(hardLimitSizeValue, precision);
+      }
 
       hardLimitInodes = limitsIter->second.getInodes();
    }
@@ -466,7 +499,6 @@ bool ModeGetQuotaInfo::printQuotaForID(QuotaDataMap* usedQuota, QuotaDataMap* qu
 
       hardLimitInodes = 0llu;
    }
-
 
 
    // prepare the user or group name
@@ -481,20 +513,32 @@ bool ModeGetQuotaInfo::printQuotaForID(QuotaDataMap* usedQuota, QuotaDataMap* qu
       name = StringTk::uintToStr(id);
 
 
-
    /*
     * The uses size value looks like not very exact but the calculation form KByte to KiByte and
     * the quota size in used blocks and not file size, makes the difference
     */
-   printf("%14s|%6u||%7s %-4s|%7s %-4s||%9qu|%9qu\n",
-      name.c_str(),                                         // name
-      id,                                                   // id
-      usedSize.c_str(),                                     // used (blocks)
-      usedSizeUnit.c_str(),                                 // unit (used blocks)
-      hardLimitSize.c_str(),                                // hard limit (blocks)
-      hardLimitSizeUnit.c_str(),                            // unit (hard limit)
-      usedInodes,                                           // used (inodes)
-      hardLimitInodes);                                     // hard limit (inodes)
+   if(this->cfg.cfgCSV)
+   {
+      printf("%s,%u,%s,%s,%qu,%qu\n",
+         name.c_str(),                                         // name
+         id,                                                   // id
+         usedSize.c_str(),                                     // used (blocks)
+         hardLimitSize.c_str(),                                // hard limit (blocks)
+         usedInodes,                                           // used (inodes)
+         hardLimitInodes);                                     // hard limit (inodes)
+   }
+   else
+   {
+      printf("%14s|%6u||%7s %-4s|%7s %-4s||%9qu|%9qu\n",
+         name.c_str(),                                         // name
+         id,                                                   // id
+         usedSize.c_str(),                                     // used (blocks)
+         usedSizeUnit.c_str(),                                 // unit (used blocks)
+         hardLimitSize.c_str(),                                // hard limit (blocks)
+         hardLimitSizeUnit.c_str(),                            // unit (hard limit)
+         usedInodes,                                           // used (inodes)
+         hardLimitInodes);                                     // hard limit (inodes)
+   }
 
    return true;
 }

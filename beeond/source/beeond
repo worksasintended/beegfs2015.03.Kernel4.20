@@ -113,7 +113,7 @@ print_usage_and_exit()
    echo "                        extended attributes. If you get an error message"
    echo "                        from beegfs_meta reading \"Failed to store root"
    echo "                        directory\" you have to provide an additional config"
-   echo "                        file beegfs-meta.conf with the line"
+   echo "                        file beegfs-meta.conf containing the line"
    echo "                        storeUseExtendedAttribs = false"
    echo "         -q          => Suppress INFO messages, only print ERRORs."
    echo ""
@@ -218,6 +218,8 @@ check_pdsh()
    done # using this loop, of course, there is basically one comma too much,
    # but pdsh does not care for that so it is fine for us
 
+   print_info "Checking PDSH availability on the following hosts: ${HOSTS:1}"
+
    # execute cmd
    ${PDSH} -R ${PDSH_RCMD} -S -w ${HOSTS} "echo \"\" > /dev/null"
 
@@ -227,6 +229,12 @@ check_pdsh()
       # the greatest return value of all nodes)
       print_info "pdsh does not seem to work on all nodes. Disabling pdsh and using ssh instead"
       USE_PDSH=false
+
+      # We have to repeat the reachability check using conventional SSH before continuing.
+      for HOST in ${HOSTARRAY[*]}
+      do
+         check_reachability ${HOST}
+      done
    fi
 }
 
@@ -262,7 +270,7 @@ without a command"
    fi
 
    #assemble HOSTS as comma seperated list
-   HOSTS=""
+   local HOSTS=""
    for H in ${HOSTARRAY}
    do
       HOSTS="${HOSTS},${H}"
@@ -299,6 +307,8 @@ check_reachability()
    then
       print_error_and_exit "Internal function 'check_reachability' was called without a hostname"
    fi
+
+   print_info "Checking reachability of host ${HOST}"
 
    execute_ssh_cmd ${HOST} "echo \"\" > /dev/null"
    if [ $? -ne 0 ]
@@ -348,31 +358,53 @@ check_statusfile()
 
    if [ "${HOSTARRAY[0]}" = "" ]
    then
-      print_error_and_exit "Internal function 'check_statusfile' was called without a command"
+      print_error_and_exit "Internal function 'check_statusfile' was called without a hostname"
    fi
 
-   for HOST in ${HOSTARRAY[*]}
-   do
+   local CHECK_CMD="[ ! -e \"${STATUSFILE}\" ]"
+   local TOUCH_CMD="touch \"${STATUSFILE}\""
+
+   if [ "${USE_PDSH}" = "true" ]
+   then
+      local HOSTS=""
+      for H in ${HOSTARRAY[*]}
+      do
+         HOSTS="${HOSTS},${H}"
+      done
+
       # see if statusfile already exists
-      CMD="if [ -e \"${STATUSFILE}\" ]; then echo \"true\"; else echo \"false\"; fi"
-      local STATUSFILE_EXISTS=`execute_ssh_cmd "${HOST}" "${CMD}"`
-      # if it does, abort (TODO make a command line option to override this)
-      if [ "${STATUSFILE_EXISTS}" = "true" ]
+      if ! ${PDSH} -R ${PDSH_RCMD} -S -w ${HOSTS} "${CHECK_CMD} || (echo \"Statusfile already exists.\" && false)"
       then
-         local ERROR_MSG="Status file ${STATUSFILE} on host ${HOST} already exists. \
+         print_error_and_exit "Statusfile ${STATUSFILE} on one ore more hosts already exists. \
+Maybe a session is already running ot rhe previous session was not properly \
+shut down."
+      fi
+
+      # touch statusfile on every host, to make sure the file can be accessed
+      if ! ${PDSH} -R ${PDSH_RCMD} -S -w ${HOSTS} "${TOUCH_CMD}"
+      then
+         print_error_and_exit "Could not create status file ${STATUSFILE} on one ore more hosts."
+      fi
+   else
+      for HOST in ${HOSTARRAY[*]}
+      do
+         # see if statusfile already exists
+         if ! ${SSH} ${SSH_PARAMS} ${HOST} "${CHECK_CMD}"
+         then
+            print_error_and_exit "Status file ${STATUSFILE} on host ${HOST} already exists. \
 Maybe a session is already running or the previous session was not properly \
 shut down."
-         print_error_and_exit "${ERROR_MSG}"
-      fi
-      # touch statusfile on every host, to make sure the file can be accessed
-      CMD="if touch \"${STATUSFILE}\"; then echo \"true\"; else echo \"false\"; fi"
-      local STATUSFILE_TOUCHED=`execute_ssh_cmd "${HOST}" "${CMD}"`
+         fi
+      done
 
-      if [ "${STATUSFILE_TOUCHED}" != "true" ]
-      then
-         print_error_and_exit "Could not create status file ${STATUSFILE} on host ${HOST}"
-      fi
-   done
+      for HOST in ${HOSTARRAY[*]}
+      do
+         if ! ${SSH} ${SSH_PARAMS} ${HOST} "${TOUCH_CMD}"
+         then
+            print_error_and_exit "Could not create status file ${STATUSFILE} on host ${HOST}"
+         fi
+      done
+   fi
 }
 
 create_log_path()
@@ -1112,12 +1144,19 @@ do_start()
    NODECOUNT=`grep -v '^$' ${HOSTFILE} | uniq | wc -l` #ignore empty lines
    NODES=( `grep -v '^$' ${HOSTFILE} | uniq` ) #store as array and ignore empty lines
 
-   check_statusfile ${NODES[*]}
-
    if [ "${USE_PDSH}" = "true" ]
    then
+      # check all nodes for reachability and working PDSH
       check_pdsh ${NODES[*]}
+   else
+      # check reachability of all nodes
+      for HOST in ${NODES[*]}
+      do
+         check_reachability ${HOST}
+      done
    fi
+
+   check_statusfile ${NODES[*]}
 
    # if the number of meta servers given is 0 or greater than node count, start it on all hosts
    if [ ${NUM_META_SERVER} -eq 0 ] || [ ${NUM_META_SERVER} -gt ${NODECOUNT} ]
@@ -1132,13 +1171,6 @@ do_start()
       NUM_STORAGE_SERVER=${NODECOUNT}
       print_info "Number of storage servers automatically set to ${NUM_STORAGE_SERVER}"
    fi
-
-   # check reachability of all nodes
-   # take all hosts as client
-   for HOST in ${NODES[*]}
-   do
-      check_reachability ${HOST}
-   done
 
    # create the log path on all nodes if it doesn't exist yet
    # without an existing logfile path, the server won't start up
@@ -1249,14 +1281,15 @@ do_stop()
 
    if [ "${USE_PDSH}" = "true" ]
    then
+      # check all nodes for reachability and working PDSH
       check_pdsh ${NODES[*]}
+   else
+      # check reachability of all nodes
+      for HOST in ${NODES[*]}
+      do
+         check_reachability ${HOST}
+      done
    fi
-
-   # check reachability of all nodes
-   for HOST in ${NODES[*]}
-   do
-      check_reachability ${HOST}
-   done
 
    # take the first host as master host
    MASTERHOST=${NODES[0]}

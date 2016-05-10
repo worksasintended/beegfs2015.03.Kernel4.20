@@ -104,6 +104,9 @@ struct Fhgfs_RWTypeStrEntry const __Fhgfs_RWTypeList[] =
 #define __FHGFSOPS_REMOTING_msgBufCacheName BEEGFS_MODULE_NAME_STR "-pageVecMsgBufs"
 #define __FHGFSOPS_REMOTING_msgBufPoolSize   8 // number of reserve (pre-allocated) msgBufs
 
+const ssize_t __FHGFSOPS_REMOTING_MAX_XATTR_VALUE_SIZE = 60*1000;
+const ssize_t __FHGFSOPS_REMOTING_MAX_XATTR_NAME_SIZE = 245;
+
 static struct kmem_cache* FhgfsOpsRemoting_msgBufCache = NULL;
 static mempool_t*         FhgfsOpsRemoting_msgBufPool = NULL;
 
@@ -2311,11 +2314,12 @@ extern FhgfsOpsErr FhgfsOpsRemoting_setXAttr(App* app, const EntryInfo* entryInf
    Node* node;
 
 
-   if (strlen(name) > 245) // The attribute name is too long (if the server side prefix is added).
-      return FhgfsOpsErr_RANGE;
+   if (strlen(name) > __FHGFSOPS_REMOTING_MAX_XATTR_NAME_SIZE) // The attribute name is too long
+      return FhgfsOpsErr_RANGE;                                // (if the server side prefix is
+                                                               // added).
 
-   if (size > 60*1024) // The attribute itself is too large and would not fit into a single NetMsg.
-      return FhgfsOpsErr_TOOLONG;
+   if (size > __FHGFSOPS_REMOTING_MAX_XATTR_VALUE_SIZE) // The attribute itself is too large and
+      return FhgfsOpsErr_TOOLONG;                       // would not fit into a single NetMsg.
 
    node = NodeStoreEx_referenceNode(nodes, entryInfo->ownerNodeID);
    if(unlikely(!node) )

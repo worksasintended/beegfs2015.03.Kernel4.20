@@ -100,8 +100,14 @@ cleanup_put_parent:
    // clean-up
    dput(parentDentry);
 
-   LOG_DEBUG_FORMATTED(log, 5, logContext, "'%s': isValid: %s",
-      dentry->d_name.name, isValid ? "yes" : "no");
+#ifdef BEEGFS_DEBUG
+   {
+      const char* isValidStr = StringTk_boolToStr(isValid);
+      LOG_DEBUG_FORMATTED(log, 5, logContext, "'%s': isValid: %s",
+         dentry->d_name.name, isValidStr );
+      os_kfree(isValidStr);
+   }
+#endif // BEEGFS_DEBUG
 
    return isValid;
 }

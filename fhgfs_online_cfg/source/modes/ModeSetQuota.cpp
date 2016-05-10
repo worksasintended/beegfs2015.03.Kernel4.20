@@ -509,7 +509,7 @@ int ModeSetQuota::readFromFile(std::string pathToFile, QuotaDataType quotaType)
          {
             std::cerr << "Check line " << lineNumber << " of file: " << pathToFile << " ; Not "
                "enough or to much values are given. Format: GID or UID,size limit,inode limit ; "
-               "Example: 2034,500MB,10000"<< std::endl;
+               "Example: 2034,500M,10000"<< std::endl;
 
             retVal++;
             continue;

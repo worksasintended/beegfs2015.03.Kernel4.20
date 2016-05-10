@@ -72,7 +72,7 @@ _beegfs-ctl()
                ;;
 
             --getquota)
-               opts="$mclh --uid --gid --all --list --range --withzero --withsystem"
+               opts="$mclh --uid --gid --all --list --range --withzero --withsystem --csv"
                ;;
 
             --getentryinfo)

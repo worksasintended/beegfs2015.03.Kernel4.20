@@ -850,13 +850,6 @@ fhgfs_bool __FhgfsOpsExport_iterateDirFindName(struct dentry* dirDentry, const c
       contentsPos = FsDirInfo_getCurrentContentsPos(&dirInfo);
       contentsLength = StrCpyVec_length(dirContents);
 
-#if 0
-      LOG_DEBUG_FORMATTED(log, Log_SPAM, logContext,
-         "contentsPos: %lld/%lld, endOfDir: %s",
-         (long long)contentsPos,  (long long)contentsLength,
-         FsDirInfo_getEndOfDir(&dirInfo) ? "yes" : "no");
-#endif
-
       // refreshDirInfoInc guarantees that we either have a valid range for current offset
       // or that contentsLength is empty
       if(!contentsLength)

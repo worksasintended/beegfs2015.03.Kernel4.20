@@ -70,7 +70,7 @@ FhgfsOpsErr DirEntry::storeInitialDirEntryID(const char* logContext, const std::
 
    if(useXAttrs)
    { // extended attribute
-      int setRes = fsetxattr(fd, META_XATTR_LINK_NAME, buf, bufLen, 0);
+      int setRes = fsetxattr(fd, META_XATTR_NAME, buf, bufLen, 0);
 
       if(unlikely(setRes == -1) )
       { // error
@@ -194,7 +194,7 @@ bool DirEntry::storeUpdatedDirEntryBufAsXAttr(std::string idStorePath, char* buf
 
    // write data to file
 
-   int setRes = setxattr(idStorePath.c_str(), META_XATTR_LINK_NAME, buf, bufLen, 0);
+   int setRes = setxattr(idStorePath.c_str(), META_XATTR_NAME, buf, bufLen, 0);
 
    if(unlikely(setRes == -1) )
    { // error
@@ -541,7 +541,7 @@ bool DirEntry::loadFromFileXAttr(std::string path)
 
    char buf[DIRENTRY_SERBUF_SIZE];
 
-   ssize_t getRes = getxattr(path.c_str(), META_XATTR_LINK_NAME, buf, DIRENTRY_SERBUF_SIZE);
+   ssize_t getRes = getxattr(path.c_str(), META_XATTR_NAME, buf, DIRENTRY_SERBUF_SIZE);
    if(getRes > 0)
    { // we got something => deserialize it
       bool deserRes = deserializeDentry(buf);
@@ -683,7 +683,7 @@ DirEntryType DirEntry::loadEntryTypeFromFileXAttr(const std::string& path,
 
    char buf[DIRENTRY_SERBUF_SIZE];
 
-   int getRes = getxattr(storePath.c_str(), META_XATTR_LINK_NAME, buf, DIRENTRY_SERBUF_SIZE);
+   int getRes = getxattr(storePath.c_str(), META_XATTR_NAME, buf, DIRENTRY_SERBUF_SIZE);
    if(getRes <= 0)
    { // getting failed
       goto out;

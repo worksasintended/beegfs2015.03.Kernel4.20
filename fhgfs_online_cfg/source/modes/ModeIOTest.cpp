@@ -276,7 +276,7 @@ bool ModeIOTest::writeTest(Node* ownerNode, EntryInfo* entryInfo)
             uint64_t mbps = bps / (1024*1024);
             lastIntermediateLen = len + cfgRecordsize;
 
-            std::cout << mbps << "MB/s ";
+            std::cout << mbps << "MiB/s ";
             std::flush(std::cout);
             intermediateTime.setToNow();
          }
@@ -293,9 +293,9 @@ bool ModeIOTest::writeTest(Node* ownerNode, EntryInfo* entryInfo)
    else
    {
       uint64_t totalBps = (len * 1000) / totalElapsedMS;
-      uint64_t totalMBps = totalBps / (1024*1024);
+      uint64_t totalMiBps = totalBps / (1024*1024);
       std::cout << std::endl;
-      std::cout << "Write result: " << totalMBps << "MB/s" << std::endl << std::endl;
+      std::cout << "Write result: " << totalMiBps << "MiB/s" << std::endl << std::endl;
    }
 
    free(buf);
@@ -359,7 +359,7 @@ bool ModeIOTest::readTest(Node* ownerNode, EntryInfo* entryInfo)
             uint64_t mbps = bps / (1024*1024);
             lastIntermediateLen = len + cfgRecordsize;
 
-            std::cout << mbps << "MB/s ";
+            std::cout << mbps << "MiB/s ";
             std::flush(std::cout);
             intermediateTime.setToNow();
          }
@@ -376,9 +376,9 @@ bool ModeIOTest::readTest(Node* ownerNode, EntryInfo* entryInfo)
    else
    {
       uint64_t totalBps = (len * 1000) / totalElapsedMS;
-      uint64_t totalMBps = totalBps / (1024*1024);
+      uint64_t totalMiBps = totalBps / (1024*1024);
       std::cout << std::endl;
-      std::cout << "Read result: " << totalMBps << "MB/s" << std::endl << std::endl;
+      std::cout << "Read result: " << totalMiBps << "MiB/s" << std::endl << std::endl;
    }
 
    free(buf);

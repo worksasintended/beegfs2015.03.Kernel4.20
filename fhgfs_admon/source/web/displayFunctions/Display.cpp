@@ -195,7 +195,7 @@ std::string Display::diskSpaceTotalSum(std::string *outUnit)
       node = (StorageNodeEx*) storageNodes->referenceNextNode(nodeID);
    }
 
-   return StringTk::doubleToStr(UnitTk::megabyteToXbyte(space, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(space, outUnit));
 }
 
 std::string Display::diskSpaceFreeSum(std::string *outUnit)
@@ -214,7 +214,7 @@ std::string Display::diskSpaceFreeSum(std::string *outUnit)
       node = (StorageNodeEx*) storageNodes->referenceNextNode(nodeID);
    }
 
-   return StringTk::doubleToStr(UnitTk::megabyteToXbyte(space, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(space, outUnit));
 }
 
 std::string Display::diskSpaceUsedSum(std::string *outUnit)
@@ -238,7 +238,7 @@ std::string Display::diskSpaceUsedSum(std::string *outUnit)
 
    int64_t space = totalSpace - freeSpace;
 
-   return StringTk::doubleToStr(UnitTk::megabyteToXbyte(space, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(space, outUnit));
 }
 
 void Display::diskPerfRead(uint16_t nodeID, uint timespanM, UInt64List *outListTime,
@@ -268,8 +268,8 @@ void Display::diskPerfRead(uint16_t nodeID, uint timespanM, UInt64List *outListT
          if ((contentTimeMS > startTimestampMS) && (contentTimeMS < endTimestampMS) )
          {
             outListTime->push_back(content.rawVals.statsTimeMS);
-            double diskReadMB = UnitTk::byteToMegabyte(content.incVals.diskReadBytes);
-            outListReadPerSec->push_back(diskReadMB);
+            double diskReadMiB = UnitTk::byteToMebibyte(content.incVals.diskReadBytes);
+            outListReadPerSec->push_back(diskReadMiB);
          }
       }
    }
@@ -321,8 +321,8 @@ void Display::diskPerfWrite(uint16_t nodeID, uint timespanM, UInt64List *outList
          if ((contentTimeMS > startTimestampMS) && (contentTimeMS < endTimestampMS) )
          {
             outListTime->push_back(content.rawVals.statsTimeMS);
-            double diskWriteMB = UnitTk::byteToMegabyte(content.incVals.diskWriteBytes);
-            outListWritePerSec->push_back(diskWriteMB);
+            double diskWriteMiB = UnitTk::byteToMebibyte(content.incVals.diskWriteBytes);
+            outListWritePerSec->push_back(diskWriteMiB);
          }
       }
    }
@@ -389,7 +389,7 @@ std::string Display::timeSinceLastMessageStorage(uint16_t nodeID)
 
 std::string Display::diskRead(uint16_t nodeID, uint timespanM, std::string *outUnit)
 {
-   double sum = 0; // sum in MB
+   double sum = 0; // sum in MiB
    if (timespanM <= 10)
    {
       StorageNodeEx *node = (StorageNodeEx*) storageNodes->referenceNode(nodeID);
@@ -404,7 +404,7 @@ std::string Display::diskRead(uint16_t nodeID, uint timespanM, std::string *outU
          for (HighResStatsListIter iter = data.begin(); iter != data.end(); iter++)
          {
             HighResolutionStats s = *iter;
-            sum += UnitTk::byteToMegabyte(s.incVals.diskReadBytes);
+            sum += UnitTk::byteToMebibyte(s.incVals.diskReadBytes);
          }
       }
    }
@@ -425,16 +425,16 @@ std::string Display::diskRead(uint16_t nodeID, uint timespanM, std::string *outU
       for (StorageNodeDataContentListIter iter = data.begin(); iter != data.end(); iter++)
       {
          StorageNodeDataContent content = *iter;
-         sum += content.diskRead; // db stores in MB;
+         sum += content.diskRead; // db stores in MiB;
       }
    }
 
-   return StringTk::doubleToStr(UnitTk::megabyteToXbyte(sum, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(sum, outUnit));
 }
 
 std::string Display::diskWrite(uint16_t nodeID, uint timespanM, std::string *outUnit)
 {
-   double sum = 0; // sum in MB
+   double sum = 0; // sum in MiB
    if (timespanM <= 10)
    {
       StorageNodeEx *node = (StorageNodeEx*) storageNodes->referenceNode(nodeID);
@@ -449,7 +449,7 @@ std::string Display::diskWrite(uint16_t nodeID, uint timespanM, std::string *out
          for (HighResStatsListIter iter = data.begin(); iter != data.end(); iter++)
          {
             HighResolutionStats s = *iter;
-            sum += UnitTk::byteToMegabyte(s.incVals.diskWriteBytes);
+            sum += UnitTk::byteToMebibyte(s.incVals.diskWriteBytes);
          }
       }
    }
@@ -470,16 +470,16 @@ std::string Display::diskWrite(uint16_t nodeID, uint timespanM, std::string *out
       for (StorageNodeDataContentListIter iter = data.begin(); iter != data.end(); iter++)
       {
          StorageNodeDataContent content = *iter;
-         sum += content.diskWrite; // db stores in MB;
+         sum += content.diskWrite; // db stores in MiB;
       }
    }
 
-   return StringTk::doubleToStr(UnitTk::megabyteToXbyte(sum, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(sum, outUnit));
 }
 
 std::string Display::diskReadSum(uint timespanM, std::string *outUnit)
 {
-   double sum = 0; // sum in MB
+   double sum = 0; // sum in MiB
    if (timespanM <= 10)
    {
       StorageNodeEx *node = (StorageNodeEx*) storageNodes->referenceFirstNode();
@@ -496,7 +496,7 @@ std::string Display::diskReadSum(uint timespanM, std::string *outUnit)
          for (HighResStatsListIter iter = data.begin(); iter != data.end(); iter++)
          {
             HighResolutionStats s = *iter;
-            sum += UnitTk::byteToMegabyte(s.incVals.diskReadBytes);
+            sum += UnitTk::byteToMebibyte(s.incVals.diskReadBytes);
          }
          node = (StorageNodeEx*) storageNodes->referenceNextNode(nodeID);
       }
@@ -524,17 +524,17 @@ std::string Display::diskReadSum(uint timespanM, std::string *outUnit)
             contIter++)
          {
             StorageNodeDataContent content = *contIter;
-            sum += content.diskRead; // db stores in MB;
+            sum += content.diskRead; // db stores in MiB;
          }
       }
    }
 
-   return StringTk::doubleToStr(UnitTk::megabyteToXbyte(sum, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(sum, outUnit));
 }
 
 std::string Display::diskWriteSum(uint timespanM, std::string *outUnit)
 {
-   double sum = 0; // sum in MB
+   double sum = 0; // sum in MiB
    if (timespanM <= 10)
    {
       StorageNodeEx *node = (StorageNodeEx*) storageNodes->referenceFirstNode();
@@ -551,7 +551,7 @@ std::string Display::diskWriteSum(uint timespanM, std::string *outUnit)
          for (HighResStatsListIter iter = data.begin(); iter != data.end(); iter++)
          {
             HighResolutionStats s = *iter;
-            sum += UnitTk::byteToMegabyte(s.incVals.diskWriteBytes);
+            sum += UnitTk::byteToMebibyte(s.incVals.diskWriteBytes);
          }
          node = (StorageNodeEx*) storageNodes->referenceNextNode(nodeID);
       }
@@ -579,12 +579,12 @@ std::string Display::diskWriteSum(uint timespanM, std::string *outUnit)
             contIter++)
          {
             StorageNodeDataContent content = *contIter;
-            sum += content.diskWrite; // db stores in MB
+            sum += content.diskWrite; // db stores in MiB
          }
       }
    }
 
-   return StringTk::doubleToStr(UnitTk::megabyteToXbyte(sum, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(sum, outUnit));
 }
 
 void Display::diskPerfWriteSum(uint timespanM, UInt64List *outListTime,
@@ -638,7 +638,7 @@ void Display::diskPerfWriteSum(uint timespanM, UInt64List *outListTime,
             StorageNodeDataContent content = *contIter;
             HighResolutionStats stats;
             stats.rawVals.statsTimeMS = content.time * 1000;
-            stats.incVals.diskWriteBytes = UnitTk::megabyteToByte(content.diskWritePerSec);
+            stats.incVals.diskWriteBytes = UnitTk::mebibyteToByte(content.diskWritePerSec);
             highResData.push_back(stats);
          }
          dataSets.push_back(highResData);
@@ -670,7 +670,7 @@ void Display::diskPerfWriteSum(uint timespanM, UInt64List *outListTime,
                // add it to sum and pop the element
                if (dataSets[i].front().rawVals.statsTimeMS >= masterTime - valueTimeRange)
                {
-                  sum += UnitTk::byteToMegabyte(dataSets[i].front().incVals.diskWriteBytes);
+                  sum += UnitTk::byteToMebibyte(dataSets[i].front().incVals.diskWriteBytes);
                }
                dataSets[i].pop_front();
             }
@@ -740,8 +740,8 @@ void Display::diskPerfReadSum(uint timespanM, UInt64List *outListTime,
             StorageNodeDataContent content = *contIter;
             HighResolutionStats stats;
             stats.rawVals.statsTimeMS = content.time * 1000;
-            // db stores in MB
-            stats.incVals.diskReadBytes = UnitTk::megabyteToByte(content.diskReadPerSec);
+            // db stores in MiB
+            stats.incVals.diskReadBytes = UnitTk::mebibyteToByte(content.diskReadPerSec);
             highResData.push_back(stats);
          }
 
@@ -778,7 +778,7 @@ void Display::diskPerfReadSum(uint timespanM, UInt64List *outListTime,
                // add it to sum and pop the element
                if (dataSets[i].front().rawVals.statsTimeMS >= masterTime - valueTimeRange)
                {
-                  sum += UnitTk::byteToMegabyte(dataSets[i].front().incVals.diskReadBytes);
+                  sum += UnitTk::byteToMebibyte(dataSets[i].front().incVals.diskReadBytes);
                }
                dataSets[i].pop_front();
             }

@@ -6,14 +6,14 @@ public enum SizeUnitEnum implements UnitEnum
 {
    NONE("",""),
    BYTE("Byte", "byte"),
-   KILOBYTE("KB", "kilobyte"),
-   MEGABYTE("MB", "megabyte"),
-   GIGABYTE("GB", "gigabyte"),
-   TERABYTE("TB", "terabyte"),
-   PETABYTE("PB", "petabyte"),
-   EXABYTE("EB", "exabyte"),
-   ZETTABYTE("ZB", "zettabyte"),
-   YOTTABYTE("YB", "yottabyte");
+   KIBIBYTE("KiB", "kibibyte"),
+   MEBIBYTE("MiB", "mebibyte"),
+   GIBIBYTE("GiB", "gibibyte"),
+   TEBIBYTE("TiB", "tebibyte"),
+   PEBIBYTE("PiB", "pebibyte"),
+   EXBIBYTE("EiB", "exbibyte"),
+   ZEBIBYTE("ZiB", "zebibyte"),
+   YOBIBYTE("YiB", "yobibyte");
 
    private final String unit;
    private final String description;

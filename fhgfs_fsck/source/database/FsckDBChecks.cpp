@@ -254,8 +254,10 @@ Cursor<std::pair<db::EntryID, std::set<uint32_t> > > FsckDB::findDuplicateInodeI
          id,
          this->dirInodesTable->get()
          | db::where(isNotDisposal)
+         | ignoreByID(this->modificationEventsTable->get())
          | db::select(ops::idAndTargetD),
          this->fileInodesTable->getInodes()
+         | ignoreByID(this->modificationEventsTable->get())
          | db::select(ops::idAndTargetF) )
       | db::groupBy(DuplicateIDGroup() )
       | db::where(ops::hasDuplicateID) );
@@ -336,9 +338,10 @@ Cursor<std::list<FsckChunk> > FsckDB::findDuplicateChunks()
 
    return cursor(
       this->chunksTable->get()
-      | db::groupBy(DuplicateChunkGroup() )
+      | ignoreByID(this->modificationEventsTable->get())
+      | db::groupBy(DuplicateChunkGroup())
       | db::where(ops::hasDuplicateChunks)
-      | db::select(ops::second) );
+      | db::select(ops::second));
 }
 
 /*

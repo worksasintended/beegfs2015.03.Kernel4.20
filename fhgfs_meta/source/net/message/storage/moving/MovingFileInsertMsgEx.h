@@ -20,7 +20,11 @@ class MovingFileInsertMsgEx : public MovingFileInsertMsg
    protected:
    
    private:
-      FhgfsOpsErr insert(FileInode** outUnlinkedFile);
+      Socket* socket;
+      StringVector xattrNames;
+      EntryInfo newFileInfo;
+
+      FhgfsOpsErr insert(Socket* socket, FileInode** outUnlinkedFile);
 };
 
 #endif /*MOVINGFILEINSERTMSGEX_H_*/

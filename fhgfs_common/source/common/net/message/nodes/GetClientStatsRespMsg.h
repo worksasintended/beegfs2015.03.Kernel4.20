@@ -7,9 +7,9 @@
 #include <common/Common.h>
 
 
-#define GETCLIENTSTATSRESP_MAX_PAYLOAD_LEN   (56*1024) /* actual max is 64KB minus header and
-                                                          encoding overhead, so we have a safe
-                                                          amount (8KB) of room here left for that.*/
+#define GETCLIENTSTATSRESP_MAX_PAYLOAD_LEN   (56*1024) // actual max is 64KiB minus header and
+                                                       // encoding overhead, so we have a safe
+                                                       // amount (8KiB) of room here left for that.
 
 
 /**

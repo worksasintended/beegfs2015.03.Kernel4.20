@@ -4,6 +4,7 @@
 #include <common/storage/StorageErrors.h>
 
 class EntryInfo; // forward declaration
+class Socket;
 
 class MsgHelperXAttr
 {
@@ -14,10 +15,17 @@ class MsgHelperXAttr
       static FhgfsOpsErr removexattr(EntryInfo* entryInfo, const std::string& name);
       static FhgfsOpsErr setxattr(EntryInfo* entryInfo, const std::string& name,
          const CharVector& value, int flags);
+      static FhgfsOpsErr streamXAttrFn(void* context, std::string& name, CharVector& value);
 
       static const std::string CURRENT_DIR_FILENAME;
+      static const ssize_t MAX_VALUE_SIZE;
 
-      enum { MAX_SIZE = 60*1024 };
+      struct StreamXAttrState
+      {
+         Socket* socket;
+         EntryInfo* entryInfo;
+         StringVector* names;
+      };
 
    private:
       static const std::string XATTR_PREFIX;

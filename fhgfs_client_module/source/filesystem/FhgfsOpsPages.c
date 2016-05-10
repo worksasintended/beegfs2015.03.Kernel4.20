@@ -576,7 +576,7 @@ int _FhgfsOpsPages_writepages(struct address_space* mapping, struct writeback_co
       App* app = FhgfsOps_getApp(inode->i_sb);
       struct dentry* dentry = d_find_alias(inode); // calls dget_locked
 
-      FhgfsOpsHelper_logOpDebug(app, dentry, inode, __func__, "(nr_to_write: %ld = %lluKB)",
+      FhgfsOpsHelper_logOpDebug(app, dentry, inode, __func__, "(nr_to_write: %ld = %lluKiB)",
          wbc->nr_to_write, (long long) (wbc->nr_to_write << PAGE_CACHE_SHIFT) / 1024);
 
       if(dentry)
@@ -694,7 +694,7 @@ int FhgfsOpsPages_writepages(struct address_space* mapping, struct writeback_con
       App* app = FhgfsOps_getApp(inode->i_sb);
       struct dentry* dentry = d_find_alias(inode); // calls dget_locked
 
-      FhgfsOpsHelper_logOpDebug(app, dentry, inode, __func__, "(nr_to_write: %ld = %lluKB)",
+      FhgfsOpsHelper_logOpDebug(app, dentry, inode, __func__, "(nr_to_write: %ld = %lluKiB)",
          wbc->nr_to_write, (long long) (wbc->nr_to_write << PAGE_CACHE_SHIFT) / 1024);
 
       if(dentry)

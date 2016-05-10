@@ -521,6 +521,13 @@ FhgfsOpsErr MessagingTk::requestResponseComm(RequestResponseArgs* rrArgs)
       sock->send(sendBuf, sendBufLen, 0);
       SAFE_FREE(sendBuf);
 
+      if (rrArgs->sendExtraData)
+      {
+         retVal = rrArgs->sendExtraData(sock, rrArgs->extraDataContext);
+         if (retVal != FhgfsOpsErr_SUCCESS)
+            goto err_cleanup;
+      }
+
       // receive response
       unsigned respLength = MessagingTk::recvMsgBuf(sock, &rrArgs->outRespBuf);
       if(unlikely(!respLength) )

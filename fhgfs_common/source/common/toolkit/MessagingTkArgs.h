@@ -130,9 +130,11 @@ struct RequestResponseArgs
     * @param node may be NULL, depending on which requestResponse...() method is used.
     * @param respMsgType expected type of response message (NETMSGTYPE_...)
     */
-   RequestResponseArgs(Node* node, NetMessage* requestMsg, unsigned respMsgType) :
-      node(node), requestMsg(requestMsg), respMsgType(respMsgType), outRespBuf(NULL),
-      outRespMsg(NULL), logFlags(0)
+   RequestResponseArgs(Node* node, NetMessage* requestMsg, unsigned respMsgType,
+         FhgfsOpsErr (*sendExtraData)(Socket*, void*) = NULL, void* extraDataContext = NULL)
+      : node(node), requestMsg(requestMsg), respMsgType(respMsgType), outRespBuf(NULL),
+        outRespMsg(NULL), logFlags(0), sendExtraData(sendExtraData),
+        extraDataContext(extraDataContext)
    {
       // see initializer list
    }
@@ -153,6 +155,10 @@ struct RequestResponseArgs
 
    // internal (initialized by MessagingTk_requestResponseWithRRArgs() )
    unsigned char logFlags; // REQUESTRESPONSEARGS_LOGFLAG_... combination to avoid double-logging
+
+   // hook to send extra data after the message
+   FhgfsOpsErr (*sendExtraData)(Socket*, void*);
+   void* extraDataContext;
 };
 
 

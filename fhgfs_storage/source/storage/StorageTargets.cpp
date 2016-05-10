@@ -269,9 +269,9 @@ void StorageTargets::decideResync(const TargetStateMap& statesFromMgmtd,
       {
          LOG_DEBUG(logContext, Log_DEBUG, "Target " + StringTk::uintToStr(targetID)
             + "; State (from management node): " + TargetStateStore::stateToStr(newStateFromMgmtd)
-            + "; resyncing: " + (isResyncing ? "yes" : "no")
-            + "; clean: " + (isClean ? "yes" : "no")
-            + "; bad: " + (isBad ? "yes" : "no") + "."
+            + "; resyncing: " + StringTk::boolToStr(isResyncing)
+            + "; clean: " + StringTk::boolToStr(isClean)
+            + "; bad: " + StringTk::boolToStr(isBad) + "."
          );
 
          LogContext(logContext).log(Log_NOTICE, "Target " + StringTk::uintToStr(targetID)

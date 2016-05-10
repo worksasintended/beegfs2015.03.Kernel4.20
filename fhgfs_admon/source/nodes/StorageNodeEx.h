@@ -31,8 +31,8 @@ struct StorageNodeDataContent
       int64_t diskRead;
       int64_t diskWrite;
       // average read / write per sec follows
-      int64_t diskReadPerSec; // store in MB, does not need to be float, integer is accurate enough
-      int64_t diskWritePerSec; // store in MB
+      int64_t diskReadPerSec; // store in MiB, does not need to be float, integer is accurate enough
+      int64_t diskWritePerSec; // store in MiB
       unsigned sessionCount;
       StorageTargetInfoList storageTargets;
 };

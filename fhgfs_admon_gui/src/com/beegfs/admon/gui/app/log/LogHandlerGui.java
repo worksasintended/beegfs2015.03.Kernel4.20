@@ -18,7 +18,7 @@ public class LogHandlerGui extends FileHandler
 {
    static final Logger LOGGER = Logger.getLogger(LogHandlerGui.class.getCanonicalName());
 
-   private static final int INTERNAL_LOGGER_MAX_LOG_FILE_SIZE = 20971520; // 20MB
+   private static final int INTERNAL_LOGGER_MAX_LOG_FILE_SIZE = 20971520; // 20MiB
    private static final int INTERNAL_LOGGER_MAX_LOG_FILE_COUNT = 5;
 
    private final TreeMap<String, Long> loggedData;

@@ -29,6 +29,7 @@ class StringTk
       static int64_t strToInt64(const char* s);
       static uint64_t strToUInt64(const char* s);
       static bool strToBool(const char* s);
+      static std::string boolToStr(bool b);
       static std::string intToStr(int a);
       static std::string uintToStr(unsigned a);
       static std::string uintToHexStr(unsigned a);

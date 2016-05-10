@@ -158,7 +158,7 @@ public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFra
                tracesLength.add(averageWriteVals.size());
 
                String timeSpanStr = jComboBoxTimeSpan.getSelectedItem().toString();
-               ValueUnit<TimeUnitEnum> vu = UnitTk.strToValueUnitofTime(timeSpanStr);
+               ValueUnit<TimeUnitEnum> vu = UnitTk.strToValueUnitOfTime(timeSpanStr);
                long timeSpan = UnitTk.timeSpanToMinutes(vu);
 
                GuiTk.addTracePointsToChart(readVals, chart, "Read", timeSpan, false,
@@ -313,7 +313,7 @@ public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFra
       traces[2] = averageReadTrace;
       traces[3] = averageWriteTrace;
 
-      chart = new LineChart("Throughput (MB/s)", "", "", 600, traces);
+      chart = new LineChart("Throughput (MiB/s)", "", "", 600, traces);
 
       jPanelDiskPerfGraph.add(chart);
 
@@ -483,7 +483,7 @@ public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFra
 
     private void jComboBoxTimeSpanActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jComboBoxTimeSpanActionPerformed
        String timeSpanStr = jComboBoxTimeSpan.getSelectedItem().toString();
-       ValueUnit<TimeUnitEnum> vu = UnitTk.strToValueUnitofTime(timeSpanStr);
+       ValueUnit<TimeUnitEnum> vu = UnitTk.strToValueUnitOfTime(timeSpanStr);
 
        try
        {

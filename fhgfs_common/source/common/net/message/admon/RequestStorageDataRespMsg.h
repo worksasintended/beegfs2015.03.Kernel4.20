@@ -15,8 +15,8 @@ class RequestStorageDataRespMsg: public NetMessage
       NicAddressList* nicList;
       unsigned indirectWorkListSize;
       unsigned directWorkListSize;
-      int64_t diskSpaceTotalMB;
-      int64_t diskSpaceFreeMB;
+      int64_t diskSpaceTotalMiB;
+      int64_t diskSpaceFreeMiB;
       unsigned sessionCount;
       // for deserialization
       unsigned nicListElemNum; // NETMSG_NICLISTELEM_SIZE defines the element size
@@ -46,8 +46,8 @@ class RequestStorageDataRespMsg: public NetMessage
          this->nicList = nicList;
          this->indirectWorkListSize = indirectWorkListSize;
          this->directWorkListSize = directWorkListSize;
-         this->diskSpaceTotalMB = diskSpaceTotal / 1024 / 1024;
-         this->diskSpaceFreeMB = diskSpaceFree / 1024 / 1024;
+         this->diskSpaceTotalMiB = diskSpaceTotal / 1024 / 1024;
+         this->diskSpaceFreeMiB = diskSpaceFree / 1024 / 1024;
          this->sessionCount = sessionCount;
          this->statsList = statsList;
          this->storageTargets = storageTargets;
@@ -62,8 +62,8 @@ class RequestStorageDataRespMsg: public NetMessage
          this->nodeNumID = 0;
          this->indirectWorkListSize = 0;
          this->directWorkListSize = 0;
-         this->diskSpaceTotalMB = 0;
-         this->diskSpaceFreeMB = 0;
+         this->diskSpaceTotalMiB = 0;
+         this->diskSpaceFreeMiB = 0;
          this->sessionCount = 0;
          this->statsList = NULL;
          this->storageTargets = NULL;
@@ -106,14 +106,14 @@ class RequestStorageDataRespMsg: public NetMessage
          return directWorkListSize;
       }
 
-      int64_t getDiskSpaceTotalMB()
+      int64_t getDiskSpaceTotalMiB() const
       {
-         return diskSpaceTotalMB;
+         return diskSpaceTotalMiB;
       }
 
-      int64_t getDiskSpaceFreeMB()
+      int64_t getDiskSpaceFreeMiB() const
       {
-         return diskSpaceFreeMB;
+         return diskSpaceFreeMiB;
       }
 
       unsigned getSessionCount()

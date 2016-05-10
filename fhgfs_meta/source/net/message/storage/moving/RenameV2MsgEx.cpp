@@ -17,6 +17,7 @@
 #include <components/ModificationEventFlusher.h>
 #include <net/msghelpers/MsgHelperChunkBacklinks.h>
 #include <net/msghelpers/MsgHelperUnlink.h>
+#include <net/msghelpers/MsgHelperXAttr.h>
 #include <program/Program.h>
 #include "RenameV2MsgEx.h"
 
@@ -48,6 +49,8 @@ bool RenameV2MsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
 
    std::string movedEntryID;
    std::string unlinkedEntryID;
+
+   this->socket = sock;
 
    if ( modEventLoggingEnabled )
    {
@@ -277,6 +280,7 @@ FhgfsOpsErr RenameV2MsgEx::renameFile(DirInode* fromParent, EntryInfo* fromDirIn
    // the buffer is used to transfer all data of the data of the dir-entry
    char* serialBuf = (char*)malloc(META_SERBUF_SIZE);
    size_t usedSerialBufLen;
+   StringVector xattrNames;
 
    retVal = metaStore->moveRemoteFileBegin(
       fromParent, &fromFileEntryInfo, serialBuf, META_SERBUF_SIZE, &usedSerialBufLen);
@@ -302,10 +306,19 @@ FhgfsOpsErr RenameV2MsgEx::renameFile(DirInode* fromParent, EntryInfo* fromDirIn
 
       LOG_DEBUG(logContext, Log_SPAM, "Method: remote file move."); // debug in
 
+      if (app->getConfig()->getStoreClientXAttrs())
+      {
+         FhgfsOpsErr listXAttrRes = MsgHelperXAttr::listxattr(&fromFileEntryInfo, xattrNames);
+         if (listXAttrRes != FhgfsOpsErr_SUCCESS)
+         {
+            metaStore->moveRemoteFileComplete(fromParent, fromFileEntryInfo.getEntryID());
+            return FhgfsOpsErr_TOOBIG;
+         }
+      }
 
       // Do the remote operation (insert and possible unlink of an existing toFile)
       retVal = remoteFileInsertAndUnlink(&fromFileEntryInfo, toDirInfo, newName, serialBuf,
-         usedSerialBufLen, unlinkedEntryID);
+         usedSerialBufLen, xattrNames, unlinkedEntryID);
 
 
       // finish local part of the owned file move operation (+ remove local file-link)
@@ -405,7 +418,8 @@ FhgfsOpsErr RenameV2MsgEx::renameInSameDir(DirInode* fromParent, std::string old
  * @param serialBuf   the inode values serialized into this buffer.
  */
 FhgfsOpsErr RenameV2MsgEx::remoteFileInsertAndUnlink(EntryInfo* fromFileInfo, EntryInfo* toDirInfo,
-   std::string newName, char* serialBuf, size_t serialBufLen, std::string& unlinkedEntryID)
+   std::string newName, char* serialBuf, size_t serialBufLen, StringVector& xattrs,
+   std::string& unlinkedEntryID)
 {
    LogContext log("RenameV2MsgEx::remoteFileInsert");
    
@@ -430,6 +444,9 @@ FhgfsOpsErr RenameV2MsgEx::remoteFileInsertAndUnlink(EntryInfo* fromFileInfo, En
    rrNode.setTargetStates(app->getMetaStateStore() );
 
    // send request and receive response
+
+   MsgHelperXAttr::StreamXAttrState streamState = { socket, fromFileInfo, &xattrs };
+   insertMsg.registerStreamoutHook(rrArgs, MsgHelperXAttr::streamXAttrFn, &streamState);
 
    FhgfsOpsErr requestRes = MessagingTk::requestResponseNode(&rrNode, &rrArgs);
 

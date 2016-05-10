@@ -192,7 +192,7 @@ DirEntryType StorageTkEx::readInodeFromFileXAttrUnlocked(std::string& metaFilena
 
    char *buf = (char*) malloc(META_SERBUF_SIZE);
 
-   ssize_t getRes = getxattr(metaFilename.c_str(), META_XATTR_FILE_NAME, buf, META_SERBUF_SIZE);
+   ssize_t getRes = getxattr(metaFilename.c_str(), META_XATTR_NAME, buf, META_SERBUF_SIZE);
 
    if ( getRes > 0 )
    { // we got something => deserialize it

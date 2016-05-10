@@ -257,13 +257,12 @@ bool FileInode::storeUpdatedMetaDataBufAsXAttr(char* buf, unsigned bufLen, std::
 
    // write data to file
 
-   int setRes = setxattr(metaFilename.c_str(), META_XATTR_FILE_NAME, buf, bufLen, 0);
+   int setRes = setxattr(metaFilename.c_str(), META_XATTR_NAME, buf, bufLen, 0);
 
    if(unlikely(setRes == -1) )
    { // error
-      LogContext(logContext).log(Log_DEBUG, "Unable to write FileInode metadata update: " +
+      LogContext(logContext).logErr("Unable to write FileInode metadata update: " +
          metaFilename + ". " + "SysErr: " + System::getErrString() );
-      LogContext(logContext).logBacktrace();
 
       return false;
    }
@@ -638,7 +637,7 @@ bool FileInode::loadFromFileXAttr(const std::string& id)
 
    char buf[META_SERBUF_SIZE];
 
-   ssize_t getRes = getxattr(metaFilename.c_str(), META_XATTR_FILE_NAME, buf, META_SERBUF_SIZE);
+   ssize_t getRes = getxattr(metaFilename.c_str(), META_XATTR_NAME, buf, META_SERBUF_SIZE);
    if(getRes > 0)
    { // we got something => deserialize it
       bool deserRes = deserializeMetaData(buf);

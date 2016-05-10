@@ -40,73 +40,73 @@ public class UnitTk
       {
          retval = SizeUnitEnum.BYTE;
       }
-      else if(SizeUnitEnum.KILOBYTE.getUnit().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.KIBIBYTE.getUnit().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.KILOBYTE;
+         retval = SizeUnitEnum.KIBIBYTE;
       }
-      else if(SizeUnitEnum.MEGABYTE.getUnit().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.MEBIBYTE.getUnit().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.MEGABYTE;
+         retval = SizeUnitEnum.MEBIBYTE;
       }
-      else if(SizeUnitEnum.GIGABYTE.getUnit().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.GIBIBYTE.getUnit().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.GIGABYTE;
+         retval = SizeUnitEnum.GIBIBYTE;
       }
-      else if(SizeUnitEnum.TERABYTE.getUnit().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.TEBIBYTE.getUnit().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.TERABYTE;
+         retval = SizeUnitEnum.TEBIBYTE;
       }
-      else if(SizeUnitEnum.PETABYTE.getUnit().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.PEBIBYTE.getUnit().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.PETABYTE;
+         retval = SizeUnitEnum.PEBIBYTE;
       }
-      else if(SizeUnitEnum.EXABYTE.getUnit().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.EXBIBYTE.getUnit().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.EXABYTE;
+         retval = SizeUnitEnum.EXBIBYTE;
       }
-      else if(SizeUnitEnum.ZETTABYTE.getUnit().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.ZEBIBYTE.getUnit().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.ZETTABYTE;
+         retval = SizeUnitEnum.ZEBIBYTE;
       }
-      else if(SizeUnitEnum.YOTTABYTE.getUnit().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.YOBIBYTE.getUnit().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.YOTTABYTE;
+         retval = SizeUnitEnum.YOBIBYTE;
       }
       else if (SizeUnitEnum.BYTE.getDescription().equalsIgnoreCase(str))
       {
          retval = SizeUnitEnum.BYTE;
       }
-      else if(SizeUnitEnum.KILOBYTE.getDescription().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.KIBIBYTE.getDescription().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.KILOBYTE;
+         retval = SizeUnitEnum.KIBIBYTE;
       }
-      else if(SizeUnitEnum.MEGABYTE.getDescription().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.MEBIBYTE.getDescription().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.MEGABYTE;
+         retval = SizeUnitEnum.MEBIBYTE;
       }
-      else if(SizeUnitEnum.GIGABYTE.getDescription().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.GIBIBYTE.getDescription().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.GIGABYTE;
+         retval = SizeUnitEnum.GIBIBYTE;
       }
-      else if(SizeUnitEnum.TERABYTE.getDescription().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.TEBIBYTE.getDescription().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.TERABYTE;
+         retval = SizeUnitEnum.TEBIBYTE;
       }
-      else if(SizeUnitEnum.PETABYTE.getDescription().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.PEBIBYTE.getDescription().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.PETABYTE;
+         retval = SizeUnitEnum.PEBIBYTE;
       }
-      else if(SizeUnitEnum.EXABYTE.getDescription().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.EXBIBYTE.getDescription().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.EXABYTE;
+         retval = SizeUnitEnum.EXBIBYTE;
       }
-      else if(SizeUnitEnum.ZETTABYTE.getDescription().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.ZEBIBYTE.getDescription().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.ZETTABYTE;
+         retval = SizeUnitEnum.ZEBIBYTE;
       }
-      else if(SizeUnitEnum.YOTTABYTE.getDescription().equalsIgnoreCase(str))
+      else if(SizeUnitEnum.YOBIBYTE.getDescription().equalsIgnoreCase(str))
       {
-         retval = SizeUnitEnum.YOTTABYTE;
+         retval = SizeUnitEnum.YOBIBYTE;
       }
 
       return retval;
@@ -160,7 +160,7 @@ public class UnitTk
       return retval;
    }
 
-   public static ValueUnit<TimeUnitEnum> strToValueUnitofTime(String str)
+   public static ValueUnit<TimeUnitEnum> strToValueUnitOfTime(String str)
    {
       double value = 0;
       TimeUnitEnum unit = TimeUnitEnum.NONE;
@@ -181,7 +181,7 @@ public class UnitTk
       return new ValueUnit<>(value, unit);
    }
 
-   public static ValueUnit<SizeUnitEnum> strToValueUnitofSize(String str)
+   public static ValueUnit<SizeUnitEnum> strToValueUnitOfSize(String str)
    {
       double value = 0;
       SizeUnitEnum unit = SizeUnitEnum.NONE;
@@ -244,28 +244,28 @@ public class UnitTk
             unit = SizeUnitEnum.BYTE;
             break;
          case 1:
-            unit = SizeUnitEnum.KILOBYTE;
+            unit = SizeUnitEnum.KIBIBYTE;
             break;
          case 2:
-            unit = SizeUnitEnum.MEGABYTE;
+            unit = SizeUnitEnum.MEBIBYTE;
             break;
          case 3:
-            unit = SizeUnitEnum.GIGABYTE;
+            unit = SizeUnitEnum.GIBIBYTE;
             break;
          case 4:
-            unit = SizeUnitEnum.TERABYTE;
+            unit = SizeUnitEnum.TEBIBYTE;
             break;
          case 5:
-            unit = SizeUnitEnum.PETABYTE;
+            unit = SizeUnitEnum.PEBIBYTE;
             break;
          case 6:
-            unit = SizeUnitEnum.EXABYTE;
+            unit = SizeUnitEnum.EXBIBYTE;
             break;
          case 7:
-            unit = SizeUnitEnum.ZETTABYTE;
+            unit = SizeUnitEnum.ZEBIBYTE;
             break;
          case 8:
-            unit = SizeUnitEnum.YOTTABYTE;
+            unit = SizeUnitEnum.YOBIBYTE;
             break;
          default:
             unit = SizeUnitEnum.NONE;
@@ -285,28 +285,28 @@ public class UnitTk
       {
          switch (forceUnit)
          {
-            case KILOBYTE:
+            case KIBIBYTE:
                maxCount = 1;
                break;
-            case MEGABYTE:
+            case MEBIBYTE:
                maxCount = 2;
                break;
-            case GIGABYTE:
+            case GIBIBYTE:
                maxCount = 3;
                break;
-            case TERABYTE:
+            case TEBIBYTE:
                maxCount = 4;
                break;
-            case PETABYTE:
+            case PEBIBYTE:
                maxCount = 5;
                break;
-            case EXABYTE:
+            case EXBIBYTE:
                maxCount = 6;
                break;
-            case ZETTABYTE:
+            case ZEBIBYTE:
                maxCount = 7;
                break;
-            case YOTTABYTE:
+            case YOBIBYTE:
                maxCount = 8;
                break;
             default:
@@ -328,28 +328,28 @@ public class UnitTk
             unit = SizeUnitEnum.BYTE;
             break;
          case 1:
-            unit = SizeUnitEnum.KILOBYTE;
+            unit = SizeUnitEnum.KIBIBYTE;
             break;
          case 2:
-            unit = SizeUnitEnum.MEGABYTE;
+            unit = SizeUnitEnum.MEBIBYTE;
             break;
          case 3:
-            unit = SizeUnitEnum.GIGABYTE;
+            unit = SizeUnitEnum.GIBIBYTE;
             break;
          case 4:
-            unit = SizeUnitEnum.TERABYTE;
+            unit = SizeUnitEnum.TEBIBYTE;
             break;
          case 5:
-            unit = SizeUnitEnum.PETABYTE;
+            unit = SizeUnitEnum.PEBIBYTE;
             break;
          case 6:
-            unit = SizeUnitEnum.EXABYTE;
+            unit = SizeUnitEnum.EXBIBYTE;
             break;
          case 7:
-            unit = SizeUnitEnum.ZETTABYTE;
+            unit = SizeUnitEnum.ZEBIBYTE;
             break;
          case 8:
-            unit = SizeUnitEnum.YOTTABYTE;
+            unit = SizeUnitEnum.YOBIBYTE;
             break;
          default:
             unit = SizeUnitEnum.NONE;
@@ -367,28 +367,28 @@ public class UnitTk
       {
          switch (unit)
          {
-            case KILOBYTE:
+            case KIBIBYTE:
                maxCount = 1;
                break;
-            case MEGABYTE:
+            case MEBIBYTE:
                maxCount = 2;
                break;
-            case GIGABYTE:
+            case GIBIBYTE:
                maxCount = 3;
                break;
-            case TERABYTE:
+            case TEBIBYTE:
                maxCount = 4;
                break;
-            case PETABYTE:
+            case PEBIBYTE:
                maxCount = 5;
                break;
-            case EXABYTE:
+            case EXBIBYTE:
                maxCount = 6;
                break;
-            case ZETTABYTE:
+            case ZEBIBYTE:
                maxCount = 7;
                break;
-            case YOTTABYTE:
+            case YOBIBYTE:
                maxCount = 8;
                break;
             default:

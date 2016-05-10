@@ -551,7 +551,7 @@ bool MirrorerTask::loadFileBufIfNeeded()
             dentryPath = parentPath + "/" + entryName;
 
          if(useXAttrs)
-            return loadFileBufFromXattr(dentryPath, META_XATTR_LINK_NAME);
+            return loadFileBufFromXattr(dentryPath, META_XATTR_NAME);
          else
             return loadFileBufFromContents(dentryPath);
       }
@@ -562,7 +562,7 @@ bool MirrorerTask::loadFileBufIfNeeded()
             app->getInodesPath()->getPathAsStrConst(), entryID);
 
          if(useXAttrs)
-            return loadFileBufFromXattr(path, META_XATTR_LINK_NAME);
+            return loadFileBufFromXattr(path, META_XATTR_NAME);
          else
             return loadFileBufFromContents(path);
       }
@@ -587,7 +587,7 @@ bool MirrorerTask::loadFileBufFromXattr(std::string path, const char* xattrName)
 
    this->fileBuf = (char*)malloc(META_SERBUF_SIZE);
 
-   ssize_t getRes = getxattr(path.c_str(), META_XATTR_DIR_NAME, fileBuf, META_SERBUF_SIZE);
+   ssize_t getRes = getxattr(path.c_str(), META_XATTR_NAME, fileBuf, META_SERBUF_SIZE);
    if(getRes > 0)
    { // we got something
       fileBufLen = getRes;
@@ -865,7 +865,7 @@ FhgfsOpsErr MirrorerTask::saveRecvFileBuf(std::string path)
 
    if(useXAttrs)
    { // extended attribute
-      int setRes = fsetxattr(fd, META_XATTR_LINK_NAME, recvFileBuf, recvFileBufLen, 0);
+      int setRes = fsetxattr(fd, META_XATTR_NAME, recvFileBuf, recvFileBufLen, 0);
 
       if(unlikely(setRes == -1) )
       { // error

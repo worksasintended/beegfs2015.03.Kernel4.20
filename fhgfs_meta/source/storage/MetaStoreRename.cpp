@@ -330,7 +330,7 @@ FhgfsOpsErr MetaStore::checkRenameOverwrite(EntryInfo* fromEntry, EntryInfo* ove
  * corresponding object; may not be NULL
  */
 FhgfsOpsErr MetaStore::moveRemoteFileInsert(EntryInfo* fromFileInfo, std::string toParentID,
-   std::string newEntryName, const char* buf, FileInode** outUnlinkedInode)
+   std::string newEntryName, const char* buf, FileInode** outUnlinkedInode, EntryInfo& newFileInfo)
 {
    // note: we do not allow newEntry to be a file if the old entry was a directory (and vice versa)
    const char* logContext = "rename(): Insert remote entry";
@@ -401,6 +401,12 @@ FhgfsOpsErr MetaStore::moveRemoteFileInsert(EntryInfo* fromFileInfo, std::string
 
       // destructs inode
       retVal = mkMetaFileUnlocked(toParent, newEntryName, fromFileInfo->getEntryType(), inode);
+   }
+
+   if (retVal == FhgfsOpsErr_SUCCESS)
+   {
+      if (!toParent->entries.getFileEntryInfo(newEntryName, newFileInfo))
+         retVal = FhgfsOpsErr_INTERNAL;
    }
 
    if (overWrittenEntry && retVal == FhgfsOpsErr_SUCCESS)

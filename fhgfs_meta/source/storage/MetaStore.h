@@ -80,7 +80,8 @@ class MetaStore
          std::string toName, FileInode** outUnlinkInode);
 
       FhgfsOpsErr moveRemoteFileInsert(EntryInfo* fromFileInfo, std::string toParentID,
-         std::string newEntryName, const char* buf, FileInode** outUnlinkedFile);
+         std::string newEntryName, const char* buf, FileInode** outUnlinkedFile,
+         EntryInfo& newFileInfo);
 
       FhgfsOpsErr moveRemoteFileBegin(DirInode* dir, EntryInfo* entryInfo, char* buf, size_t bufLen,
          size_t* outUsedBufLen);

@@ -4,6 +4,8 @@
 #include <common/storage/striping/Raid0Pattern.h>
 #include <common/toolkit/MessagingTk.h>
 #include <net/msghelpers/MsgHelperChunkBacklinks.h>
+#include <net/msghelpers/MsgHelperUnlink.h>
+#include <net/msghelpers/MsgHelperXAttr.h>
 
 #include "MovingFileInsertMsgEx.h"
 
@@ -18,7 +20,7 @@ bool MovingFileInsertMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket
 
    FileInode* unlinkInode = NULL;
 
-   FhgfsOpsErr insertRes = this->insert(&unlinkInode); // create the new file here
+   FhgfsOpsErr insertRes = this->insert(sock, &unlinkInode); // create the new file here
 
    if (insertRes == FhgfsOpsErr_SUCCESS)
    {
@@ -70,7 +72,7 @@ bool MovingFileInsertMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket
 }
 
 
-FhgfsOpsErr MovingFileInsertMsgEx::insert(FileInode** outUnlinkedFile)
+FhgfsOpsErr MovingFileInsertMsgEx::insert(Socket* socket, FileInode** outUnlinkedFile)
 {
    MetaStore* metaStore = Program::getApp()->getMetaStore();
 
@@ -79,7 +81,35 @@ FhgfsOpsErr MovingFileInsertMsgEx::insert(FileInode** outUnlinkedFile)
    std::string newName     = this->getNewName();
 
    FhgfsOpsErr moveRes = metaStore->moveRemoteFileInsert(
-      fromFileInfo, toDirInfo->getEntryID(), newName, getSerialBuf(), outUnlinkedFile);
-   
-   return moveRes;
+      fromFileInfo, toDirInfo->getEntryID(), newName, getSerialBuf(), outUnlinkedFile,
+      newFileInfo);
+   if (moveRes != FhgfsOpsErr_SUCCESS)
+      return moveRes;
+
+   std::string xattrName;
+   CharVector xattrValue;
+
+   FhgfsOpsErr retVal = FhgfsOpsErr_SUCCESS;
+
+   while (true)
+   {
+      retVal = getNextXAttr(socket, xattrName, xattrValue);
+      if (retVal == FhgfsOpsErr_SUCCESS)
+         break;
+      else if (retVal != FhgfsOpsErr_AGAIN)
+         goto xattr_error;
+
+      retVal = MsgHelperXAttr::setxattr(&newFileInfo, xattrName, xattrValue, 0);
+      if (retVal != FhgfsOpsErr_SUCCESS)
+         goto xattr_error;
+
+      xattrNames.push_back(xattrName);
+   }
+
+   return FhgfsOpsErr_SUCCESS;
+
+xattr_error:
+   MsgHelperUnlink::unlinkMetaFile(toDirInfo->getEntryID(), newName, NULL);
+
+   return retVal;
 }

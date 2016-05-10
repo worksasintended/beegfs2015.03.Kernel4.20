@@ -840,7 +840,7 @@ FhgfsOpsErr DirInode::storeInitialMetaDataInode()
 
    if(useXAttrs)
    { // extended attribute
-      int setRes = fsetxattr(fd, META_XATTR_DIR_NAME, buf, bufLen, 0);
+      int setRes = fsetxattr(fd, META_XATTR_NAME, buf, bufLen, 0);
 
       if(unlikely(setRes == -1) )
       { // error
@@ -918,7 +918,7 @@ bool DirInode::storeUpdatedMetaDataBufAsXAttr(char* buf, unsigned bufLen)
 
    // write data to file
 
-   int setRes = setxattr(metaFilename.c_str(), META_XATTR_DIR_NAME, buf, bufLen, 0);
+   int setRes = setxattr(metaFilename.c_str(), META_XATTR_NAME, buf, bufLen, 0);
 
    if(unlikely(setRes == -1) )
    { // error
@@ -1272,7 +1272,7 @@ bool DirInode::loadFromFileXAttr()
 
    char buf[META_SERBUF_SIZE];
 
-   ssize_t getRes = getxattr(inodePath.c_str(), META_XATTR_DIR_NAME, buf, META_SERBUF_SIZE);
+   ssize_t getRes = getxattr(inodePath.c_str(), META_XATTR_NAME, buf, META_SERBUF_SIZE);
    if(getRes > 0)
    { // we got something => deserialize it
       bool deserRes = DiskMetaData::deserializeDirInode(buf, this);

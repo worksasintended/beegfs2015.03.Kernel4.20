@@ -28,7 +28,7 @@ static void __FhgfsOps_destructFsInfo(struct super_block* sb);
 
 
 /* read-ahead size is limited by BEEGFS_DEFAULT_READAHEAD_PAGES, so this is the maximum already going
- * to to the server. 32MB read-head also seems to be a good number. It still may be reduced by
+ * to to the server. 32MiB read-head also seems to be a good number. It still may be reduced by
  * setting /sys/class/bdi/fhgfs-${number}/read_ahead_kb */
 #define BEEGFS_DEFAULT_READAHEAD_PAGES BEEGFS_MAX_PAGE_LIST_SIZE
 

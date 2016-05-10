@@ -195,7 +195,7 @@ public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
                        "queuedRequests");
 
                String timeSpanStr = jComboBoxTimeSpan.getSelectedItem().toString();
-               ValueUnit<TimeUnitEnum> vu = UnitTk.strToValueUnitofTime(timeSpanStr);
+               ValueUnit<TimeUnitEnum> vu = UnitTk.strToValueUnitOfTime(timeSpanStr);
                long timeSpan = UnitTk.timeSpanToMinutes(vu);
 
                GuiTk.addTracePointsToChart(workRequests, workRequestsChart, "Work Requests",
@@ -499,7 +499,7 @@ public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
 
     private void jComboBoxTimeSpanActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jComboBoxTimeSpanActionPerformed
        String timeSpanStr = jComboBoxTimeSpan.getSelectedItem().toString();
-       ValueUnit<TimeUnitEnum> vu = UnitTk.strToValueUnitofTime(timeSpanStr);
+       ValueUnit<TimeUnitEnum> vu = UnitTk.strToValueUnitOfTime(timeSpanStr);
 
        try
        {

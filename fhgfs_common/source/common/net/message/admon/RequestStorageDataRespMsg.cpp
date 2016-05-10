@@ -51,7 +51,7 @@ bool RequestStorageDataRespMsg::deserializePayload(const char* buf, size_t bufLe
    
    // diskSpaceTotal
    unsigned diskSpaceTotalFieldLen;
-   if (!Serialization::deserializeInt64(&buf[bufPos], bufLen - bufPos, &diskSpaceTotalMB,
+   if (!Serialization::deserializeInt64(&buf[bufPos], bufLen - bufPos, &diskSpaceTotalMiB,
       &diskSpaceTotalFieldLen))
       return false;
 
@@ -59,7 +59,7 @@ bool RequestStorageDataRespMsg::deserializePayload(const char* buf, size_t bufLe
 
    // diskSpaceFree
    unsigned diskSpaceFreeFieldLen;
-   if (!Serialization::deserializeInt64(&buf[bufPos], bufLen - bufPos, &diskSpaceFreeMB,
+   if (!Serialization::deserializeInt64(&buf[bufPos], bufLen - bufPos, &diskSpaceFreeMiB,
       &diskSpaceFreeFieldLen))
       return false;
 
@@ -118,10 +118,10 @@ void RequestStorageDataRespMsg::serializePayload(char* buf)
    bufPos += Serialization::serializeUInt(&buf[bufPos], directWorkListSize);
    
    // diskSpaceTotal
-   bufPos += Serialization::serializeInt64(&buf[bufPos], diskSpaceTotalMB);
+   bufPos += Serialization::serializeInt64(&buf[bufPos], diskSpaceTotalMiB);
 
    // diskSpaceFree
-   bufPos += Serialization::serializeInt64(&buf[bufPos], diskSpaceFreeMB);
+   bufPos += Serialization::serializeInt64(&buf[bufPos], diskSpaceFreeMiB);
 
    // sessionCount
    bufPos += Serialization::serializeUInt(&buf[bufPos], sessionCount);

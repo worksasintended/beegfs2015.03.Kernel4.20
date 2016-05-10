@@ -19,6 +19,8 @@ class RenameV2MsgEx : public RenameMsg
    protected:
    
    private:
+      Socket* socket;
+
       FhgfsOpsErr moveFrom(EntryInfo* fromDirInfo, std::string& oldName, DirEntryType entryType,
          EntryInfo* toDirInfo, std::string& newName, std::string& unlinkedEntryID);
       FhgfsOpsErr movingPerform(DirInode* fromParent, EntryInfo* fromDirInfo,
@@ -37,7 +39,8 @@ class RenameV2MsgEx : public RenameMsg
          std::string& unlinkedEntryID);
       
       FhgfsOpsErr remoteFileInsertAndUnlink(EntryInfo* fromFileInfo, EntryInfo* toDirInfo,
-         std::string newName, char* serialBuf, size_t serialBufLen, std::string& unlinkedEntryID);
+         std::string newName, char* serialBuf, size_t serialBufLen, StringVector& xattrs,
+         std::string& unlinkedEntryID);
       FhgfsOpsErr remoteDirInsert(EntryInfo* toDirInfo, std::string& newName,
          char* serialBuf, size_t serialBufLen);
       FhgfsOpsErr updateRenamedDirInode(EntryInfo* renamedEntryInfo, EntryInfo* toDirInfo);

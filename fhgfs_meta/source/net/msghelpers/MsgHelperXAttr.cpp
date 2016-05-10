@@ -5,6 +5,7 @@
 
 const std::string MsgHelperXAttr::XATTR_PREFIX = std::string("user.bgXA.");
 const std::string MsgHelperXAttr::CURRENT_DIR_FILENAME = std::string(".");
+const ssize_t MsgHelperXAttr::MAX_VALUE_SIZE = 60*1024;
 
 FhgfsOpsErr MsgHelperXAttr::listxattr(EntryInfo* entryInfo, StringVector& outNames)
 {
@@ -85,7 +86,7 @@ FhgfsOpsErr MsgHelperXAttr::getxattr(EntryInfo* entryInfo, const std::string& na
       metaStore->releaseDir(parentID);
    }
 
-   if (inOutSize > 60*1024) // Attribute might be too large for NetMessage.
+   if (inOutSize > MsgHelperXAttr::MAX_VALUE_SIZE) // Attribute might be too large for NetMessage.
    {
       // Note: This can happen if it was set with an older version of the client which did not
       //       include the size check.
@@ -162,6 +163,25 @@ FhgfsOpsErr MsgHelperXAttr::setxattr(EntryInfo* entryInfo, const std::string& na
 
       metaStore->releaseDir(parentID);
    }
+
+   return retVal;
+}
+
+FhgfsOpsErr MsgHelperXAttr::streamXAttrFn(void* context, std::string& name, CharVector& value)
+{
+   StreamXAttrState* state = (StreamXAttrState*) context;
+
+   if (state->names->empty())
+      return FhgfsOpsErr_SUCCESS;
+
+   name.swap(state->names->back());
+   state->names->pop_back();
+
+   ssize_t size = XATTR_SIZE_MAX;
+
+   FhgfsOpsErr retVal = getxattr(state->entryInfo, name, value, size);
+   if (retVal == FhgfsOpsErr_SUCCESS)
+      retVal = FhgfsOpsErr_AGAIN;
 
    return retVal;
 }

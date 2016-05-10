@@ -397,11 +397,16 @@ int FhgfsOps_readdirIncremental(struct file* file, void* buf, filldir_t filldir)
       currentEntryType = UInt8Vec_at(dirContentsTypes, contentsPos);
       currentOSEntryType = OsTypeConv_dirEntryTypeToOS(currentEntryType);
 
-
-      LOG_DEBUG_FORMATTED(log, Log_SPAM, logContext,
-         "name: %s; pos: %lld; contentsPos: %lld/%lld; finalContents: %s",
-         currentName, (long long)*pos, (long long)contentsPos,
-         (long long)contentsLength, FsDirInfo_getEndOfDir(dirInfo) ? "yes" : "no");
+#ifdef BEEGFS_DEBUG
+      {
+         const char* endOfDirStr = StringTk_boolToStr(FsDirInfo_getEndOfDir(dirInfo) );
+         LOG_DEBUG_FORMATTED(log, Log_SPAM, logContext,
+            "name: %s; pos: %lld; contentsPos: %lld/%lld; finalContents: %s",
+            currentName, (long long)*pos, (long long)contentsPos,
+            (long long)contentsLength, endOfDirStr);
+         os_kfree(endOfDirStr);
+      }
+#endif // BEEGFS_DEBUG
 
 
       if(!strcmp(".", currentName) )

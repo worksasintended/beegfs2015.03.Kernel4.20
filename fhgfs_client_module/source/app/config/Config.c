@@ -190,7 +190,7 @@ void _Config_loadDefaults(Config* this)
    _Config_configMapRedefine(this, "connMaxInternodeNum",              "8");
    _Config_configMapRedefine(this, "connInterfacesFile",               "");
    _Config_configMapRedefine(this, "connFallbackExpirationSecs",       "900");
-   _Config_configMapRedefine(this, "connCommRetrySecs",                "5");
+   _Config_configMapRedefine(this, "connCommRetrySecs",                "600");
    _Config_configMapRedefine(this, "connUnmountRetries",               "true");
    _Config_configMapRedefine(this, "connRDMABufSize",                  "8192");
    _Config_configMapRedefine(this, "connRDMABufNum",                   "70");

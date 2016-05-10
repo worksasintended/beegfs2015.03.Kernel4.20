@@ -35,7 +35,10 @@ bool ListXAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
    for (StringVectorConstIter it = xAttrVec.begin(); it != xAttrVec.end(); ++it)
       listSize += it->size() + 1;
 
-   if (listSize >= MsgHelperXAttr::MAX_SIZE + 1 && listXAttrRes == FhgfsOpsErr_SUCCESS)
+   // note: MsgHelperXAttr::MAX_SIZE is a ssize_t, which is always positive, so it will always fit
+   // into a size_t
+   if ((listSize >= (size_t)MsgHelperXAttr::MAX_VALUE_SIZE + 1)
+      && (listXAttrRes == FhgfsOpsErr_SUCCESS))
    {
       // The xattr list on disk is at least one byte too large. In this case, we have to return
       // an internal error because it won't fit the net message.

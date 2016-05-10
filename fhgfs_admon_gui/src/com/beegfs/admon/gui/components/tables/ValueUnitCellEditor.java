@@ -20,10 +20,10 @@ public class ValueUnitCellEditor extends DefaultCellEditor
    @Override
    public boolean stopCellEditing()
    {
-      if(!UnitTk.strToValueUnitofSize(getCellEditorValue().toString()).isValid() )
+      if(!UnitTk.strToValueUnitOfSize(getCellEditorValue().toString()).isValid() )
       {
-         JOptionPane.showMessageDialog(null, "The input is invalid. Valid units are Byte, KB," +
-            "MB, GB, TB." + System.lineSeparator() + "Example: 500 MB", "Invalid value",
+         JOptionPane.showMessageDialog(null, "The input is invalid. Valid units are Byte, KiB," +
+            "MiB, GiB, TiB." + System.lineSeparator() + "Example: 500 MiB", "Invalid value",
             JOptionPane.ERROR_MESSAGE);
          return false;
       }

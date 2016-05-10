@@ -25,6 +25,7 @@ static inline char* StringTk_subStr(const char* start, unsigned numChars);
 extern char* StringTk_trimCopy(const char* s);
 extern char* StringTk_kasprintf(const char *fmt, ...);
 
+static inline char* StringTk_boolToStr(bool a);
 static inline char* StringTk_intToStr(int a);
 static inline char* StringTk_uintToStr(unsigned a);
 static inline char* StringTk_uintToHexStr(unsigned a);
@@ -113,6 +114,14 @@ char* StringTk_subStr(const char* start, unsigned numChars)
    subStr[numChars] = 0;
 
    return subStr;
+}
+
+char* StringTk_boolToStr(bool b)
+{
+   if (b)
+      return StringTk_strDup("yes");
+   else
+      return StringTk_strDup("no");
 }
 
 char* StringTk_intToStr(int a)

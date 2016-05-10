@@ -168,7 +168,7 @@ void ModeRefreshAllEntries::printStatusResult(bool isRunning, uint64_t numDirsRe
    uint64_t numFilesRefreshed)
 {
    std::cout << "Status:" << std::endl;
-   std::cout << "+ Currently running: " << (isRunning ? "yes" : "no") << std::endl;
+   std::cout << "+ Currently running: " << StringTk::boolToStr(isRunning) << std::endl;
    std::cout << "+ Refreshed directories: " << numDirsRefreshed << std::endl;
    std::cout << "+ Refreshed files: " << numFilesRefreshed << std::endl;
 }
