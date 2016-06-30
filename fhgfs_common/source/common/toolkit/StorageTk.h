@@ -17,7 +17,6 @@
 #include <dirent.h>
 
 
-#define STORAGETK_FILE_MAX_LINE_LENGTH       1024
 #define STORAGETK_FILE_COMMENT_CHAR          '#'
 #define STORAGETK_ORIGINALNODEID_FILENAME    "originalNodeID" /* contains first-run nodeID */
 #define STORAGETK_NODEID_FILENAME            "nodeID" /* to force a certain nodeID */

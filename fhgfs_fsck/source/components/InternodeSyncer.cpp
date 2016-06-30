@@ -1,5 +1,6 @@
 #include <app/config/Config.h>
 #include <app/App.h>
+#include <common/threading/SafeMutexLock.h>
 #include <common/toolkit/MessagingTk.h>
 #include <common/toolkit/NodesTk.h>
 #include <common/toolkit/Time.h>
@@ -9,7 +10,7 @@
 #include "InternodeSyncer.h"
 
 InternodeSyncer::InternodeSyncer() throw(ComponentInitException) : PThread("XNodeSync"),
-   log("XNodeSync")
+   log("XNodeSync"), serversDownloaded(false)
 {
 }
 
@@ -66,6 +67,13 @@ void InternodeSyncer::run()
 
       Program::getApp()->getMirrorBuddyGroupMapper()->getMirrorBuddyGroups(
          originalMirrorBuddyGroupMap);
+
+      {
+         SafeMutexLock lock(&serversDownloadedMutex);
+         serversDownloaded = true;
+         serversDownloadedCondition.signal();
+         lock.unlock();
+      }
 
       syncLoop();
 
@@ -409,4 +417,12 @@ void InternodeSyncer::handleBuddyGroupChanges()
          }
       }
    }
+}
+
+void InternodeSyncer::waitForServers()
+{
+   SafeMutexLock lock(&serversDownloadedMutex);
+   while (!serversDownloaded)
+      serversDownloadedCondition.wait(&serversDownloadedMutex);
+   lock.unlock();
 }

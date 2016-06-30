@@ -34,7 +34,12 @@ class InternodeSyncer : public PThread
       void handleTargetMappingChanges();
       void handleBuddyGroupChanges();
 
+      Condition serversDownloadedCondition;
+      Mutex serversDownloadedMutex;
+      bool serversDownloaded;
+
    public:
+      void waitForServers();
 
    private:
       static void printSyncNodesResults(NodeType nodeType, UInt16List* addedNodes,

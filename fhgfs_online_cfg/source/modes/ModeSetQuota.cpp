@@ -481,7 +481,6 @@ void ModeSetQuota::printHelp()
  */
 int ModeSetQuota::readFromFile(std::string pathToFile, QuotaDataType quotaType)
 {
-   char line[STORAGETK_FILE_MAX_LINE_LENGTH];
    int lineNumber = 0;
    int retVal = MODESETQUOTA_ERR_NONE;
 
@@ -495,9 +494,11 @@ int ModeSetQuota::readFromFile(std::string pathToFile, QuotaDataType quotaType)
    while(!fis.eof() && !fis.fail() )
    {
       StringVector lineList;
+      std::string line;
+
       lineNumber++;
 
-      fis.getline(line, STORAGETK_FILE_MAX_LINE_LENGTH);
+      std::getline(fis, line);
       std::string trimmedLine = StringTk::trim(line);
       if(trimmedLine.length() && (trimmedLine[0] != STORAGETK_FILE_COMMENT_CHAR) )
       {

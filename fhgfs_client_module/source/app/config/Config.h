@@ -134,6 +134,7 @@ static inline fhgfs_bool Config_getTuneEarlyCloseResponse(Config* this);
 static inline fhgfs_bool Config_getTuneUseGlobalAppendLocks(Config* this);
 static inline fhgfs_bool Config_getTuneUseBufferedAppend(Config* this);
 static inline unsigned Config_getTuneStatFsCacheSecs(Config* this);
+static inline bool Config_getTuneCoherentBuffers(Config* this);
 
 static inline char* Config_getSysMgmtdHost(Config* this);
 static inline char* Config_getSysInodeIDStyle(Config* this);
@@ -257,6 +258,7 @@ struct Config
    fhgfs_bool     tuneUseGlobalAppendLocks; // fhgfs_false means local append locks
    fhgfs_bool     tuneUseBufferedAppend; // fhgfs_false disables buffering of append writes
    unsigned       tuneStatFsCacheSecs; // 0 disables caching of free space info from servers
+   bool           tuneCoherentBuffers; // try to keep buffer cache and page cache coherent
 
    char*          sysMgmtdHost;
    char*          sysInodeIDStyle;
@@ -626,6 +628,11 @@ fhgfs_bool Config_getTuneUseGlobalFileLocks(Config* this)
 fhgfs_bool Config_getTuneRefreshOnGetAttr(Config* this)
 {
    return this->tuneRefreshOnGetAttr;
+}
+
+bool Config_getTuneCoherentBuffers(Config* this)
+{
+   return this->tuneCoherentBuffers;
 }
 
 /**

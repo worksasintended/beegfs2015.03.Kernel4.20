@@ -11,23 +11,23 @@
 void ICommonConfig::loadStringListFile(const char* filename, StringList& outList)
    throw(InvalidConfigException)
 {
-   char line[STORAGETK_FILE_MAX_LINE_LENGTH];
-   
    std::ifstream fis(filename);
    if(!fis.is_open() || fis.fail() )
    {
       throw InvalidConfigException(
          std::string("Failed to open file: ") + filename);
    }
-   
+
    while(!fis.eof() && !fis.fail() )
    {
-      fis.getline(line, STORAGETK_FILE_MAX_LINE_LENGTH);
+      std::string line;
+
+      std::getline(fis, line);
       std::string trimmedLine = StringTk::trim(line);
       if(trimmedLine.length() && (trimmedLine[0] != STORAGETK_FILE_COMMENT_CHAR) )
          outList.push_back(trimmedLine);
    }
-   
+
    fis.close();
 }
 

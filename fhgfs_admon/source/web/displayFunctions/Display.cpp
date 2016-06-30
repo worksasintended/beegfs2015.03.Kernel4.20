@@ -651,33 +651,54 @@ void Display::diskPerfWriteSum(uint timespanM, UInt64List *outListTime,
       int elementCount = dataSets.size();
 
       // as long as the 'master list' contains elements
-      while (!(dataSets[0].empty()))
+      while(!(dataSets[0].empty() ) )
       {
+         bool validTimeFound = false;
          double sum = 0;
-         uint64_t masterTime = dataSets[0].front().rawVals.statsTimeMS;
+         uint64_t masterTime = 0;
 
-         while (masterTime < startTimestampMS)
+         while(!validTimeFound)
          {
-            dataSets[0].pop_front();
             masterTime = dataSets[0].front().rawVals.statsTimeMS;
-         }
-
-         for (int i = 0; i < elementCount; i++)
-         {
-            while ((!dataSets[i].empty()) &&
-               (dataSets[i].front().rawVals.statsTimeMS < masterTime + valueTimeRange))
+            if(masterTime < startTimestampMS)
             {
-               // add it to sum and pop the element
-               if (dataSets[i].front().rawVals.statsTimeMS >= masterTime - valueTimeRange)
+               dataSets[0].pop_front();
+               if(!(dataSets[0].empty() ) )
                {
-                  sum += UnitTk::byteToMebibyte(dataSets[i].front().incVals.diskWriteBytes);
+                  masterTime = dataSets[0].front().rawVals.statsTimeMS;
                }
-               dataSets[i].pop_front();
+               else
+               {
+                  log.log(Log_ERR, "Didn't find write statistics in the given time frame. "
+                     "Please check if the clocks on all servers are in sync.");
+                  break;
+               }
+            }
+            else
+            {
+               validTimeFound = true;
             }
          }
-         // add the sum to the out lists (with timestamp of the master list)
-         outListTime->push_back(masterTime);
-         outListWritePerSec->push_back(sum);
+
+         if(validTimeFound)
+         {
+            for (int i = 0; i < elementCount; i++)
+            {
+               while ((!dataSets[i].empty()) &&
+                  (dataSets[i].front().rawVals.statsTimeMS < masterTime + valueTimeRange))
+               {
+                  // add it to sum and pop the element
+                  if (dataSets[i].front().rawVals.statsTimeMS >= masterTime - valueTimeRange)
+                  {
+                     sum += UnitTk::byteToMebibyte(dataSets[i].front().incVals.diskWriteBytes);
+                  }
+                  dataSets[i].pop_front();
+               }
+            }
+            // add the sum to the out lists (with timestamp of the master list)
+            outListTime->push_back(masterTime);
+            outListWritePerSec->push_back(sum);
+         }
       }
       // the master list was empty => pop it => next loop step will take the
       // next list as master
@@ -759,33 +780,54 @@ void Display::diskPerfReadSum(uint timespanM, UInt64List *outListTime,
       int elementCount = dataSets.size();
 
       // as long as the 'master list' contains elements
-      while (!(dataSets[0].empty()))
+      while(!(dataSets[0].empty() ) )
       {
+         bool validTimeFound = false;
          double sum = 0;
-         uint64_t masterTime = dataSets[0].front().rawVals.statsTimeMS;
+         uint64_t masterTime = 0;
 
-         while (masterTime < startTimestampMS)
+         while(!validTimeFound)
          {
-            dataSets[0].pop_front();
             masterTime = dataSets[0].front().rawVals.statsTimeMS;
-         }
-
-         for (int i = 0; i < elementCount; i++)
-         {
-            while ((!dataSets[i].empty()) &&
-               (dataSets[i].front().rawVals.statsTimeMS < masterTime + valueTimeRange))
+            if(masterTime < startTimestampMS)
             {
-               // add it to sum and pop the element
-               if (dataSets[i].front().rawVals.statsTimeMS >= masterTime - valueTimeRange)
+               dataSets[0].pop_front();
+               if(!(dataSets[0].empty() ) )
                {
-                  sum += UnitTk::byteToMebibyte(dataSets[i].front().incVals.diskReadBytes);
+                  masterTime = dataSets[0].front().rawVals.statsTimeMS;
                }
-               dataSets[i].pop_front();
+               else
+               {
+                  log.log(Log_ERR, "Didn't find read statistics in the given time frame. "
+                     "Please check if the clocks on all servers are in sync.");
+                  break;
+               }
+            }
+            else
+            {
+               validTimeFound = true;
             }
          }
-         // add the sum to the out lists (with timestamp of the master list)
-         outListTime->push_back(masterTime);
-         outListReadPerSec->push_back(sum);
+
+         if(validTimeFound)
+         {
+            for (int i = 0; i < elementCount; i++)
+            {
+               while ((!dataSets[i].empty()) &&
+                  (dataSets[i].front().rawVals.statsTimeMS < masterTime + valueTimeRange))
+               {
+                  // add it to sum and pop the element
+                  if (dataSets[i].front().rawVals.statsTimeMS >= masterTime - valueTimeRange)
+                  {
+                     sum += UnitTk::byteToMebibyte(dataSets[i].front().incVals.diskReadBytes);
+                  }
+                  dataSets[i].pop_front();
+               }
+            }
+            // add the sum to the out lists (with timestamp of the master list)
+            outListTime->push_back(masterTime);
+            outListReadPerSec->push_back(sum);
+         }
       }
       // the master list was empty => pop it => next loop step will take the
       // next list as master

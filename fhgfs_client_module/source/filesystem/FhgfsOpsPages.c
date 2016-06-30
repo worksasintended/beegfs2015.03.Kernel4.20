@@ -1125,11 +1125,6 @@ int FhgfsOpsPages_readpages(struct file* file, struct address_space* mapping,
    App* app = FhgfsOps_getApp(dentry->d_sb);
 
    const char* logContext = __func__;
-   int flushRes;
-
-   flushRes = __FhgfsOps_flush(app, file, false, false, true, false);
-   if(flushRes)
-      return flushRes;
 
    FhgfsOpsHelper_logOpDebug(app, dentry, inode, logContext, "(num_pages: %u)", numPages);
    IGNORE_UNUSED_VARIABLE(logContext);

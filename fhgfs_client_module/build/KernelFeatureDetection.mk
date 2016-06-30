@@ -472,6 +472,12 @@ $(call define_if_matches, KERNEL_HAS_LOCKS_LOCK_INODE_WAIT, -F "static inline in
 # get_link() replaces follow_link() in 4.5
 $(call define_if_matches, KERNEL_HAS_GET_LINK, -F "const char * (*get_link) (struct dentry *, struct inode *, struct delayed_call *);", fs.h)
 
+$(call define_if_matches, KERNEL_HAS_I_MMAP_LOCK, -F "i_mmap_lock_read", fs.h)
+$(call define_if_matches, KERNEL_HAS_I_MMAP_RWSEM, -F "i_mmap_rwsem", fs.h)
+$(call define_if_matches, KERNEL_HAS_I_MMAP_MUTEX, -F "i_mmap_mutex", fs.h)
+$(call define_if_matches, KERNEL_HAS_I_MMAP_RBTREE, -P "struct rb_root\s+i_mmap", fs.h)
+$(call define_if_matches, KERNEL_HAS_I_MMAP_NONLINEAR, -F "i_mmap_nonlinear", fs.h)
+
 # Combine results
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_DROP_NLINK)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_CLEAR_NLINK)

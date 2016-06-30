@@ -403,4 +403,46 @@ retry:
 # define XATTR_NAME_POSIX_ACL_DEFAULT XATTR_SYSTEM_PREFIX XATTR_POSIX_ACL_DEFAULT
 #endif
 
+#ifndef KERNEL_HAS_I_MMAP_LOCK
+static inline void i_mmap_lock_read(struct address_space* mapping)
+{
+#if defined(KERNEL_HAS_I_MMAP_RWSEM)
+   down_read(&mapping->i_mmap_rwsem);
+#elif defined(KERNEL_HAS_I_MMAP_MUTEX)
+   mutex_lock(&mapping->i_mmap_mutex);
+#else
+   spin_lock(&mapping->i_mmap_lock);
+#endif
+}
+
+static inline void i_mmap_unlock_read(struct address_space* mapping)
+{
+#if defined(KERNEL_HAS_I_MMAP_RWSEM)
+   up_read(&mapping->i_mmap_rwsem);
+#elif defined(KERNEL_HAS_I_MMAP_MUTEX)
+   mutex_unlock(&mapping->i_mmap_mutex);
+#else
+   spin_unlock(&mapping->i_mmap_lock);
+#endif
+}
+#endif
+
+static inline bool beegfs_hasMappings(struct inode* inode)
+{
+#ifdef KERNEL_HAS_I_MMAP_RBTREE
+   if (!RB_EMPTY_ROOT(&inode->i_mapping->i_mmap))
+      return true;
+#else
+   if (!prio_tree_empty(&inode->i_mapping->i_mmap))
+      return true;
+#endif
+
+#ifdef KERNEL_HAS_I_MMAP_NONLINEAR
+   if (!list_empty(&inode->i_mapping->i_mmap_nonlinear))
+      return true;
+#endif
+
+   return false;
+}
+
 #endif /* OSCOMPAT_H_ */

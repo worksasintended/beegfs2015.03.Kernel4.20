@@ -206,6 +206,7 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw(InvalidC
       IGNORE_CONFIG_CLIENT_VALUE("tuneUseGlobalAppendLocks")
       IGNORE_CONFIG_CLIENT_VALUE("tuneUseBufferedAppend")
       IGNORE_CONFIG_CLIENT_VALUE("tuneStatFsCacheSecs")
+      IGNORE_CONFIG_CLIENT_VALUE("tuneCoherentBuffers")
       IGNORE_CONFIG_CLIENT_VALUE("sysInodeIDStyle")
       IGNORE_CONFIG_CLIENT_VALUE("sysCreateHardlinksAsSymlinks")
       IGNORE_CONFIG_CLIENT_VALUE("sysMountSanityCheckMS")

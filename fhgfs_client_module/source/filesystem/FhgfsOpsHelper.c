@@ -306,6 +306,21 @@ ssize_t FhgfsOpsHelper_writeCached(const char __user *buf, size_t size,
    loff_t currentCacheEndOffset;
    int userBufCopyRes;
 
+   if (app->cfg->tuneCoherentBuffers)
+   {
+      i_mmap_lock_read(fhgfsInode->vfs_inode.i_mapping);
+
+      if (beegfs_hasMappings(&fhgfsInode->vfs_inode))
+      {
+         FsFileInfo_decCacheHits(fileInfo);
+         i_mmap_unlock_read(fhgfsInode->vfs_inode.i_mapping);
+
+         return FhgfsOpsHelper_writefileEx(fhgfsInode, buf, size, offset, ioInfo);
+      }
+
+      i_mmap_unlock_read(fhgfsInode->vfs_inode.i_mapping);
+   }
+
    FhgfsInode_fileCacheExclusiveLock(fhgfsInode); // L O C K
 
    cacheBuffer = Fhgfsinode_getFileCacheBuffer(fhgfsInode);
@@ -432,6 +447,21 @@ ssize_t FhgfsOpsHelper_readCached(char __user *buf, size_t size, loff_t offset,
    loff_t cacheCopyOffset;
    size_t cacheCopySize;
    int userBufCopyRes;
+
+   if (app->cfg->tuneCoherentBuffers)
+   {
+      i_mmap_lock_read(fhgfsInode->vfs_inode.i_mapping);
+
+      if (beegfs_hasMappings(&fhgfsInode->vfs_inode))
+      {
+         FsFileInfo_decCacheHits(fileInfo);
+         i_mmap_unlock_read(fhgfsInode->vfs_inode.i_mapping);
+
+         return FhgfsOpsRemoting_readfile(buf, size, offset, ioInfo, fhgfsInode);
+      }
+
+      i_mmap_unlock_read(fhgfsInode->vfs_inode.i_mapping);
+   }
 
 
    // fast path for parallel readers (other path takes exclusive lock)

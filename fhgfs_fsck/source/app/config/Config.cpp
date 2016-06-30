@@ -205,6 +205,7 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw (Invalid
       IGNORE_CONFIG_CLIENT_VALUE("sysXAttrsEnabled")
       IGNORE_CONFIG_CLIENT_VALUE("tuneDirSubentryCacheValidityMS")
       IGNORE_CONFIG_CLIENT_VALUE("tuneFileSubentryCacheValidityMS")
+      IGNORE_CONFIG_CLIENT_VALUE("tuneCoherentBuffers")
       if(testConfigMapKeyMatch(iter, "sysForcedRoot", addDashes) )
          sysForcedRoot = (int16_t)StringTk::strToInt(iter->second);
       else

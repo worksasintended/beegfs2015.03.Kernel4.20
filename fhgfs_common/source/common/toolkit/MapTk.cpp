@@ -29,8 +29,6 @@ void MapTk::addLineToStringMap(std::string line, StringMap* outMap)
 void MapTk::loadStringMapFromFile(const char* filename, StringMap* outMap)
    throw(InvalidConfigException)
 {
-   char line[STORAGETK_FILE_MAX_LINE_LENGTH];
-
    std::ifstream fis(filename);
    if(!fis.is_open() || fis.fail() )
    {
@@ -40,7 +38,9 @@ void MapTk::loadStringMapFromFile(const char* filename, StringMap* outMap)
 
    while(!fis.eof() && !fis.fail() )
    {
-      fis.getline(line, STORAGETK_FILE_MAX_LINE_LENGTH);
+      std::string line;
+
+      std::getline(fis, line);
       std::string trimmedLine = StringTk::trim(line);
       if(trimmedLine.length() && (trimmedLine[0] != STORAGETK_FILE_COMMENT_CHAR) )
          addLineToStringMap(trimmedLine, outMap);

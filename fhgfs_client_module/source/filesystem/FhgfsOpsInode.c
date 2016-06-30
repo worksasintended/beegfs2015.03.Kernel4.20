@@ -97,25 +97,6 @@ struct dentry* FhgfsOps_lookupIntent(struct inode* parentDir, struct dentry* den
    if(unlikely(dentry->d_name.len > NAME_MAX) )
       return ERR_PTR(-ENAMETOOLONG);
 
-   /*
-    * O_EXCL: optimize away the lookup, but don't hash the dentry. Let
-    * the VFS handle the create (also optimizes hard-link calls)
-    */
-   #ifdef LOOKUP_EXCL
-      #if !defined KERNEL_HAS_ATOMIC_OPEN
-         if (nameidata && (nameidata->flags & LOOKUP_EXCL))
-      #else
-         if (flags & LOOKUP_EXCL)
-      #endif // !defined KERNEL_HAS_ATOMIC_OPEN
-         {
-            /* Make it a negative dentry and let lookup-create handle it. It is important to return
-             * NULL here and not ERR_PTR(-ENOENT) as with ENOENT dangling symlinks will cause
-             * issues. */
-            d_instantiate(dentry, NULL);
-            return NULL;
-         }
-   #endif // LOOKUP_EXCL
-
    /* check if root inode attribs have been fetched already
       (because the kernel doesn't do lookup/revalidate for the root inode) */
 
@@ -1606,6 +1587,8 @@ int FhgfsOps_link(struct dentry* fromFileDentry, struct inode* toDirInode,
 #endif
 
    FhgfsInode_invalidateCache(fhgfsFileInode);
+   FhgfsInode_invalidateCache(fhgfsToDirInode);
+   FhgfsInode_invalidateCache(fhgfsFromDirInode);
 
    return retVal;
 }

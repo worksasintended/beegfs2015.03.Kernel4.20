@@ -238,6 +238,7 @@ void _Config_loadDefaults(Config* this)
    _Config_configMapRedefine(this, "tuneUseGlobalAppendLocks",         "false");
    _Config_configMapRedefine(this, "tuneUseBufferedAppend",            "true");
    _Config_configMapRedefine(this, "tuneStatFsCacheSecs",              "10");
+   _Config_configMapRedefine(this, "tuneCoherentBuffers",              "true");
 
    _Config_configMapRedefine(this, "sysMgmtdHost",                     "");
    _Config_configMapRedefine(this, "sysInodeIDStyle",                  INODEIDSTYLE_DEFAULT);
@@ -531,6 +532,9 @@ fhgfs_bool _Config_applyConfigMap(Config* this, fhgfs_bool enableException)
       else
       if(!os_strcmp(keyStr, "tuneStatFsCacheSecs") )
          this->tuneStatFsCacheSecs = StringTk_strToUInt(valueStr);
+      else
+      if(!os_strcmp(keyStr, "tuneCoherentBuffers") )
+         this->tuneCoherentBuffers = StringTk_strToBool(valueStr);
       else
       if(!os_strcmp(keyStr, "sysMgmtdHost") )
       {

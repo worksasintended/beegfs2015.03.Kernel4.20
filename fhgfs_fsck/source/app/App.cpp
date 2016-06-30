@@ -334,6 +334,7 @@ void App::startComponents()
    dgramListener->start();
 
    internodeSyncer->start();
+   internodeSyncer->waitForServers();
 
    workersStart();
 

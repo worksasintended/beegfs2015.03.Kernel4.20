@@ -62,6 +62,7 @@ const char* const PROCFSHELPER_CONFIGKEYS[] =
    "tuneUseGlobalAppendLocks",
    "tuneUseBufferedAppend",
    "tuneStatFsCacheSecs",
+   "tuneCoherentBuffers",
    "sysACLsEnabled",
    "sysMgmtdHost",
    "sysInodeIDStyle",
@@ -134,6 +135,7 @@ int ProcFsHelper_readV2_config(struct seq_file* file, App* app)
       (int)Config_getTuneUseGlobalAppendLocks(cfg) );
    seq_printf(file, "tuneUseBufferedAppend = %d\n", (int)Config_getTuneUseBufferedAppend(cfg) );
    seq_printf(file, "tuneStatFsCacheSecs = %u\n", Config_getTuneStatFsCacheSecs(cfg) );
+   seq_printf(file, "tuneCoherentBuffers = %u\n", Config_getTuneCoherentBuffers(cfg) );
    seq_printf(file, "sysACLsEnabled = %d\n", (int)Config_getSysACLsEnabled(cfg) );
    seq_printf(file, "sysMgmtdHost = %s\n", Config_getSysMgmtdHost(cfg) );
    seq_printf(file, "sysInodeIDStyle = %s\n",
@@ -335,8 +337,11 @@ int ProcFsHelper_read_config(char* buf, char** start, off_t offset, int size, in
       count = os_scnprintf(buf, size, "%s = %u\n", currentKey,
          Config_getTuneStatFsCacheSecs(cfg) );
    else
-   if(!os_strcmp(currentKey, "sysACLsEnabled") )
-      count = os_scnprintf(buf, size, "%s = %d\n", currentKey, Config_getSysACLsEnabled(cfg) );
+   if(!strcmp(currentKey, "tuneCoherentBuffers") )
+      count = scnprintf(buf, size, "%s = %u\n", currentKey, Config_getTuneCoherentBuffers(cfg) );
+   else
+   if(!strcmp(currentKey, "sysACLsEnabled") )
+      count = scnprintf(buf, size, "%s = %d\n", currentKey, Config_getSysACLsEnabled(cfg) );
    else
    if(!os_strcmp(currentKey, "sysMgmtdHost") )
       count = os_scnprintf(buf, size, "%s = %s\n", currentKey, Config_getSysMgmtdHost(cfg) );

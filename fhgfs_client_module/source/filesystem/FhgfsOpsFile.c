@@ -931,7 +931,17 @@ ssize_t FhgfsOps_read(struct file* file, char __user *buf, size_t size, loff_t *
 
    FsFileInfo_getIOInfo(fileInfo, fhgfsInode, &ioInfo);
 
-   invalidate_inode_pages2(file->f_mapping);
+   if (app->cfg->tuneCoherentBuffers)
+   {
+      readRes = filemap_write_and_wait(file->f_mapping);
+      if (readRes < 0)
+         return readRes;
+
+      // ignore the -EBUSY we could receive here, because there is just *no* way we can keep caches
+      // coherent without locking everything all the time. if this produces inconsistent data,
+      // something must have been racy anyway.
+      invalidate_inode_pages2(file->f_mapping);
+   }
 
    readRes = FhgfsOpsHelper_readCached(buf, size, *offsetPointer, fhgfsInode, fileInfo, &ioInfo);
    //readRes = FhgfsOpsRemoting_readfile(buf, size, *offsetPointer, &ioInfo);
@@ -1090,7 +1100,19 @@ ssize_t FhgfsOps_write(struct file* file, const char __user *buf, size_t size,
    if(unlikely(writeCheckRes) )
       return writeCheckRes;
 
-   invalidate_inode_pages2(file->f_mapping);
+   if (app->cfg->tuneCoherentBuffers)
+   {
+      /* this flush is necessary to ensure that delayed flushing of the page cache does not
+       * overwrite the data written here, even though it was written to the file first. */
+      writeRes = filemap_write_and_wait(file->f_mapping);
+      if (writeRes < 0)
+         return writeRes;
+
+      /* ignore the -EBUSY we could receive here, because there is just *no* way we can keep caches
+       * coherent without locking everything all the time. if this produces inconsistent data,
+       * something must have been racy anyway. */
+      invalidate_inode_pages2(file->f_mapping);
+   }
 
    if(isLocallyLockedAppend)
    { // appending without global locks => move file offset to end-of-file before writing
@@ -1407,12 +1429,30 @@ int FhgfsOps_mmap(struct file* file, struct vm_area_struct* vma)
    if(unlikely(Logger_getLogLevel(log) >= 5) )
       FhgfsOpsHelper_logOp(5, app, file->f_dentry, inode, logContext);
 
-   retVal = generic_file_mmap(file, vma);
-   if(!retVal)
+   if (app->cfg->tuneCoherentBuffers)
    {
-      retVal = __FhgfsOps_refreshInode(app, inode, NULL, &iSizeHints);
+      FhgfsOpsErr flushRes;
+
+      FhgfsInode_fileCacheExclusiveLock(BEEGFS_INODE(inode));
+
+      flushRes = __FhgfsOpsHelper_flushCacheUnlocked(app, BEEGFS_INODE(inode), false);
+      if (flushRes != FhgfsOpsErr_SUCCESS)
+      {
+         FhgfsInode_fileCacheExclusiveUnlock(BEEGFS_INODE(inode));
+         retVal = FhgfsOpsErr_toSysErr(flushRes);
+         goto exit;
+      }
    }
 
+   retVal = generic_file_mmap(file, vma);
+
+   if(!retVal)
+      retVal = __FhgfsOps_doRefreshInode(app, inode, NULL, &iSizeHints, true);
+
+   if (app->cfg->tuneCoherentBuffers)
+      FhgfsInode_fileCacheExclusiveUnlock(BEEGFS_INODE(inode));
+
+exit:
    LOG_DEBUG_FORMATTED(log, 5, logContext, "result: %d", retVal);
 
    return retVal;
