@@ -13,19 +13,22 @@
 #define CONFIG_TARGETSTORESYNC_FILENAME    "targetsToResync"
 
 #define CONFIG_QUOTA_DATA_DIR                 "quota/"
+#define CONFIG_QUOTA_DEFAULT_LIMITS           (CONFIG_QUOTA_DATA_DIR "quotaDefaultLimits.store")
 #define CONFIG_QUOTA_USER_LIMITS_FILENAME     (CONFIG_QUOTA_DATA_DIR "quotaUserLimits.store")
 #define CONFIG_QUOTA_GROUP_LIMITS_FILENAME    (CONFIG_QUOTA_DATA_DIR "quotaGroupLimits.store")
 #define CONFIG_QUOTA_DATA_USER_FILENAME       (CONFIG_QUOTA_DATA_DIR "quotaDataUser.store")
 #define CONFIG_QUOTA_DATA_GROUP_FILENAME      (CONFIG_QUOTA_DATA_DIR "quotaDataGroup.store")
 
-#define MGMT_QUOTA_QUERY_TYPE_SYSTEM_STR      "system"
+#define MGMT_QUOTA_QUERY_TYPE_FILE_STR        "file"
 #define MGMT_QUOTA_QUERY_TYPE_RANGE_STR       "range"
+#define MGMT_QUOTA_QUERY_TYPE_SYSTEM_STR      "system"
 
 
 enum MgmtQuotaQueryType
 {
    MgmtQuotaQueryType_SYSTEM = 0,
    MgmtQuotaQueryType_RANGE = 1,
+   MgmtQuotaQueryType_FILE = 2,
 };
 
 
@@ -105,12 +108,15 @@ class Config : public AbstractConfig
       unsigned             quotaStoreIntervalMin;
       std::string          quotaQueryType;
       MgmtQuotaQueryType   quotaQueryTypeNum;       // auto-generated based on quotaQueryType
+      std::string          quotaQueryUIDFile;
       std::string          quotaQueryUIDRange;
       unsigned             quotaQueryUIDRangeStart; // auto-generated based on quotaQueryUIDRange
       unsigned             quotaQueryUIDRangeEnd;   // auto-generated based on quotaQueryUIDRange
+      std::string          quotaQueryGIDFile;
       std::string          quotaQueryGIDRange;
       unsigned             quotaQueryGIDRangeStart; // auto-generated based on quotaQueryGIDRange
       unsigned             quotaQueryGIDRangeEnd;   // auto-generated based on quotaQueryGIDRange
+      bool                 quotaQueryWithSystemUsersGroups;
 
 
       // internals
@@ -397,6 +403,21 @@ class Config : public AbstractConfig
       unsigned getQuotaQueryGIDRangeEnd() const
       {
          return quotaQueryGIDRangeEnd;
+      }
+
+      bool getQuotaQueryWithSystemUsersGroups() const
+      {
+         return quotaQueryWithSystemUsersGroups;
+      }
+
+      std::string getQuotaQueryGIDFile() const
+      {
+         return quotaQueryGIDFile;
+      }
+
+      std::string getQuotaQueryUIDFile() const
+      {
+         return quotaQueryUIDFile;
       }
 };
 

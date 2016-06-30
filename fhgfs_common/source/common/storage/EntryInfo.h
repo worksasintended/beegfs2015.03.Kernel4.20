@@ -49,7 +49,7 @@ class EntryInfo
          this->flags     = statFlags;
       }
 
-      bool compare(EntryInfo* compareInfo);
+      bool compare(const EntryInfo* compareInfo) const;
 
    private:
       uint16_t ownerNodeID; // nodeID of the metadata server that has the inode
@@ -63,9 +63,9 @@ class EntryInfo
 
    public:
 
-      size_t serialize(char* outBuf);
+      size_t serialize(char* outBuf) const;
       bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
-      unsigned serialLen(void);
+      unsigned serialLen(void) const;
 
 
       // inliners
@@ -101,7 +101,7 @@ class EntryInfo
          this->flags         = newEntryInfo->getFlags();
       }
 
-      void setParentEntryID(std::string& newParentEntryID)
+      void setParentEntryID(const std::string& newParentEntryID)
       {
          this->parentEntryID = newParentEntryID;
       }

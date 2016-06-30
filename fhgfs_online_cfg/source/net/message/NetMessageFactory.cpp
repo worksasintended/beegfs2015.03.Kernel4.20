@@ -48,8 +48,9 @@
 #include <common/net/message/storage/moving/MovingDirInsertRespMsg.h>
 #include <common/net/message/storage/moving/MovingFileInsertRespMsg.h>
 #include <common/net/message/storage/moving/RenameRespMsg.h>
+#include <common/net/message/storage/quota/GetDefaultQuotaRespMsg.h>
 #include <common/net/message/storage/quota/GetQuotaInfoRespMsg.h>
-#include <common/net/message/storage/quota/SetQuotaRespMsg.h>
+#include <common/net/message/storage/quota/SetDefaultQuotaRespMsg.h>
 #include <common/net/message/storage/quota/SetQuotaRespMsg.h>
 #include <common/net/message/storage/GetHighResStatsRespMsg.h>
 #include <common/net/message/storage/StatStoragePathRespMsg.h>
@@ -138,6 +139,8 @@ NetMessage* NetMessageFactory::createFromMsgType(unsigned short msgType)
       case NETMSGTYPE_TruncLocalFileResp: { msg = new TruncLocalFileRespMsg(); } break;
       case NETMSGTYPE_UnlinkFileResp: { msg = new UnlinkFileRespMsg(); } break;
       case NETMSGTYPE_UnlinkLocalFileResp: { msg = new UnlinkLocalFileRespMsg(); } break;
+      case NETMSGTYPE_GetDefaultQuotaResp: { msg = new GetDefaultQuotaRespMsg(); } break;
+      case NETMSGTYPE_SetDefaultQuotaResp: { msg = new SetDefaultQuotaRespMsg(); } break;
 
       // session messages
       case NETMSGTYPE_CloseChunkFileResp: { msg = new CloseChunkFileRespMsg(); } break;

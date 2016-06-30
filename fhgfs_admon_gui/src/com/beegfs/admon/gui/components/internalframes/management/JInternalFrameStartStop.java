@@ -840,6 +840,8 @@ public class JInternalFrameStartStop extends javax.swing.JInternalFrame implemen
       jPanelButtons = new javax.swing.JPanel();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setPreferredSize(new java.awt.Dimension(680, 350));
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()

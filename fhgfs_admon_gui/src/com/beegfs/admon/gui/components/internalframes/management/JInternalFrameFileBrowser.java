@@ -116,7 +116,7 @@ public class JInternalFrameFileBrowser extends javax.swing.JInternalFrame implem
                   path = currentPath + "/" + value.getName();
                }
                JInternalFrameStriping frame = new JInternalFrameStriping();
-               if (!FrameManager.isFrameOpen(frame))
+               if (!FrameManager.isFrameOpen(frame, true))
                {
                   Main.getMainWindow().getDesktopPane().add(frame);
                   frame.setVisible(true);
@@ -124,7 +124,7 @@ public class JInternalFrameFileBrowser extends javax.swing.JInternalFrame implem
                }
                else
                {
-                  frame = (JInternalFrameStriping) FrameManager.getOpenFrame(frame);
+                  frame = (JInternalFrameStriping) FrameManager.getOpenFrame(frame, true);
                }
                frame.setPathFromExternal(path, value.isDirectory());
             }
@@ -380,6 +380,8 @@ public class JInternalFrameFileBrowser extends javax.swing.JInternalFrame implem
       jLabelInfo = new javax.swing.JLabel();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()
       {

@@ -47,6 +47,8 @@ class FileInodeStoreData
 
    friend class AdjustChunkPermissionsMsgEx;
 
+   friend class TestSerialization; // for testing
+
    public:
 
       FileInodeStoreData()
@@ -74,6 +76,13 @@ class FileInodeStoreData
              (origFeature == FileInodeOrigFeature_TRUE) )
             this->inodeFeatureFlags |= FILEINODE_FEATURE_HAS_ORIG_UID;
       }
+
+      unsigned serialize(char* buf) const;
+      bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+      unsigned serialLen() const;
+
+      friend bool fileInodeStoreDataEquals(const FileInodeStoreData& first,
+         const FileInodeStoreData& second);
 
       /**
        * Used to set the values from those read from disk

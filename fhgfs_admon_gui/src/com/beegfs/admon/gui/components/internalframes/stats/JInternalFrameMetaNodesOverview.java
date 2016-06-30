@@ -255,6 +255,8 @@ public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
       jPanelQueuedWorkRequestsGraph = new javax.swing.JPanel();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setTitle("Metadata nodes overview");
       setDoubleBuffered(true);
@@ -595,7 +597,7 @@ public class JInternalFrameMetaNodesOverview extends javax.swing.JInternalFrame
          JInternalFrameNodeStatus frame = new JInternalFrameNodeStatus(NodeTypesEnum.METADATA,
             statusVals);
 
-         if (!FrameManager.isFrameOpen(frame))
+         if (!FrameManager.isFrameOpen(frame, true))
          {
             this.getDesktopPane().add(frame);
             frame.setVisible(true);

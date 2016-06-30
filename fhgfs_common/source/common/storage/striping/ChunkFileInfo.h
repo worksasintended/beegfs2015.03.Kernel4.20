@@ -5,6 +5,13 @@
 
 #include "DynamicFileAttribs.h"
 
+
+class ChunkFileInfo;
+typedef std::vector<ChunkFileInfo> ChunkFileInfoVec;
+typedef ChunkFileInfoVec::iterator ChunkFileInfoVecIter;
+typedef ChunkFileInfoVec::const_iterator ChunkFileInfoVecCIter;
+
+
 /*
  * Note: the optimizations here and in other places rely on chunksize being a power of two.
  */
@@ -28,7 +35,26 @@ class ChunkFileInfo
          this->numCompleteChunks = dynAttribs.fileSize >> chunkSizeLog2;
       }
 
-      
+      /**
+       * For dezerialisation only
+       */
+      ChunkFileInfo() {};
+
+      unsigned serialize(char* buf) const;
+      bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+      static unsigned serialLen();
+
+      static unsigned serializeVec(char* buf, const ChunkFileInfoVec* vec);
+      static bool deserializeVecPreprocess(const char* buf, size_t bufLen, unsigned* outElemNum,
+         const char** outVecStart, unsigned* outLen);
+      static bool deserializeVec(unsigned vecBufLen, unsigned elemNum, const char* vecStart,
+         ChunkFileInfoVec* outVec);
+      static unsigned serialLenVec(const ChunkFileInfoVec* vec);
+
+      friend bool chunkFileInfoEquals(const ChunkFileInfo& first, const ChunkFileInfo& second);
+      static bool chunkFileInfoVecEquals(const ChunkFileInfoVec& first,
+         const ChunkFileInfoVec& second);
+
    private:
       DynamicFileAttribs dynAttribs;
       
@@ -114,9 +140,5 @@ class ChunkFileInfo
          return &dynAttribs;
       }
 };
-
-typedef std::vector<ChunkFileInfo> ChunkFileInfoVec;
-typedef ChunkFileInfoVec::iterator ChunkFileInfoVecIter;
-typedef ChunkFileInfoVec::const_iterator ChunkFileInfoVecCIter;
 
 #endif /*CHUNKFILEINFO_H_*/

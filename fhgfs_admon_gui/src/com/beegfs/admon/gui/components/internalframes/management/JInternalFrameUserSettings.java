@@ -80,6 +80,8 @@ public class JInternalFrameUserSettings extends javax.swing.JInternalFrame
       jButtonAutologinInfo = new javax.swing.JButton();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setPreferredSize(new java.awt.Dimension(970, 331));
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()

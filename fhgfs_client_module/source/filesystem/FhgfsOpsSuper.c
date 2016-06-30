@@ -270,8 +270,8 @@ int FhgfsOps_fillSuper(struct super_block* sb, void* rawMountOptions, int silent
    // set up super block data
 
    sb->s_maxbytes = MAX_LFS_FILESIZE;
-   sb->s_blocksize = PAGE_CACHE_SIZE;
-   sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
+   sb->s_blocksize = PAGE_SIZE;
+   sb->s_blocksize_bits = PAGE_SHIFT;
    sb->s_magic = BEEGFS_MAGIC;
    sb->s_op = &fhgfs_super_ops;
    sb->s_time_gran = 1000000000; // granularity of c/m/atime in ns

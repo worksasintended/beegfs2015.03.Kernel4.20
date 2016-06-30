@@ -21,11 +21,11 @@
  *        Always on for network serialization/deserialization
  * @param isNet           different values for network and disk serialization / deserialization
  */
-size_t StatData::serialize(bool isDiskDirInode, bool hasFlags, bool isNet, char* outBuf)
+size_t StatData::serialize(bool isDiskDirInode, bool hasFlags, bool isNet, char* outBuf) const
 {
    size_t bufPos = 0;
 
-   if (hasFlags)
+   if (hasFlags || isNet)
    {
       // flags
       bufPos += Serialization::serializeUInt(&outBuf[bufPos], this->flags);
@@ -100,7 +100,7 @@ bool StatData::deserialize(bool isDiskDirInode, bool hasFlags, bool isNet,
 
    unsigned bufPos = 0;
 
-   if (hasFlags || isNet) // TODO: make it likely after some time
+   if (hasFlags || isNet)
    {
       { // flags
          unsigned flagFieldLen;
@@ -301,7 +301,7 @@ bool StatData::deserialize(bool isDiskDirInode, bool hasFlags, bool isNet,
       bufPos += gidFieldLen;
    }
 
-   if (!hasFlags) // TODO: make it unlikely after some time
+   if (!hasFlags)
    { // mode
       unsigned modeFieldLen;
       std::string serialType = "mode";
@@ -317,27 +317,46 @@ bool StatData::deserialize(bool isDiskDirInode, bool hasFlags, bool isNet,
    }
 
    *outLen = bufPos;
+
    return true;
 }
 
 /*
  * Note: only used for network serialization, so without conditionals
  */
-unsigned StatData::serialLen(void)
+unsigned StatData::serialLen(bool isDiskDirInode, bool hasFlags, bool isNet) const
 {
-   unsigned length =
-      Serialization::serialLenUInt()   + // flags
-      Serialization::serialLenUInt()   + // mode
-      Serialization::serialLenInt64()  + // sumChunkBlocks
-      Serialization::serialLenInt64()  + // creationTimeSec
-      Serialization::serialLenInt64()  + // lastAccessTimeSecs
-      Serialization::serialLenInt64()  + // modificationTimeSecs
-      Serialization::serialLenInt64()  + // attribChangeTimeSecs
-      Serialization::serialLenInt64()  + // fileSize
-      Serialization::serialLenUInt()   + // nlink
-      Serialization::serialLenUInt()   + // contentsVersion
-      Serialization::serialLenUInt()   + // userID
-      Serialization::serialLenUInt();    // groupID
+   unsigned length = 0;
+
+   if (hasFlags || isNet)
+   {
+      length += Serialization::serialLenUInt(); // flags
+      length += Serialization::serialLenUInt(); // mode
+
+      if (isNet) // serialization over network
+         length += Serialization::serialLenUInt64(); // sumChunkBlocks
+      else // serialization to disk
+      if (getIsSparseFile() )
+         length += this->chunkBlocksVec.serializeLen(); //chunkBlocksVec
+   }
+
+   length += Serialization::serialLenInt64(); // creationTimeSec
+   length += Serialization::serialLenInt64(); // lastAccessTimeSecs
+   length += Serialization::serialLenInt64(); // modificationTimeSecs
+   length += Serialization::serialLenInt64(); // attribChangeTimeSecs
+
+   if (isDiskDirInode == false)
+   {
+      length += Serialization::serialLenInt64(); // fileSize
+      length += Serialization::serialLenUInt(); // nlink
+      length += Serialization::serialLenUInt(); // contentsVersion
+   }
+
+   length += Serialization::serialLenUInt(); // userID
+   length += Serialization::serialLenUInt(); // groupID
+
+   if (!hasFlags)
+      length += Serialization::serialLenUInt(); // mode
 
    return length;
 }
@@ -492,3 +511,56 @@ void StatData::updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePat
    setFileSize(newFileSize);
 }
 
+bool statDataEquals(const StatData& first, const StatData& second)
+{
+   // flags
+   if(first.flags != second.flags)
+      return false;
+
+   // settableFileAttribs.mode
+   if(first.settableFileAttribs.mode != second.settableFileAttribs.mode)
+      return false;
+
+   // chunkBlocksVec
+   if(!ChunksBlocksVec::chunksBlocksVecEquals(first.chunkBlocksVec, second.chunkBlocksVec) )
+      return false;
+
+   // creationTimeSecs
+   if(first.creationTimeSecs != second.creationTimeSecs)
+      return false;
+
+   // settableFileAttribs.lastAccessTimeSecs
+   if(first.settableFileAttribs.lastAccessTimeSecs != second.settableFileAttribs.lastAccessTimeSecs)
+      return false;
+
+   // settableFileAttribs.modificationTimeSecs
+   if(first.settableFileAttribs.modificationTimeSecs !=
+      second.settableFileAttribs.modificationTimeSecs)
+      return false;
+
+   // attribChangeTimeSecs
+   if(first.attribChangeTimeSecs != second.attribChangeTimeSecs)
+      return false;
+
+   // fileSize
+   if(first.fileSize != second.fileSize)
+      return false;
+
+   // nlink
+   if(first.nlink != second.nlink)
+      return false;
+
+   // contentsVersion
+   if(first.contentsVersion != second.contentsVersion)
+      return false;
+
+   // settableFileAttribs.userID
+   if(first.settableFileAttribs.userID != second.settableFileAttribs.userID)
+      return false;
+
+   // settableFileAttribs.groupID
+   if(first.settableFileAttribs.groupID != second.settableFileAttribs.groupID)
+      return false;
+
+   return true;
+}

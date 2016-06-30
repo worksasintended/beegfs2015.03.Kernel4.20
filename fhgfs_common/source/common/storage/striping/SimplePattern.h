@@ -44,7 +44,8 @@ class SimplePattern : public StripePattern
       {
          return STRIPEPATTERN_HEADER_LENGTH;
       }
-      
+
+
    public:
       // getters & setters
       virtual size_t getStripeTargetIndex(int64_t pos) const
@@ -98,6 +99,14 @@ class SimplePattern : public StripePattern
 
       virtual bool updateStripeTargetIDs(StripePattern* updatedStripePattern)
       {
+         return true;
+      }
+
+      virtual bool patternEquals(const StripePattern* second, bool checkHeader) const
+      {
+         if(checkHeader && (!headerEquals(second) ) )
+            return false;
+
          return true;
       }
 };

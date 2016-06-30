@@ -1,6 +1,8 @@
 #include <app/App.h>
 #include <common/Common.h>
 
+#include <common/net/message/storage/quota/SetDefaultQuotaMsg.h>
+#include <common/net/message/storage/quota/SetDefaultQuotaRespMsg.h>
 #include <common/net/message/storage/quota/SetQuotaRespMsg.h>
 #include <common/toolkit/MessagingTk.h>
 #include <common/toolkit/NodesTk.h>
@@ -20,6 +22,7 @@
 #define MODESETQUOTA_ARG_FILE                "--file"
 #define MODESETQUOTA_ARG_SIZE_LIMIT          "--sizelimit"
 #define MODESETQUOTA_ARG_INODE_LIMIT         "--inodelimit"
+#define MODESETQUOTA_ARG_DEFAULT             "--default"
 
 #define MODESETQUOTA_ERR_OPEN_FILE_FAILED   -1
 #define MODESETQUOTA_ERR_NONE                0
@@ -88,6 +91,13 @@ int ModeSetQuota::execute()
       convertIDRangeToQuotaDataList();
    }
    else
+   if(this->cfg.cfgDefaultLimits)
+   { // default limit for users or groups
+      QuotaData quota(0, this->cfg.cfgType);
+      quota.setQuotaData(this->cfg.cfgSizeLimit, this->cfg.cfgInodeLimit),
+      this->quotaLimitsList.push_back(quota);
+   }
+   else
    { // single user ID or group ID is given
       QuotaData quota(this->cfg.cfgID, this->cfg.cfgType);
       quota.setQuotaData(this->cfg.cfgSizeLimit, this->cfg.cfgInodeLimit),
@@ -102,10 +112,22 @@ int ModeSetQuota::execute()
       convertIDListToQuotaDataList();
    }
 
-   if (!this->uploadQuotaLimitsAndCollectResponses(mgmtNode) )
+   if(this->cfg.cfgDefaultLimits)
    {
-      mgmtNodes->releaseNode(&mgmtNode);
-      return APPCODE_RUNTIME_ERROR;
+      if(!mgmtNode->hasFeature(MGMT_FEATURE_DEFAULT_QUOTA) )
+      {
+         std::cerr << "Management server doesn't support default quota: " <<
+            mgmtNode->getNodeIDWithTypeStr() << "." << std::endl;
+         retVal = APPCODE_RUNTIME_ERROR;
+      }
+      if(!this->uploadDefaultQuotaLimitsAndCollectResponses(mgmtNode) )
+      {
+         retVal = APPCODE_RUNTIME_ERROR;
+      }
+   }
+   else if(!this->uploadQuotaLimitsAndCollectResponses(mgmtNode) )
+   {
+      retVal = APPCODE_RUNTIME_ERROR;
    }
 
    mgmtNodes->releaseNode(&mgmtNode);
@@ -171,10 +193,11 @@ int ModeSetQuota::checkConfig(StringMap* cfg)
    iter = cfg->find(MODESETQUOTA_ARG_ALL);
    if (iter != cfg->end())
    {
-      if(this->cfg.cfgUseFile || this->cfg.cfgUseList || this->cfg.cfgUseRange)
+      if(this->cfg.cfgUseFile || this->cfg.cfgUseList || this->cfg.cfgUseRange ||
+         this->cfg.cfgDefaultLimits)
       {
          std::cerr << "Invalid configuration. "
-            "Only one of --all, --file, --list, or --range is allowed." << std::endl;
+            "Only one of --all, --file, --list, --range or --default is allowed." << std::endl;
          return APPCODE_INVALID_CONFIG;
       }
 
@@ -186,10 +209,11 @@ int ModeSetQuota::checkConfig(StringMap* cfg)
    iter = cfg->find(MODESETQUOTA_ARG_FILE);
    if (iter != cfg->end())
    {
-      if(this->cfg.cfgUseAll || this->cfg.cfgUseList || this->cfg.cfgUseRange)
+      if(this->cfg.cfgUseAll || this->cfg.cfgUseList || this->cfg.cfgUseRange ||
+         this->cfg.cfgDefaultLimits)
       {
          std::cerr << "Invalid configuration. "
-            "Only one of --all, --file, --list, or --range is allowed." << std::endl;
+            "Only one of --all, --file, --list, --range or --default is allowed." << std::endl;
          return APPCODE_INVALID_CONFIG;
       }
 
@@ -202,10 +226,11 @@ int ModeSetQuota::checkConfig(StringMap* cfg)
    iter = cfg->find(MODESETQUOTA_ARG_LIST);
    if (iter != cfg->end())
    {
-      if(this->cfg.cfgUseAll || this->cfg.cfgUseFile || this->cfg.cfgUseRange)
+      if(this->cfg.cfgUseAll || this->cfg.cfgUseFile || this->cfg.cfgUseRange ||
+         this->cfg.cfgDefaultLimits)
       {
          std::cerr << "Invalid configuration. "
-            "Only one of --all, --file, --list, or --range is allowed." << std::endl;
+            "Only one of --all, --file, --list, --range or --default is allowed." << std::endl;
          return APPCODE_INVALID_CONFIG;
       }
 
@@ -217,14 +242,31 @@ int ModeSetQuota::checkConfig(StringMap* cfg)
    iter = cfg->find(MODESETQUOTA_ARG_RANGE);
    if (iter != cfg->end())
    {
-      if(this->cfg.cfgUseAll || this->cfg.cfgUseFile || this->cfg.cfgUseList)
+      if(this->cfg.cfgUseAll || this->cfg.cfgUseFile || this->cfg.cfgUseList ||
+         this->cfg.cfgDefaultLimits)
       {
          std::cerr << "Invalid configuration. "
-            "Only one of --all, --file, --list, or --range is allowed." << std::endl;
+            "Only one of --all, --file, --list, --range or --default is allowed." << std::endl;
          return APPCODE_INVALID_CONFIG;
       }
 
       this->cfg.cfgUseRange = true;
+      cfg->erase(iter);
+   }
+
+   // parse quota argument for the default limits of GIDs or UIDs
+   iter = cfg->find(MODESETQUOTA_ARG_DEFAULT);
+   if (iter != cfg->end())
+   {
+      if(this->cfg.cfgUseAll || this->cfg.cfgUseFile || this->cfg.cfgUseList ||
+         this->cfg.cfgUseRange)
+      {
+         std::cerr << "Invalid configuration. "
+            "Only one of --all, --file, --list, --range or --default is allowed." << std::endl;
+         return APPCODE_INVALID_CONFIG;
+      }
+
+      this->cfg.cfgDefaultLimits = true;
       cfg->erase(iter);
    }
 
@@ -285,7 +327,7 @@ int ModeSetQuota::checkConfig(StringMap* cfg)
 
 
    // check if quota limit, quota limit list or quota limit range is given if it is required
-   if(cfg->empty()  && !(this->cfg.cfgUseAll || this->cfg.cfgUseFile) )
+   if(cfg->empty() && !(this->cfg.cfgUseAll || this->cfg.cfgUseFile || this->cfg.cfgDefaultLimits) )
    {
       if(this->cfg.cfgUseRange)
          std::cerr << "No ID range specified." << std::endl;
@@ -349,7 +391,7 @@ int ModeSetQuota::checkConfig(StringMap* cfg)
       cfg->erase(cfg->begin() );
    }
    else
-   if(!this->cfg.cfgUseAll && !this->cfg.cfgUseFile)
+   if(!this->cfg.cfgUseAll && !this->cfg.cfgUseFile && !this->cfg.cfgDefaultLimits)
    { // single ID is given
       std::string queryIDStr = cfg->begin()->first;
 
@@ -400,6 +442,7 @@ void ModeSetQuota::printHelp()
    std::cout << "                          Line format: ID/name,size limit,inode limit" << std::endl;
    std::cout << "    --list <list>         Use a comma separated list of user/group IDs." << std::endl;
    std::cout << "    --range <start> <end> Use a range of user/group IDs." << std::endl;
+   std::cout << "    --default             Set the default quota limits for users or groups." << std::endl;
    std::cout << std::endl;
    std::cout << "  Mandatory if not imported via --file:" << std::endl;
    std::cout << "    --sizelimit           The diskspace limit for the users/groups." << std::endl;
@@ -422,6 +465,9 @@ void ModeSetQuota::printHelp()
    std::cout << " Example: Set quota to unlimited diskspace and 5000 chunk files for group IDs" << std::endl;
    std::cout << "          in range 1000 to 1500." << std::endl;
    std::cout << "  $ beegfs-ctl --setquota --sizelimit=0 --inodelimit=5000 --gid --range 1000 1500" << std::endl;
+   std::cout << std::endl;
+   std::cout << " Example: Set default quota for users to 20 MiB and 500 chunk files." << std::endl;
+   std::cout << "  $ beegfs-ctl --setquota --uid --sizelimit=20M --inodelimit=500 --default" << std::endl;
 }
 
 /*
@@ -540,7 +586,7 @@ bool ModeSetQuota::uploadQuotaLimitsAndCollectResponses(Node* mgmtNode)
    if(this->cfg.cfgType == QuotaDataType_GROUP)
       typeString = "group";
 
-   //send quota limit to managment server and print the response
+   //send quota limit to management server and print the response
    // request all subranges (=> msg size limitation) from current server
    for(int messageNumber = 0; messageNumber < maxMessageCount; messageNumber++)
    {
@@ -586,6 +632,52 @@ err_cleanup:
    if(retVal)
       std::cerr << "Set or updated " << limitCounter << " " << typeString <<
          " quota limits on node: " << mgmtNode->getTypedNodeID() << std::endl;
+
+   return retVal;
+}
+
+
+bool ModeSetQuota::uploadDefaultQuotaLimitsAndCollectResponses(Node* mgmtNode)
+{
+   bool retVal = true;
+
+   std::string typeString = "users";
+   if(this->cfg.cfgType == QuotaDataType_GROUP)
+      typeString = "groups";
+
+   bool commRes = false;
+   char* respBuf = NULL;
+
+   SetDefaultQuotaMsg msg(cfg.cfgType, cfg.cfgSizeLimit, cfg.cfgInodeLimit);
+
+   NetMessage* respMsg = NULL;
+   SetDefaultQuotaRespMsg* respMsgCast;
+
+   // request/response
+   commRes = MessagingTk::requestResponse(mgmtNode, &msg, NETMSGTYPE_SetDefaultQuotaResp,
+      &respBuf, &respMsg);
+   if(!commRes)
+   {
+      std::cerr << "Failed to communicate with node: " << mgmtNode->getTypedNodeID() << std::endl;
+      retVal = false;
+      goto err_cleanup;
+   }
+
+   respMsgCast = (SetDefaultQuotaRespMsg*)respMsg;
+   if (!respMsgCast->getValue() )
+   {
+      std::cerr << "Failed to set default quota limits. Check management server logfile of node: "
+         << mgmtNode->getTypedNodeID() << std::endl;
+      retVal = false;
+   }
+
+err_cleanup:
+   SAFE_DELETE(respMsg);
+   SAFE_FREE(respBuf);
+
+   if(retVal)
+      std::cerr << "Set or updated quota limits for " << typeString << " on node: " <<
+         mgmtNode->getTypedNodeID() << std::endl;
 
    return retVal;
 }

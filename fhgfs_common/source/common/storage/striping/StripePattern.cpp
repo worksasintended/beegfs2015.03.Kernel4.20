@@ -158,3 +158,57 @@ std::string StripePattern::getPatternTypeStr(unsigned patternType)
       } break;
    }
 }
+
+bool StripePattern::headerEquals(const StripePattern* second) const
+{
+   // pattern type
+   if(this->patternType != second->getPatternType() )
+      return false;
+
+   // chunkSize
+   if(this->chunkSize != second->getChunkSize() )
+      return false;
+
+   return true;
+}
+
+bool StripePattern::stripePatternEquals(const StripePattern* second) const
+{
+   bool retVal = true;
+
+   if(!this->headerEquals(second) )
+      return false;
+
+   switch(this->patternType)
+   {
+      case STRIPEPATTERN_Raid0:
+      {
+         Raid0Pattern* pattern = (Raid0Pattern*) this;
+         if(!pattern->patternEquals(second, false) )
+            retVal = false;
+      } break;
+
+      case STRIPEPATTERN_Raid10:
+      {
+         Raid10Pattern* pattern = (Raid10Pattern*) this;
+         if(!pattern->patternEquals(second, false) )
+            retVal = false;
+      } break;
+
+      case STRIPEPATTERN_BuddyMirror:
+      {
+         BuddyMirrorPattern* pattern = (BuddyMirrorPattern*) this;
+         if(!pattern->patternEquals(second, false) )
+            retVal = false;
+      } break;
+
+      default:
+      {
+         SimplePattern* pattern = (SimplePattern*) this;
+         if(!pattern->patternEquals(second, false) )
+            retVal = false;
+      } break;
+   }
+
+   return retVal;
+}

@@ -11,7 +11,7 @@
 /**
  * Serialize into outBuf, 4-byte aligned
  */
-size_t EntryInfo::serialize(char* outBuf)
+size_t EntryInfo::serialize(char* outBuf) const
 {
    size_t bufPos = 0;
 
@@ -23,15 +23,15 @@ size_t EntryInfo::serialize(char* outBuf)
 
    // parentEntryID
    bufPos += Serialization::serializeStrAlign4(&outBuf[bufPos],
-      this->getParentEntryID().length(), this->getParentEntryID().c_str() );
+      this->parentEntryID.length(), this->parentEntryID.c_str() );
 
    // entryID
    bufPos += Serialization::serializeStrAlign4(&outBuf[bufPos],
-      this->getEntryID().length(), this->getEntryID().c_str() );
+      this->entryID.length(), this->entryID.c_str() );
 
    // fileName
    bufPos += Serialization::serializeStrAlign4(&outBuf[bufPos],
-      this->getFileName().length(), this->getFileName().c_str() );
+      this->fileName.length(), this->fileName.c_str() );
 
    // ownerNodeID
    bufPos += Serialization::serializeUShort(&outBuf[bufPos], this->ownerNodeID);
@@ -188,7 +188,7 @@ bool EntryInfo::deserialize(const char* buf, size_t bufLen, unsigned* outLen)
 /**
  * Required size for serialization, 4-byte aligned
  */
-unsigned EntryInfo::serialLen(void)
+unsigned EntryInfo::serialLen(void) const
 {
    unsigned length =
       Serialization::serialLenUInt()                                        + // entryType
@@ -208,7 +208,7 @@ unsigned EntryInfo::serialLen(void)
  *
  * Note: This method is rather slow, only use it for uncritical code paths, i.e. unit tests
  */
-bool EntryInfo::compare(EntryInfo* compareInfo)
+bool EntryInfo::compare(const EntryInfo* compareInfo) const
 {
    const char* logContext = "EntryInfo comparison";
    size_t thisLen = serialLen();

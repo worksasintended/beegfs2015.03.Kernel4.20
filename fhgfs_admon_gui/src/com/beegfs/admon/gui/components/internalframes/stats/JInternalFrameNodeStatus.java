@@ -85,6 +85,8 @@ public class JInternalFrameNodeStatus extends javax.swing.JInternalFrame impleme
       setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
       setClosable(true);
       setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setMinimumSize(new java.awt.Dimension(0, 0));
       setPreferredSize(new java.awt.Dimension(540, 250));

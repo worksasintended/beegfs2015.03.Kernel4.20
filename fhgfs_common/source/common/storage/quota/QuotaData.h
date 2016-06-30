@@ -45,7 +45,7 @@ enum QuotaLimitType
 {
    QuotaLimitType_NONE=0,
    QuotaLimitType_SIZE=1,
-   QuotaLimitType_INODE=2,
+   QuotaLimitType_INODE=2
 };
 
 

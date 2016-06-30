@@ -66,6 +66,24 @@ bool Raid0Pattern::updateStripeTargetIDs(StripePattern* updatedStripePattern)
    return true;
 }
 
+bool Raid0Pattern::patternEquals(const StripePattern* second, bool checkHeader) const
+{
+   if(checkHeader && (!headerEquals(second) ) )
+      return false;
 
+   Raid0Pattern* pattern = (Raid0Pattern*) second;
 
+   // defaultNumTargets
+   if(this->defaultNumTargets != pattern->getDefaultNumTargets() )
+      return false;
 
+   // stripeTargetIDs
+   if(this->getNumStripeTargetIDs() != pattern->getNumStripeTargetIDs() )
+      return false;
+
+   if(!std::equal(this->stripeTargetIDs.begin(), this->stripeTargetIDs.end(),
+      pattern->getStripeTargetIDs()->begin() ) )
+      return false;
+
+   return true;
+}

@@ -17,7 +17,7 @@ struct GetQuotaInfoConfig : public QuotaConfig
    unsigned cfgTargetSelection;  // the kind to collect the quota data/limits: GETQUOTACONFIG_...
    uint16_t cfgTargetNumID;      // targetNumID if a single target is selected
    bool cfgPrintUnused;          // print users/groups that have no space used
-   bool cfgPrintSystem;          // print system users/groups
+   bool cfgWithSystemUsersGroups;// if system users/groups should be used be considered
 };
 
 

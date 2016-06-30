@@ -225,6 +225,21 @@ void SessionFileStore::removeAllSessions(SessionFileList* outRemovedSessions,
    mutexLock.unlock();
 }
 
+/*
+ * Intended to be used for cleanup if deserialization failed, no locking is used
+ */
+void SessionFileStore::deleteAllSessions()
+{
+   for(SessionFileMapIter iter = sessions.begin(); iter != sessions.end(); iter++)
+   {
+      SessionFileReferencer* sessionRefer = iter->second;
+
+      delete(sessionRefer);
+   }
+
+   sessions.clear();
+}
+
 size_t SessionFileStore::getSize()
 {
    SafeMutexLock mutexLock(&mutex);
@@ -283,5 +298,190 @@ void SessionFileStore::performAsyncCleanup(EntryInfo* entryInfo,
       open files between clients and servers at regular intervals). */
 }
 
+SessionFileMap* SessionFileStore::getSessionMap()
+{
+   return &this->sessions;
+}
 
+/* Merges the SessionFiles of the given SessionFileStore into this SessionFileStore.
+ * Only not existing SessionFiles will be added to the existing SessionFileStore
+ *
+ * @param sessionFileStore the sessionFileStore which will be merged with this sessionFileStore
+ */
+void SessionFileStore::mergeSessionFiles(SessionFileStore* sessionFileStore)
+{
+   App* app = Program::getApp();
+   Logger* log = app->getLogger();
 
+   SessionFileMapIter sessionIter = sessionFileStore->getSessionMap()->begin();
+
+   while(sessionIter != sessionFileStore->getSessionMap()->end() )
+   {
+      bool sessionFound = false;
+      SessionFileMapIter destSessionIter = this->sessions.find(sessionIter->first);
+
+      if (destSessionIter != this->sessions.end())
+      {
+            sessionFound = true;
+            log->log(Log_WARNING, "SessionFileStore merge", "found SessionFile with same "
+               "ID: " + StringTk::uintToStr(sessionIter->first) +
+               " , merge not possible, may be a bug?");
+      }
+
+      if (!sessionFound)
+      {
+         bool success = this->sessions.insert(SessionFileMapVal(sessionIter->first,
+            sessionIter->second)).second;
+
+         if (!success)
+         {
+            log->log(Log_WARNING, "SessionFileStore merge", "could not merge: " +
+               StringTk::uintToStr(sessionIter->first) );
+
+            delete(sessionIter->second);
+         }
+      }
+      else
+      {
+         delete(sessionIter->second);
+      }
+
+      sessionIter++;
+   }
+}
+
+unsigned SessionFileStore::serialize(char* buf) const
+{
+   unsigned elementCount = this->sessions.size();
+
+   size_t bufPos = 0;
+
+   // lastSessionID
+   bufPos += Serialization::serializeUInt(&buf[bufPos], this->lastSessionID);
+
+   // elem count info field
+   bufPos += Serialization::serializeUInt(&buf[bufPos], elementCount);
+
+   // serialize each element
+   for (SessionFileMapCIter iter = this->sessions.begin(); iter != this->sessions.end(); iter++)
+   {
+      bufPos += Serialization::serializeUInt(&buf[bufPos], iter->first);
+      bufPos += iter->second->getReferencedObject()->serialize(&buf[bufPos]);
+   }
+
+   LOG_DEBUG("SessionFileStore serialize", Log_DEBUG, "count of serialized "
+      "SessionFiles: " + StringTk::uintToStr(elementCount) );
+
+   return bufPos;
+}
+
+bool SessionFileStore::deserialize(const char* buf, size_t bufLen, unsigned* outLen)
+{
+   size_t bufPos = 0;
+   unsigned elemNumField = 0;
+
+   {
+      // lastSessionID
+      unsigned lastSessionIDLen;
+
+      if (!Serialization::deserializeUInt(&buf[bufPos], bufLen-bufPos, &this->lastSessionID,
+         &lastSessionIDLen) )
+         return false;
+
+      bufPos += lastSessionIDLen;
+   }
+
+   {
+      // elem count info field
+      unsigned elemNumFieldLen;
+
+      if (!Serialization::deserializeUInt(&buf[bufPos], bufLen-bufPos, &elemNumField,
+         &elemNumFieldLen) )
+         return false;
+
+      bufPos += elemNumFieldLen;
+   }
+
+   {
+      // sessions
+      for(unsigned i = 0; i < elemNumField; i++)
+      {
+         //session ID (key)
+         unsigned key = 0;
+         unsigned keyBufLen;
+
+         if(!Serialization::deserializeUInt(&buf[bufPos], bufLen-bufPos, &key, &keyBufLen) )
+            return false;
+
+         bufPos += keyBufLen;
+
+         // SessionFileReferencer (value)
+         SessionFile* sessionFile = new SessionFile();
+         unsigned sessionFileLen;
+
+         if (!sessionFile->deserialize(&buf[bufPos], bufLen-bufPos, &sessionFileLen) )
+         {
+            delete(sessionFile);
+
+            return false;
+         }
+
+         this->sessions.insert(SessionFileMapVal(key, new SessionFileReferencer(sessionFile) ) );
+
+         bufPos += sessionFileLen;
+      }
+   }
+
+   LOG_DEBUG("SessionFileStore deserialize", Log_DEBUG, "count of deserialized "
+      "SessionFiles: " + StringTk::uintToStr(elemNumField));
+
+   *outLen = bufPos;
+
+   return true;
+}
+
+unsigned SessionFileStore::serialLen() const
+{
+   size_t len = 0;
+
+   // lastSessionID
+   len += Serialization::serialLenUInt();
+
+   // elem count info field
+   len += Serialization::serialLenUInt();
+
+   for (SessionFileMapCIter iter = this->sessions.begin(); iter != this->sessions.end(); iter++)
+   {
+      len += Serialization::serialLenUInt();
+      len += iter->second->getReferencedObject()->serialLen();
+   }
+
+   return len;
+}
+
+bool sessionFileStoreEquals(const SessionFileStore& first, const SessionFileStore& second)
+{
+   // lastSessionID;
+   if(first.lastSessionID != second.lastSessionID)
+      return false;
+
+   // sessions
+   if(first.sessions.size() != second.sessions.size() )
+      return false;
+
+   SessionFileMapCIter iterFirst = first.sessions.begin();
+   SessionFileMapCIter iterSecond = second.sessions.begin();
+
+   for (; (iterFirst != first.sessions.end() ) && (iterSecond != second.sessions.end() );
+      iterFirst++, iterSecond++)
+   {
+      if(iterFirst->first != iterSecond->first)
+         return false;
+
+      if(!sessionFileEquals(iterFirst->second->getReferencedObject(),
+         iterSecond->second->getReferencedObject() ) )
+         return false;
+   }
+
+   return true;
+}

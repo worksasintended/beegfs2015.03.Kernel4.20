@@ -83,12 +83,14 @@ class StatData
 
    public:
 
-      size_t serialize(bool isDiskDirInode, bool hasFlags, bool isNet, char* outBuf);
+      size_t serialize(bool isDiskDirInode, bool hasFlags, bool isNet, char* outBuf) const;
       bool deserialize(bool isDiskDirInode, bool hasFlags, bool isNet,
          const char* buf, size_t bufLen, unsigned* outLen);
-      unsigned serialLen();
+      unsigned serialLen(bool isDiskDirInode, bool hasFlags, bool isNet) const;
 
       void updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePattern* stripePattern);
+
+      friend bool statDataEquals(const StatData& first, const StatData& second);
 
 
       // setters
@@ -237,7 +239,7 @@ class StatData
        * Note: Even if the file is a sparse file, some chunks might have the estimated number of
        *       blocks only, depending on if chunkBlocksVec was ever updated with exact values.
        */
-      uint64_t getNumBlocks()
+      uint64_t getNumBlocks() const
       {
          if (getIsSparseFile() )
             return this->chunkBlocksVec.getBlockSum();
@@ -245,7 +247,7 @@ class StatData
             return this->fileSize >> STATDATA_SIZETOBLOCKSBIT_SHIFT;
       }
 
-      bool getIsSparseFile()
+      bool getIsSparseFile() const
       {
          if (this->flags & STATDATA_FEATURE_SPARSE_FILE)
             return true;

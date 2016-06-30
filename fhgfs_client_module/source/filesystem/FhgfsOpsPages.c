@@ -381,7 +381,7 @@ int FhgfsOpsPages_writePageCallBack(struct page *page, struct writeback_control 
    struct inode* inode = writePageData->inode;
 
    loff_t fileSize = i_size_read(inode);
-   pgoff_t endIndex = fileSize >> PAGE_CACHE_SHIFT;
+   pgoff_t endIndex = fileSize >> PAGE_SHIFT;
 
    int usedPageLen;
 
@@ -418,12 +418,12 @@ int FhgfsOpsPages_writePageCallBack(struct page *page, struct writeback_control 
 
    if (page->index < endIndex)
       /* in this case, the page is within the limits of the file */
-      usedPageLen = PAGE_CACHE_SIZE;
+      usedPageLen = PAGE_SIZE;
    else
    {  // the page does not entirely fit into the file size limit
       IGNORE_UNUSED_VARIABLE(logContext);
 
-      usedPageLen = fileSize & ~PAGE_CACHE_MASK;
+      usedPageLen = fileSize & ~PAGE_MASK;
 
       if (page->index > endIndex || !usedPageLen)
       {  // Page is outside the file size limit, probably truncate in progess, ignore this page
@@ -577,7 +577,7 @@ int _FhgfsOpsPages_writepages(struct address_space* mapping, struct writeback_co
       struct dentry* dentry = d_find_alias(inode); // calls dget_locked
 
       FhgfsOpsHelper_logOpDebug(app, dentry, inode, __func__, "(nr_to_write: %ld = %lluKiB)",
-         wbc->nr_to_write, (long long) (wbc->nr_to_write << PAGE_CACHE_SHIFT) / 1024);
+         wbc->nr_to_write, (long long) (wbc->nr_to_write << PAGE_SHIFT) / 1024);
 
       if(dentry)
          dput(dentry);
@@ -695,7 +695,7 @@ int FhgfsOpsPages_writepages(struct address_space* mapping, struct writeback_con
       struct dentry* dentry = d_find_alias(inode); // calls dget_locked
 
       FhgfsOpsHelper_logOpDebug(app, dentry, inode, __func__, "(nr_to_write: %ld = %lluKiB)",
-         wbc->nr_to_write, (long long) (wbc->nr_to_write << PAGE_CACHE_SHIFT) / 1024);
+         wbc->nr_to_write, (long long) (wbc->nr_to_write << PAGE_SHIFT) / 1024);
 
       if(dentry)
          dput(dentry);
@@ -759,7 +759,7 @@ fhgfs_bool FhgfsOpsPages_isShortRead(struct inode* inode, pgoff_t pageIndex,
    App* app = FhgfsOps_getApp(inode->i_sb);
 
    off_t  iSize = i_size_read(inode);
-   pgoff_t fileEndIndex = iSize >> PAGE_CACHE_SHIFT;
+   pgoff_t fileEndIndex = iSize >> PAGE_SHIFT;
 
    FhgfsIsizeHints iSizeHints;
 
@@ -775,7 +775,7 @@ fhgfs_bool FhgfsOpsPages_isShortRead(struct inode* inode, pgoff_t pageIndex,
       needInodeRefresh = fhgfs_false;
 
       iSize = i_size_read(inode);
-      fileEndIndex = iSize >> PAGE_CACHE_SHIFT;
+      fileEndIndex = iSize >> PAGE_SHIFT;
    }
 
    if (pageIndex < fileEndIndex)
@@ -942,7 +942,7 @@ int FhgfsOpsPages_readPageCallBack(void *dataPtr, struct page *page)
       break; // break on success
    }
 
-   page_cache_get(page); // reference page to avoid it is re-used while we read it
+   get_page(page); // reference page to avoid it is re-used while we read it
    return retVal;
 
 
@@ -1151,7 +1151,7 @@ int FhgfsOpsPages_writeBackPage(struct inode *inode, struct page *page)
    int ret;
 
    loff_t range_start = page_offset(page);
-   loff_t range_end = range_start + (loff_t)(PAGE_CACHE_SIZE - 1);
+   loff_t range_end = range_start + (loff_t)(PAGE_SIZE - 1);
 
 
    memset(&wbc, 0, sizeof(wbc) );

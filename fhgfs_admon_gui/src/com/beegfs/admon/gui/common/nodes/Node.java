@@ -19,7 +19,7 @@ public class Node implements Cloneable
       }
    }
 
-   public static int getNodeNumIDFromTypedNodeID(String typedNodeID)
+   public static int getNodeNumIDFromTypedNodeID(String typedNodeID) throws NumberFormatException
    {
       String[] splitedID = typedNodeID.split(" ");
       if(splitedID.length > 2)

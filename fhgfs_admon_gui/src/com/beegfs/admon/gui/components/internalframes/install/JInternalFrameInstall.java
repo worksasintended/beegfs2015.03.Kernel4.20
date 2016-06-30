@@ -697,6 +697,8 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
       jButtonInstall = new javax.swing.JButton();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()
       {
@@ -828,13 +830,13 @@ public class JInternalFrameInstall extends javax.swing.JInternalFrame implements
    private boolean checkConfigurationSaved()
    {
       JInternalFrameInstallationConfig testFrame = new JInternalFrameInstallationConfig();
-      boolean isConfigureFrameOpen = FrameManager.isFrameOpen(testFrame);
+      boolean isConfigureFrameOpen = FrameManager.isFrameOpen(testFrame, true);
       boolean isConfigSaved;
 
       if (isConfigureFrameOpen)
       {
          JInternalFrameInstallationConfig installFrame =
-            (JInternalFrameInstallationConfig) FrameManager.getOpenFrame(testFrame);
+            (JInternalFrameInstallationConfig) FrameManager.getOpenFrame(testFrame, true);
          isConfigSaved = installFrame.checkWholeConfigSaved();
          testFrame.dispose();
          return isConfigSaved;

@@ -2,7 +2,7 @@
 
 #include "HsmFileMetaData.h"
 
-size_t HsmFileMetaData::serialize(char* outBuf)
+size_t HsmFileMetaData::serialize(char* outBuf) const
 {
    size_t bufPos = 0;
 
@@ -44,11 +44,24 @@ bool HsmFileMetaData::deserialize(const char* buf, size_t bufLen, unsigned* outL
    return true;
 }
 
-unsigned HsmFileMetaData::serialLen(void)
+unsigned HsmFileMetaData::serialLen(void) const
 {
    unsigned length =
       Serialization::serialLenUShort()  + // offlineChunkCount
       Serialization::serialLenUShort(); // collocationID
 
    return length;
+}
+
+bool hsmFileMetaDataEquals(const HsmFileMetaData& first, const HsmFileMetaData& second)
+{
+   // offlineChunkCount
+   if(first.offlineChunkCount != second.offlineChunkCount)
+      return false;
+
+   // collocationID
+   if(first.collocationID != second.collocationID)
+      return false;
+
+   return true;
 }

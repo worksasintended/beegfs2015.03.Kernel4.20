@@ -296,6 +296,9 @@ void App::runNormal()
       return;
    }
 
+   // restore sessions from last clean shut down
+   restoreSessions();
+
    // log system and configuration info
 
    logInfos();
@@ -308,9 +311,17 @@ void App::runNormal()
    if(!integrationTestsRes)
       return;
 
+   // session restore is finished so delete old session files
+   // clean shutdown will generate a new session file
+   deleteSessionFiles();
+
    // wait for termination
 
    joinComponents();
+
+   // clean shutdown (at least no cache loss) => generate a new session file
+   if(sessions)
+      storeSessions();
 
    // close all client sessions
 
@@ -1378,3 +1389,69 @@ bool App::preregisterNode()
    return (localNodeNumID != 0);
 }
 
+bool App::restoreSessions()
+{
+   bool retVal = true;
+
+   std::string path = this->metaPathStr  + "/" + std::string(STORAGETK_SESSIONS_BACKUP_FILE_NAME);
+
+   bool pathRes = StorageTk::pathExists(path);
+   if(!pathRes)
+      return false;
+
+   bool loadRes = this->sessions->loadFromFile(path);
+   if(!loadRes)
+   {
+      this->log->logErr("Could not restore all sessions from file " + path);
+      retVal = false;
+   }
+
+   this->log->log(Log_NOTICE, StringTk::uintToStr(this->sessions->getSize() ) +
+      " sessions restored.");
+
+   return retVal;
+}
+
+bool App::storeSessions()
+{
+   bool retVal = true;
+
+   std::string path = this->metaPathStr + "/" + std::string(STORAGETK_SESSIONS_BACKUP_FILE_NAME);
+
+   bool pathRes = StorageTk::pathExists(path);
+   if(pathRes)
+      this->log->log(Log_WARNING, "Overwriting existing session file: " + path);
+
+   bool saveRes = this->sessions->saveToFile(path);
+   if(!saveRes)
+   {
+      this->log->logErr("Could not store all sessions to file " + path);
+      retVal = false;
+   }
+
+   if(retVal)
+      this->log->log(Log_NOTICE, StringTk::uintToStr(this->sessions->getSize() ) +
+            " sessions stored.");
+
+   return retVal;
+}
+
+bool App::deleteSessionFiles()
+{
+   bool retVal = true;
+
+   std::string path = this->metaPathStr + "/" + std::string(STORAGETK_SESSIONS_BACKUP_FILE_NAME);
+
+   bool pathRes = StorageTk::pathExists(path);
+   if(!pathRes)
+      return retVal;
+
+   if(remove(path.c_str() ) )
+   {
+      this->log->logErr("Could not remove session file " + path + "; SysErr: " +
+         System::getErrString() );
+      retVal = false;
+   }
+
+   return retVal;
+}

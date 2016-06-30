@@ -27,7 +27,7 @@ int Program::startApp(int argc, char** argv)
 
    app = new App(argc, argv);
 
-   app->start();
+   app->startInCurrentThread();
 
    app->join();
 

@@ -464,7 +464,7 @@ public class MainWindow extends javax.swing.JFrame
       if (Main.getSession().getIsAdmin())
       {
          javax.swing.JInternalFrame frame = new JInternalFrameUserSettings();
-         if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame))
+         if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame, true))
          {
             jDesktopPaneContent.add(frame);
             frame.setVisible(true);
@@ -481,7 +481,7 @@ public class MainWindow extends javax.swing.JFrame
       if (Main.getSession().getIsAdmin())
       {
          javax.swing.JInternalFrame frame = new JInternalFrameNotifications();
-         if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame))
+         if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame, true))
          {
             jDesktopPaneContent.add(frame);
             frame.setVisible(true);
@@ -543,7 +543,7 @@ public class MainWindow extends javax.swing.JFrame
       if (Main.getSession().getIsInfo())
       {
          JInternalFrameKnownProblems frame = new JInternalFrameKnownProblems();
-         if (!FrameManager.isFrameOpen(frame))
+         if (!FrameManager.isFrameOpen(frame, true))
          {
             jDesktopPaneContent.add(frame);
             frame.reshape(400, 500, frame.getWidth(), frame.getHeight());

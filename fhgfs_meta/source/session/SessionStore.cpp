@@ -1,3 +1,4 @@
+#include <program/Program.h>
 #include <common/threading/SafeMutexLock.h>
 #include "SessionStore.h"
 
@@ -237,10 +238,256 @@ size_t SessionStore::getSize()
    return sessionsSize;
 }
 
+unsigned SessionStore::serialize(char* buf)
+{
+   unsigned elementCount = this->sessions.size();
+
+   size_t bufPos = 0;
+
+   // elem count info field
+   bufPos += Serialization::serializeUInt(&buf[bufPos], elementCount);
+
+   // serialize each element
+   SessionMapIter iter = this->sessions.begin();
+
+   for ( unsigned i = 0; i < elementCount; i++, iter++ )
+   {
+      bufPos += Serialization::serializeStr(&buf[bufPos], iter->first.length(),
+         iter->first.c_str()); // serialize the key
+      bufPos += iter->second->getReferencedObject()->serialize(&buf[bufPos]);
+   }
+
+   LOG_DEBUG("SessionStore serialize", Log_DEBUG, "count of serialized Sessions: " +
+      StringTk::uintToStr(elementCount));
+
+   return bufPos;
+}
+
+bool SessionStore::deserialize(const char* buf, size_t bufLen, unsigned* outLen)
+{
+   size_t bufPos = 0;
+   unsigned elemNumField = 0;
+
+   {
+      // elem count info field
+      unsigned elemNumFieldLen;
+
+      if (!Serialization::deserializeUInt(&buf[bufPos], bufLen-bufPos, &elemNumField,
+         &elemNumFieldLen) )
+         return false;
+
+      bufPos += elemNumFieldLen;
+   }
 
 
+   {
+      // sessions
+      for(unsigned i = 0; i < elemNumField; i++)
+      {
+         //session ID (key)
+         unsigned keyLen = 0;
+         const char* key = NULL;
+         unsigned keyBufLen = 0;
 
+         if(!Serialization::deserializeStr(&buf[bufPos], bufLen-bufPos, &keyLen, &key, &keyBufLen) )
+            return false;
 
+         bufPos += keyBufLen;
 
+         // SessionLocalFileReferencer (value)
+         Session* session = new Session();
 
+         unsigned sessionLen;
 
+         if (!session->deserialize(&buf[bufPos], bufLen-bufPos, &sessionLen) )
+         {
+            session->getFiles()->deleteAllSessions();
+
+            delete(session);
+            return false;
+         }
+
+         SessionMapIter searchResult = this->sessions.find(std::string(key));
+         if (searchResult == this->sessions.end() )
+         {
+            this->sessions.insert(SessionMapVal(std::string(key), new SessionReferencer(session)));
+         }
+         else
+         { // exist so local files will merged
+            searchResult->second->getReferencedObject()->mergeSessionFiles(session);
+            delete(session);
+         }
+
+         bufPos += sessionLen;
+      }
+   }
+
+   *outLen = bufPos;
+
+   LOG_DEBUG("SessionStore deserialize", Log_DEBUG, "count of deserialized Sessions: " +
+         StringTk::uintToStr(elemNumField));
+
+   return true;
+}
+
+unsigned SessionStore::serialLen()
+{
+   unsigned sessionStoreSize = this->sessions.size();
+
+   size_t len = 0;
+
+   len += Serialization::serialLenUInt(); // elem count
+
+   SessionMapIter iter = this->sessions.begin();
+
+   for ( unsigned i = 0; i < sessionStoreSize; i++, iter++)
+   {
+      len += Serialization::serialLenStr(iter->first.length() );                    // key
+      len += iter->second->getReferencedObject()->serialLen();
+   }
+
+   return len;
+}
+
+bool SessionStore::loadFromFile(const std::string& filePath)
+{
+   LogContext log("SessionStore (load)");
+   log.log(Log_DEBUG,"load sessions from file: " + filePath);
+
+   bool retVal = false;
+   char* buf = NULL;
+   int readRes;
+
+   struct stat statBuf;
+   int retValStat;
+
+   if(!filePath.length() )
+      return false;
+
+   SafeMutexLock mutexLock(&mutex);
+
+   int fd = open(filePath.c_str(), O_RDONLY, 0);
+   if(fd == -1)
+   { // open failed
+      log.log(Log_DEBUG, "Unable to open session file: " + filePath + ". " +
+         "SysErr: " + System::getErrString() );
+
+      goto err_unlock;
+   }
+
+   retValStat = fstat(fd, &statBuf);
+   if(retValStat)
+   { // stat failed
+      log.log(Log_WARNING, "Unable to stat session file: " + filePath + ". " +
+         "SysErr: " + System::getErrString() );
+
+      goto err_stat;
+   }
+
+   buf = (char*)malloc(statBuf.st_size);
+   readRes = read(fd, buf, statBuf.st_size);
+   if(readRes <= 0)
+   { // reading failed
+      log.log(Log_WARNING, "Unable to read session file: " + filePath + ". " +
+         "SysErr: " + System::getErrString() );
+   }
+   else
+   { // parse contents
+      unsigned outLen;
+      retVal = deserialize(buf, readRes, &outLen);
+   }
+
+   if (retVal)
+      retVal = relinkInodes(*Program::getApp()->getMetaStore());
+
+   if (!retVal)
+      log.logErr("Could not deserialize SessionStore from file: " + filePath);
+
+   free(buf);
+
+err_stat:
+   close(fd);
+
+err_unlock:
+   mutexLock.unlock();
+
+   return retVal;
+}
+
+/**
+ * Note: setStorePath must be called before using this.
+ */
+bool SessionStore::saveToFile(const std::string& filePath)
+{
+   LogContext log("SessionStore (save)");
+   log.log(Log_DEBUG,"save sessions to file: " + filePath);
+
+   bool retVal = false;
+
+   char* buf;
+   unsigned bufLen;
+   ssize_t writeRes;
+
+   if(!filePath.length() )
+      return false;
+
+   SafeMutexLock mutexLock(&mutex); // L O C K
+
+   // create/trunc file
+   int openFlags = O_CREAT|O_TRUNC|O_WRONLY;
+
+   int fd = open(filePath.c_str(), openFlags, 0666);
+   if(fd == -1)
+   { // error
+      log.logErr("Unable to create session file: " + filePath + ". " +
+         "SysErr: " + System::getErrString() );
+
+      goto err_unlock;
+   }
+
+   // file created => store data
+   buf = (char*)malloc(serialLen() );
+   bufLen = serialize(buf);
+   writeRes = write(fd, buf, bufLen);
+   free(buf);
+
+   if(writeRes != (ssize_t)bufLen)
+   {
+      log.logErr("Unable to store session file: " + filePath + ". " +
+         "SysErr: " + System::getErrString() );
+
+      goto err_closefile;
+   }
+
+   retVal = true;
+
+   LOG_DEBUG_CONTEXT(log, Log_DEBUG, "Session file stored: " + filePath);
+
+   // error compensation
+err_closefile:
+   close(fd);
+
+err_unlock:
+   mutexLock.unlock(); // U N L O C K
+
+   return retVal;
+}
+
+bool sessionStoreMetaEquals(SessionStore& first, SessionStore& second)
+{
+   SessionMapIter firstIter = first.sessions.begin();
+   SessionMapIter secondIter = second.sessions.begin();
+
+   for( ; (firstIter != first.sessions.end() ) && (secondIter != second.sessions.end() );
+      firstIter++, secondIter++ )
+   {
+      if( (*firstIter).first != (*secondIter).first )
+         return false;
+
+      if(!sessionMetaEquals( (*firstIter).second->getReferencedObject(),
+         (*secondIter).second->getReferencedObject() ) )
+         return false;
+   }
+
+   return true;
+}

@@ -1554,8 +1554,8 @@ int FhgfsOps_commit_write(struct file* file, struct page* page, unsigned from, u
 int FhgfsOps_write_begin(struct file* file, struct address_space* mapping,
    loff_t pos, unsigned len, unsigned flags, struct page** pagep, void** fsdata)
 {
-   pgoff_t index = pos >> PAGE_CACHE_SHIFT;
-   loff_t offset = pos & (PAGE_CACHE_SIZE - 1);
+   pgoff_t index = pos >> PAGE_SHIFT;
+   loff_t offset = pos & (PAGE_SIZE - 1);
    loff_t page_start = pos & PAGE_MASK;
 
    loff_t i_size;
@@ -1578,7 +1578,7 @@ int FhgfsOps_write_begin(struct file* file, struct address_space* mapping,
    if(PageUptodate(page) )
       goto clean_up;
 
-   if(len == PAGE_CACHE_SIZE)
+   if(len == PAGE_SIZE)
    {
       // two possibilities:
       // a) full page write => no need to read-update the page from the server
@@ -1593,7 +1593,7 @@ int FhgfsOps_write_begin(struct file* file, struct address_space* mapping,
       // we don't need to read data beyond the end of the file
       //    => zero it, and set the page up-to-date
 
-      zero_user_segments(page, 0, offset, offset + len, PAGE_CACHE_SIZE);
+      zero_user_segments(page, 0, offset, offset + len, PAGE_SIZE);
 
       // note: PageChecked means rest of the page (to which is not being written) is up-to-date.
       //       so when our data is written, the whole page is up-to-date.
@@ -1648,13 +1648,13 @@ int FhgfsOps_write_end(struct file* file, struct address_space* mapping,
       ClearPageChecked(page);
    }
    else
-   if(!PageUptodate(page) && (copied == PAGE_CACHE_SIZE) )
+   if(!PageUptodate(page) && (copied == PAGE_SIZE) )
       SetPageUptodate(page);
 
 
    if(!PageUptodate(page) )
    {
-      unsigned offset = pos & (PAGE_CACHE_SIZE - 1);
+      unsigned offset = pos & (PAGE_SIZE - 1);
       char* buf = kmap(page);
       RemotingIOInfo ioInfo;
       ssize_t writeRes;
@@ -1707,7 +1707,7 @@ int FhgfsOps_write_end(struct file* file, struct address_space* mapping,
    }
 
    unlock_page(page);
-   page_cache_release(page);
+   put_page(page);
 
    // clean-up
 

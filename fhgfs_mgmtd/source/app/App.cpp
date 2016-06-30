@@ -26,6 +26,7 @@
 unsigned const APP_FEATURES[] =
 {
    MGMT_FEATURE_DUMMY,
+   MGMT_FEATURE_DEFAULT_QUOTA,
 };
 
 

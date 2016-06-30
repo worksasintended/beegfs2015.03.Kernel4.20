@@ -1,11 +1,14 @@
 package com.beegfs.admon.gui.components.managers;
 
 import com.beegfs.admon.gui.components.internalframes.JInternalFrameInterface;
+import com.beegfs.admon.gui.program.Main;
+import java.awt.Rectangle;
 import java.beans.PropertyVetoException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JDesktopPane;
 import javax.swing.JToggleButton;
 
 public class FrameManager
@@ -20,6 +23,7 @@ public class FrameManager
    {
       JToggleButton button = new JToggleButton();
       OPEN_FRAMES.put(frame, button);
+      FrameManager.getOpenFrame(frame, true);
    }
 
    public static boolean delFrame(JInternalFrameInterface removeFrame)
@@ -31,7 +35,7 @@ public class FrameManager
          {
             if (frame.isEqual(removeFrame))
             {
-               FrameManager.getOpenFrame(frame);
+               FrameManager.getOpenFrame(frame, false);
                OPEN_FRAMES.remove(frame);
                return true;
             }
@@ -45,7 +49,7 @@ public class FrameManager
       }
    }
 
-   public static boolean isFrameOpen(JInternalFrameInterface newFrame)
+   public static boolean isFrameOpen(JInternalFrameInterface newFrame, boolean focusFrame)
    {
       HashSet<JInternalFrameInterface> keySet = new HashSet<>(OPEN_FRAMES.keySet());
       try
@@ -54,7 +58,7 @@ public class FrameManager
          {
             if (frame.isEqual(newFrame))
             {
-               FrameManager.getOpenFrame(frame);
+               FrameManager.getOpenFrame(frame, focusFrame);
                return true;
             }
          }
@@ -66,7 +70,15 @@ public class FrameManager
       return false;
    }
 
-   public static JInternalFrameInterface getOpenFrame(JInternalFrameInterface newFrame)
+   public static void focusFrameInDesktopPane(JInternalFrameInterface frame)
+   {
+      JDesktopPane desktop = Main.getMainWindow().getDesktopPane();
+      Rectangle bounds = new Rectangle();
+      desktop.scrollRectToVisible(frame.getBounds(bounds));
+   }
+
+   public static JInternalFrameInterface getOpenFrame(JInternalFrameInterface newFrame,
+      boolean focusFrame)
    {
       HashSet<JInternalFrameInterface> keySet = new HashSet<>(OPEN_FRAMES.keySet());
       try
@@ -80,6 +92,12 @@ public class FrameManager
                {
                   f.setIcon(false);
                   f.toFront();
+                  f.setSelected(true);
+
+                  if(focusFrame)
+                  {
+                     focusFrameInDesktopPane(f);
+                  }
                }
                catch (PropertyVetoException ex)
                {

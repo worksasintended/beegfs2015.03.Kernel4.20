@@ -97,6 +97,8 @@ public class JInternalFrameLogFile extends javax.swing.JInternalFrame implements
       jTextPaneLogfile = new javax.swing.JTextPane();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()
       {

@@ -495,7 +495,7 @@ void __FhgfsOpsCommKitVec_readfileStageHandlePages(CommKitVecHelper* commHelper,
 
       FhgfsOpsPages_endReadPage(commHelper->log, inode, fhgfsPage, readRes);
 
-      readRes -= PAGE_CACHE_SIZE;
+      readRes -= PAGE_SIZE;
       pgCount++;
    }
 

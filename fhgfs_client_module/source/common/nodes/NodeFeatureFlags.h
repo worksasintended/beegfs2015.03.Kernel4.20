@@ -20,6 +20,7 @@
 // mgmtd feature flags
 
 #define MGMT_FEATURE_DUMMY          0
+#define MGMT_FEATURE_DEFAULT_QUOTA  1
 
 
 // meta feature flags

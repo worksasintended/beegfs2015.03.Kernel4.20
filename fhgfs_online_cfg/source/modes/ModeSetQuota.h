@@ -6,8 +6,8 @@
 #include <common/storage/quota/QuotaData.h>
 #include <common/net/message/storage/quota/SetQuotaMsg.h>
 
-
 #include "Mode.h"
+
 
 
 /**
@@ -38,6 +38,7 @@ class ModeSetQuota : public Mode
          cfg.cfgSizeLimit = 0;
          cfg.cfgInodeLimit = 0;
          cfg.cfgFilePath = "";
+         cfg.cfgDefaultLimits = false;
       }
 
       virtual int execute();
@@ -54,6 +55,7 @@ class ModeSetQuota : public Mode
       int checkConfig(StringMap* cfg);
       int readFromFile(std::string pathToFile, QuotaDataType quotaType);
       bool uploadQuotaLimitsAndCollectResponses(Node* mgmtNode);
+      bool uploadDefaultQuotaLimitsAndCollectResponses(Node* mgmtNode);
       int getMaxMessageCount();
       void prepareMessage(int messageNumber, SetQuotaMsg* msg);
 };

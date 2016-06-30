@@ -1175,6 +1175,8 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
       jPopupMenuClient.add(jMenuItemDeleteSelectedClient);
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setPreferredSize(new java.awt.Dimension(915, 715));
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()
@@ -1272,7 +1274,6 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
 
       jPanelRolesConf.add(jPanelRolesHeader, java.awt.BorderLayout.NORTH);
 
-      jPanelRoleLists.setBorder(null);
       jPanelRoleLists.setLayout(new javax.swing.BoxLayout(jPanelRoleLists, javax.swing.BoxLayout.LINE_AXIS));
 
       jScrollPaneRoleMeta.setBorder(null);
@@ -2337,7 +2338,7 @@ public class JInternalFrameInstallationConfig extends javax.swing.JInternalFrame
              } //check if all changes are saved and than open the install dialog
              checkWholeConfigSaved();
              JInternalFrame frame = new JInternalFrameInstall();
-             if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame))
+             if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame, true))
              {
                 Main.getMainWindow().getDesktopPane().add(frame);
                 frame.setVisible(true);

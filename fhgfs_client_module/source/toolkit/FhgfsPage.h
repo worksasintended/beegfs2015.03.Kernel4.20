@@ -34,7 +34,7 @@ void FhgfsPage_unmapUnlockReleasePage(struct page* page)
 
    unlock_page(page);
 
-   page_cache_release(page);
+   put_page(page);
 }
 
 

@@ -72,7 +72,7 @@ _beegfs-ctl()
                ;;
 
             --getquota)
-               opts="$mclh --uid --gid --all --list --range --withzero --withsystem --csv"
+               opts="$mclh --uid --gid --all --list --range --withzero --withsystem --default --csv"
                ;;
 
             --getentryinfo)
@@ -105,11 +105,11 @@ _beegfs-ctl()
 
             --setquota)
                opts="$mclh --uid --gid --all --list --range --file= --withzero --sizelimit= \
-                  --inodelimit="
+                  --inodelimit= --default"
                ;;
 
             --addmirrorgroup)
-               opts="$mclh --primary= --secondary= --groupid= --automatic"
+               opts="$mclh --primary= --secondary= --groupid= --automatic --force --dryrun --uniquegroupid"
                ;;
 
             --listmirrorgroups)

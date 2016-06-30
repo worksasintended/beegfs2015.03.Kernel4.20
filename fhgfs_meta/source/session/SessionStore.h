@@ -18,6 +18,8 @@ typedef SessionList::iterator SessionListIter;
 
 class SessionStore
 {
+      friend class TestSerialization; // for testing
+
    public:
       SessionStore() {}
       
@@ -28,7 +30,27 @@ class SessionStore
       
       size_t getAllSessionIDs(StringList* outSessionIDs);
       size_t getSize();
-   
+
+      unsigned serialize(char* buf);
+      bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+      unsigned serialLen();
+
+      bool loadFromFile(const std::string& filePath);
+      bool saveToFile(const std::string& filePath);
+
+      friend bool sessionStoreMetaEquals(SessionStore& first, SessionStore& second);
+      bool relinkInodes(MetaStore& store)
+      {
+         bool result = true;
+
+         for (SessionMapIter it = sessions.begin(); it != sessions.end(); ++it)
+            result &= it->second->getReferencedObject()->relinkInodes(store);
+
+         return result;
+      }
+
+
+
    private:
       SessionMap sessions;
       

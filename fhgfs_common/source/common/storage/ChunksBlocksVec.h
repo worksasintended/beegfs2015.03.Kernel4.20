@@ -65,7 +65,7 @@ class ChunksBlocksVec
 
          if (unlikely(target > this->numStripeTargets - 1) )
          {
-            LogContext(logContext).logErr("Bug: target number larget than stripes");
+            LogContext(logContext).logErr("Bug: target number larger than stripes");
             LogContext(logContext).logBacktrace();
             return 0;
          }
@@ -76,10 +76,10 @@ class ChunksBlocksVec
       /**
        * Get the sum of all used blocks of all targets
        */
-      uint64_t getBlockSum()
+      uint64_t getBlockSum() const
       {
          uint64_t sum = 0;
-         UInt64VectorIter iter = this->chunkBlocksVec.begin();
+         UInt64VectorConstIter iter = this->chunkBlocksVec.begin();
 
          while (iter != this->chunkBlocksVec.end() )
          {
@@ -92,7 +92,7 @@ class ChunksBlocksVec
 
       // inlined
 
-      size_t serialize(char* buf)
+      size_t serialize(char* buf) const
       {
          size_t bufPos = 0;
 
@@ -126,6 +126,29 @@ class ChunksBlocksVec
          return true;
       }
 
+      size_t serializeLen() const
+      {
+         return Serialization::serialLenUInt64Vector(&this->chunkBlocksVec);
+      }
+
+      static bool chunksBlocksVecEquals(const ChunksBlocksVec& first, const ChunksBlocksVec& second)
+      {
+         if(first.numStripeTargets != second.numStripeTargets)
+            return false;
+
+         if(first.chunkBlocksVec.size() != second.chunkBlocksVec.size() )
+            return false;
+
+         UInt64VectorConstIter firstIter = first.chunkBlocksVec.begin();
+         UInt64VectorConstIter secondIter = second.chunkBlocksVec.begin();
+         for(; firstIter != first.chunkBlocksVec.end(); firstIter++, secondIter++)
+         {
+            if(*firstIter != *secondIter)
+               return false;
+         }
+
+         return true;
+      }
 };
 
 

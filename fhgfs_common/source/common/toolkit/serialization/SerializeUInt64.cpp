@@ -10,7 +10,7 @@
 /**
  * Serialization of an UInt64List.
  */
-unsigned Serialization::serializeUInt64List(char* buf, UInt64List* list)
+unsigned Serialization::serializeUInt64List(char* buf, const UInt64List* list)
 {
    unsigned requiredLen = serialLenUInt64List(list);
 
@@ -96,7 +96,7 @@ bool Serialization::deserializeUInt64List(unsigned listBufLen, unsigned elemNum,
    return true;
 }
 
-unsigned Serialization::serialLenUInt64List(UInt64List* list)
+unsigned Serialization::serialLenUInt64List(const UInt64List* list)
 {
    // bufLen-field + numElems-field + numElems*elemSize
    unsigned requiredLen = serialLenUInt() + serialLenUInt() + list->size()*serialLenUInt64();
@@ -123,7 +123,7 @@ unsigned Serialization::serialLenUInt64List(size_t size)
 /**
  * Serialize an unsigned integer64 vector
  */
-unsigned Serialization::serializeUInt64Vector(char* buf, UInt64Vector* vec)
+unsigned Serialization::serializeUInt64Vector(char* buf, const UInt64Vector* vec)
 {
    unsigned requiredLen = serialLenUInt64Vector(vec);
    unsigned listSize = vec->size();
@@ -189,7 +189,7 @@ bool Serialization::deserializeUInt64Vector(unsigned vecBufLen, unsigned elemNum
    return true;
 }
 
-unsigned Serialization::serialLenUInt64Vector(UInt64Vector* vec)
+unsigned Serialization::serialLenUInt64Vector(const UInt64Vector* vec)
 {
    // bufLen-field + numElems-field + numElems*elemSize
    unsigned requiredLen = serialLenUInt() + serialLenUInt() + vec->size()*serialLenUInt64();

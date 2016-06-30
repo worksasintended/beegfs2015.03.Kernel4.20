@@ -193,6 +193,10 @@ class App : public AbstractApp
       void registerSignalHandler();
       static void signalHandler(int sig);
 
+      bool restoreSessions();
+      bool storeSessions();
+      bool deleteSessionFiles();
+
 
    public:
       // inliners

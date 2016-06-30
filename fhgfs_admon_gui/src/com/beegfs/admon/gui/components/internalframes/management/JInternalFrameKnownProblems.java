@@ -78,6 +78,8 @@ public class JInternalFrameKnownProblems extends javax.swing.JInternalFrame impl
       jPanelFrame = new javax.swing.JPanel();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setMinimumSize(new java.awt.Dimension(0, 0));
       setPreferredSize(new java.awt.Dimension(440, 180));

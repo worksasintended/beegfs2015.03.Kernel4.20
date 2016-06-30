@@ -9,7 +9,21 @@ class Session
 {
    public:
       Session(std::string sessionID) : sessionID(sessionID) {}
-   
+
+      /*
+       * For deserialization only
+       */
+      Session() {};
+
+      void mergeSessionFiles(Session* session);
+
+      unsigned serialize(char* buf);
+      bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+      unsigned serialLen();
+
+      friend bool sessionMetaEquals(Session* first, Session* second);
+
+
    private:
       std::string sessionID;
       
@@ -27,6 +41,11 @@ class Session
          return &files;
       }
       
+      bool relinkInodes(MetaStore& store)
+      {
+         return files.relinkInodes(store);
+      }
+
 };
 
 

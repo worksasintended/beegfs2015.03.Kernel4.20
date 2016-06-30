@@ -235,6 +235,8 @@ public class JInternalFrameMetaNode extends javax.swing.JInternalFrame implement
       jLabelStatus = new javax.swing.JLabel();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setPreferredSize(new java.awt.Dimension(824, 715));
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()

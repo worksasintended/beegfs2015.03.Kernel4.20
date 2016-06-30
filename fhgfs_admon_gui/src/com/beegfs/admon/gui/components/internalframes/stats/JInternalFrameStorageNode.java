@@ -254,6 +254,8 @@ public class JInternalFrameStorageNode extends javax.swing.JInternalFrame implem
       jLabelStatus = new javax.swing.JLabel();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()
       {

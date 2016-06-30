@@ -84,7 +84,13 @@ class StripePattern
          return getSerialPatternLength();
       }
 
-      
+      // testing
+
+      bool stripePatternEquals(const StripePattern* second) const;
+
+      virtual bool patternEquals(const StripePattern* second, bool checkHeader) const = 0;
+
+
    protected:
       /**
        * @param chunkSize 0 for app-level default
@@ -102,14 +108,16 @@ class StripePattern
       virtual void serializePattern(char* buf) = 0;
       virtual bool deserializePattern(const char* buf, size_t bufLen) = 0;
       virtual unsigned serialLen() = 0;
-      
+
       // getters & setters
 
       void setPatternType(unsigned patternType)
       {
          this->patternType = patternType;
       }
-      
+
+      bool headerEquals(const StripePattern* second) const;
+
 
    private:
       unsigned patternType; // STRIPEPATTERN_...

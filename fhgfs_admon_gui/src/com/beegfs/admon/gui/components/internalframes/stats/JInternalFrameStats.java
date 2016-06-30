@@ -642,6 +642,8 @@ public class JInternalFrameStats extends javax.swing.JInternalFrame implements
       jTableStatistics = new javax.swing.JTable();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setTitle(getFrameTitle());
       setDoubleBuffered(true);
@@ -708,7 +710,7 @@ public class JInternalFrameStats extends javax.swing.JInternalFrame implements
       jPanelLineCountLayout.setHorizontalGroup(
          jPanelLineCountLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanelLineCountLayout.createSequentialGroup()
-            .addContainerGap(16, Short.MAX_VALUE)
+            .addContainerGap(15, Short.MAX_VALUE)
             .addComponent(jLabelLineCount)
             .addGap(6, 6, 6)
             .addComponent(jSpinnerLineCount, javax.swing.GroupLayout.PREFERRED_SIZE, 63, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -746,7 +748,7 @@ public class JInternalFrameStats extends javax.swing.JInternalFrame implements
       jPanelIntervalLayout.setHorizontalGroup(
          jPanelIntervalLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(jPanelIntervalLayout.createSequentialGroup()
-            .addContainerGap(20, Short.MAX_VALUE)
+            .addContainerGap(14, Short.MAX_VALUE)
             .addComponent(jLabelInterval)
             .addGap(10, 10, 10)
             .addComponent(jSpinnerInterval, javax.swing.GroupLayout.PREFERRED_SIZE, 60, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -774,7 +776,7 @@ public class JInternalFrameStats extends javax.swing.JInternalFrame implements
       jPanelSetConfigLayout.setHorizontalGroup(
          jPanelSetConfigLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
          .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanelSetConfigLayout.createSequentialGroup()
-            .addContainerGap(13, Short.MAX_VALUE)
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addComponent(jButtonSetConfig)
             .addContainerGap())
       );
@@ -804,7 +806,7 @@ public class JInternalFrameStats extends javax.swing.JInternalFrame implements
                .addComponent(jPanelInterval, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 28, Short.MAX_VALUE))
             .addGap(0, 0, Short.MAX_VALUE))
          .addGroup(jPanelConfigLayout.createSequentialGroup()
-            .addComponent(jPanelSetConfig, javax.swing.GroupLayout.DEFAULT_SIZE, 30, Short.MAX_VALUE)
+            .addComponent(jPanelSetConfig, javax.swing.GroupLayout.DEFAULT_SIZE, 26, Short.MAX_VALUE)
             .addContainerGap())
       );
 
@@ -829,7 +831,7 @@ public class JInternalFrameStats extends javax.swing.JInternalFrame implements
          .addGroup(jPanelFilterLayout.createSequentialGroup()
             .addContainerGap()
             .addComponent(jButtonSetFilter)
-            .addContainerGap(14, Short.MAX_VALUE))
+            .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
       );
       jPanelFilterLayout.setVerticalGroup(
          jPanelFilterLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)

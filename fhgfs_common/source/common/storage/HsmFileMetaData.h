@@ -38,9 +38,12 @@ class HsmFileMetaData
          this->offlineChunkCount = offlineChunkCount;
       }
 
-      size_t serialize(char* outBuf);
+      size_t serialize(char* outBuf) const;
       bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
-      unsigned serialLen();
+      unsigned serialLen() const;
+
+      friend bool hsmFileMetaDataEquals(const HsmFileMetaData& first,
+         const HsmFileMetaData& second);
 
    private:
       HsmCollocationID collocationID; // collocation ID for HSM

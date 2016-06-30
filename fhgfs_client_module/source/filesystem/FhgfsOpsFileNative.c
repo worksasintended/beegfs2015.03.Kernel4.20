@@ -40,16 +40,16 @@ void beegfs_native_release()
 enum
 {
    PVR_FIRST_SHIFT = 0,
-   PVR_FIRST_MASK = ~PAGE_CACHE_MASK << PVR_FIRST_SHIFT,
+   PVR_FIRST_MASK = ~PAGE_MASK << PVR_FIRST_SHIFT,
 
-   PVR_LAST_SHIFT = PAGE_CACHE_SHIFT,
-   PVR_LAST_MASK = ~PAGE_CACHE_MASK << PVR_LAST_SHIFT,
+   PVR_LAST_SHIFT = PAGE_SHIFT,
+   PVR_LAST_MASK = ~PAGE_MASK << PVR_LAST_SHIFT,
 };
 
 static void pvr_init(struct page* page)
 {
    // pvr values *must* fit into the unsigned long private of struct page
-   BUILD_BUG_ON(PVR_LAST_SHIFT + PAGE_CACHE_SHIFT > 8 * sizeof(unsigned long) );
+   BUILD_BUG_ON(PVR_LAST_SHIFT + PAGE_SHIFT > 8 * sizeof(unsigned long) );
 
    SetPagePrivate(page);
    ClearPageChecked(page);
@@ -279,8 +279,8 @@ static int beegfs_release_range(struct file* filp, loff_t first, loff_t last)
    int writeRes;
 
    // expand range to fit full pages
-   first &= PAGE_CACHE_MASK;
-   last |= ~PAGE_CACHE_MASK;
+   first &= PAGE_MASK;
+   last |= ~PAGE_MASK;
 
    clear_bit(AS_EIO, &filp->f_mapping->flags);
 
@@ -309,8 +309,8 @@ static int beegfs_acquire_range(struct file* filp, loff_t first, loff_t last)
    int err;
 
    // expand range to fit full pages
-   first &= PAGE_CACHE_MASK;
-   last |= ~PAGE_CACHE_MASK;
+   first &= PAGE_MASK;
+   last |= ~PAGE_MASK;
 
    err = beegfs_release_range(filp, first, last);
    if(err)
@@ -320,8 +320,7 @@ static int beegfs_acquire_range(struct file* filp, loff_t first, loff_t last)
    if(err)
       return err;
 
-   err = invalidate_inode_pages2_range(filp->f_mapping, first >> PAGE_CACHE_SHIFT,
-      last >> PAGE_CACHE_SHIFT);
+   err = invalidate_inode_pages2_range(filp->f_mapping, first >> PAGE_SHIFT, last >> PAGE_SHIFT);
    return err;
 }
 
@@ -341,7 +340,7 @@ static int beegfs_open(struct inode* inode, struct file* filp)
       return err;
 
    FsFileInfo_getIOInfo(__FhgfsOps_getFileInfo(filp), BEEGFS_INODE(inode), &ioInfo);
-   if(ioInfo.pattern->chunkSize % PAGE_CACHE_SIZE)
+   if(ioInfo.pattern->chunkSize % PAGE_SIZE)
    {
       FhgfsOpsHelper_logOpMsg(1, app, filp->f_dentry, inode, __func__,
          "chunk size is not a multiple of PAGE_SIZE!");
@@ -404,7 +403,7 @@ static struct append_range_descriptor* beegfs_get_or_create_ard(struct address_s
    if(ard->fileOffset >= 0)
       goto replace_ard;
 
-   if(ard->firstPageIndex * PAGE_CACHE_SIZE + ard->firstPageStart + ard->size < begin)
+   if(ard->firstPageIndex * PAGE_SIZE + ard->firstPageStart + ard->size < begin)
       goto replace_ard;
 
    ard->size += newData;
@@ -777,7 +776,7 @@ static int beegfs_wps_prepare(struct beegfs_writepages_state* state, loff_t* off
       return err;
 
    *offset = ard->fileOffset;
-   appendEnd = ard->firstPageIndex * PAGE_CACHE_SIZE + ard->firstPageStart + ard->dataPresent;
+   appendEnd = ard->firstPageIndex * PAGE_SIZE + ard->firstPageStart + ard->dataPresent;
 
    for(i = 0; i < state->nr_pages; i++)
    {
@@ -791,7 +790,7 @@ static int beegfs_wps_prepare(struct beegfs_writepages_state* state, loff_t* off
 
       state->iov[i].iov_base = page_address(page) + offsetInPage;
       state->iov[i].iov_len = min_t(size_t, appendEnd - (page_offset(page) + offsetInPage),
-            PAGE_CACHE_SIZE - offsetInPage);
+            PAGE_SIZE - offsetInPage);
 
       *size += state->iov[i].iov_len;
    }
@@ -901,7 +900,7 @@ static bool beegfs_wps_must_flush_before(struct beegfs_writepages_state* state, 
       if(pvr_get_first(next) != 0)
          return true;
 
-      if(pvr_get_last(state->pages[state->nr_pages - 1]) != PAGE_CACHE_SIZE - 1)
+      if(pvr_get_last(state->pages[state->nr_pages - 1]) != PAGE_SIZE - 1)
          return true;
 
       if(!pvr_present(state->pages[state->nr_pages - 1]) )
@@ -1062,9 +1061,7 @@ static int beegfs_readpage(struct file* filp, struct page* page)
    if(BEEGFS_SHOULD_FAIL(readpage, 1) )
       goto out;
 
-   // TODO: handle sparse files correctly here, but first we need a sensible consistency model
-   // for inode sizes
-   readRes = FhgfsOpsRemoting_readfile(page_address(page), PAGE_CACHE_SIZE, offset, &ioInfo,
+   readRes = FhgfsOpsRemoting_readfile(page_address(page), PAGE_SIZE, offset, &ioInfo,
       fhgfsInode);
 
    if(readRes < 0)
@@ -1073,11 +1070,11 @@ static int beegfs_readpage(struct file* filp, struct page* page)
       goto out;
    }
 
-   if(readRes < PAGE_CACHE_SIZE)
-      memset(page_address(page) + readRes, 0, PAGE_CACHE_SIZE - readRes);
+   if(readRes < PAGE_SIZE)
+      memset(page_address(page) + readRes, 0, PAGE_SIZE - readRes);
 
    readRes = 0;
-   task_io_account_read(PAGE_CACHE_SIZE);
+   task_io_account_read(PAGE_SIZE);
 
 out:
    page_endio(page, READ, readRes);
@@ -1124,7 +1121,7 @@ static int beegfs_readpages_submit(struct beegfs_readpages_state* state)
    }
 
    BEEGFS_IOV_ITER_INIT(&iter, READ, state->iov, state->nr_pages,
-      state->nr_pages * PAGE_CACHE_SIZE);
+      state->nr_pages * PAGE_SIZE);
 
    // TODO: handle sparse files better (see readpage)
    // currently, this simply fails readahead for sparse files and has readpage fix it
@@ -1136,12 +1133,12 @@ static int beegfs_readpages_submit(struct beegfs_readpages_state* state)
    if(err < 0)
       goto endio;
 
-   validPages = readRes / PAGE_CACHE_SIZE;
+   validPages = readRes / PAGE_SIZE;
 
-   if(readRes % PAGE_CACHE_SIZE != 0)
+   if(readRes % PAGE_SIZE != 0)
    {
-      int start = readRes % PAGE_CACHE_SIZE;
-      memset(page_address(state->pages[validPages]) + start, 0, PAGE_CACHE_SIZE - start);
+      int start = readRes % PAGE_SIZE;
+      memset(page_address(state->pages[validPages]) + start, 0, PAGE_SIZE - start);
       validPages += 1;
    }
 
@@ -1181,7 +1178,7 @@ static int beegfs_readpages_add_page(void* data, struct page* page)
 
    state->pages[state->nr_pages] = page;
    state->iov[state->nr_pages].iov_base = page_address(page);
-   state->iov[state->nr_pages].iov_len = PAGE_CACHE_SIZE;
+   state->iov[state->nr_pages].iov_len = PAGE_SIZE;
    state->nr_pages += 1;
 
    return 0;
@@ -1256,7 +1253,7 @@ static int __beegfs_write_begin(struct file* filp, loff_t pos, unsigned len, str
       if(!pvr_present(page) )
          goto success;
 
-      if(pvr_can_merge(page, pos & ~PAGE_CACHE_MASK, (pos & ~PAGE_CACHE_MASK) + len - 1))
+      if(pvr_can_merge(page, pos & ~PAGE_MASK, (pos & ~PAGE_MASK) + len - 1))
          goto success;
    }
 
@@ -1274,7 +1271,7 @@ success:
 
 out_err:
    unlock_page(page);
-   page_cache_release(page);
+   put_page(page);
    return result;
 }
 
@@ -1307,7 +1304,7 @@ static int __beegfs_write_end(struct file* filp, loff_t pos, unsigned len, unsig
       {
          mutex_lock(&ard->mtx);
          ard->firstPageIndex = page->index;
-         ard->firstPageStart = pos & ~PAGE_CACHE_MASK;
+         ard->firstPageStart = pos & ~PAGE_MASK;
          mutex_unlock(&ard->mtx);
       }
 
@@ -1324,12 +1321,12 @@ static int __beegfs_write_end(struct file* filp, loff_t pos, unsigned len, unsig
    }
 
    if(pvr_present(page) )
-      pvr_merge(page, pos & ~PAGE_CACHE_MASK, (pos & ~PAGE_CACHE_MASK) + copied - 1);
+      pvr_merge(page, pos & ~PAGE_MASK, (pos & ~PAGE_MASK) + copied - 1);
    else
    {
       pvr_init(page);
-      pvr_set_first(page, pos & ~PAGE_CACHE_MASK);
-      pvr_set_last(page, (pos & ~PAGE_CACHE_MASK) + copied - 1);
+      pvr_set_first(page, pos & ~PAGE_MASK);
+      pvr_set_last(page, (pos & ~PAGE_MASK) + copied - 1);
    }
 
 out:
@@ -1337,7 +1334,7 @@ out:
    __set_page_dirty_nobuffers(page);
 
    unlock_page(page);
-   page_cache_release(page);
+   put_page(page);
 
    return result;
 }
@@ -1356,7 +1353,7 @@ static int beegfs_commit_write(struct file* filp, struct page* page, unsigned fr
 static int beegfs_write_begin(struct file* filp, struct address_space* mapping, loff_t pos,
    unsigned len, unsigned flags, struct page** pagep, void** fsdata)
 {
-   pgoff_t index = pos >> PAGE_CACHE_SHIFT;
+   pgoff_t index = pos >> PAGE_SHIFT;
 
    *pagep = grab_cache_page_write_begin(mapping, index, flags);
    if(!*pagep)
@@ -1400,7 +1397,7 @@ static int beegfs_set_page_dirty(struct page* page)
 
    pvr_init(page);
    pvr_set_first(page, 0);
-   pvr_set_last(page, PAGE_CACHE_SIZE - 1);
+   pvr_set_last(page, PAGE_SIZE - 1);
    return __set_page_dirty_nobuffers(page);
 }
 
@@ -1411,7 +1408,7 @@ static void __beegfs_invalidate_page(struct page* page, unsigned begin, unsigned
       unsigned pvr_begin = pvr_get_first(page);
       unsigned pvr_end = pvr_get_last(page);
 
-      if(begin == 0 && end == PAGE_CACHE_SIZE)
+      if(begin == 0 && end == PAGE_SIZE)
       {
          pvr_clear(page);
          ClearPageUptodate(page);

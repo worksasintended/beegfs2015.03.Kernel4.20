@@ -634,6 +634,8 @@ public class JInternalFrameUninstall extends javax.swing.JInternalFrame implemen
       jButtonInstall = new javax.swing.JButton();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()
       {

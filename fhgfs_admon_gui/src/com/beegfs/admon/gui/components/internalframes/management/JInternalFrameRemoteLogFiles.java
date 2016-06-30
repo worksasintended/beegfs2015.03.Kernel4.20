@@ -69,6 +69,8 @@ public class JInternalFrameRemoteLogFiles extends javax.swing.JInternalFrame
          GET_LOGFILE_BASE_URL);
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()
       {

@@ -67,8 +67,8 @@ class LookupIntentRespMsg : public NetMessage
          if(this->responseFlags & LOOKUPINTENTRESPMSG_FLAG_STAT)
          {
             msgLength +=
-               Serialization::serialLenInt() + // statResult
-               this->statData.serialLen();    // statData
+               Serialization::serialLenInt() +                 // statResult
+               this->statData.serialLen(false, true, true);    // statData
          }
 
          if(this->responseFlags & LOOKUPINTENTRESPMSG_FLAG_REVALIDATE)

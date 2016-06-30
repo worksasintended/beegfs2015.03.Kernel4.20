@@ -83,15 +83,18 @@ void Config::loadDefaults(bool addDashes)
 
    configMapRedefine("pidFile",                         "");
 
-   configMapRedefine("quotaEnableEnforcement",           "false");
+   configMapRedefine("quotaEnableEnforcement",          "false");
    configMapRedefine("quotaNofificationMethod",         "disabled");
    configMapRedefine("quotaNotfificationIntervalMin",   "360");
    configMapRedefine("quotaAdminEmailAddress",          "");
    configMapRedefine("quotaUpdateIntervalMin",          "10");
    configMapRedefine("quotaStoreIntervalMin",           "10");
    configMapRedefine("quotaQueryType",                  MGMT_QUOTA_QUERY_TYPE_SYSTEM_STR);
+   configMapRedefine("quotaQueryUIDFile",               "");
+   configMapRedefine("quotaQueryGIDFile",               "");
    configMapRedefine("quotaQueryUIDRange",              "");
    configMapRedefine("quotaQueryGIDRange",              "");
+   configMapRedefine("quotaQueryWithSystemUsersGroups", "false");
 }
 
 /**
@@ -264,11 +267,20 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw(InvalidC
       if(iter->first == std::string("quotaQueryType") )
          quotaQueryType = iter->second;
       else
+      if(iter->first == std::string("quotaQueryUIDFile") )
+         quotaQueryUIDFile = iter->second;
+      else
+      if(iter->first == std::string("quotaQueryGIDFile") )
+         quotaQueryGIDFile = iter->second;
+      else
       if(iter->first == std::string("quotaQueryUIDRange") )
          quotaQueryUIDRange = iter->second;
       else
       if(iter->first == std::string("quotaQueryGIDRange") )
          quotaQueryGIDRange = iter->second;
+      else
+      if(iter->first == std::string("quotaQueryWithSystemUsersGroups") )
+         quotaQueryWithSystemUsersGroups = StringTk::strToBool(iter->second);
       else
       { // unknown element occurred
          unknownElement = true;
@@ -325,9 +337,10 @@ void Config::initQuotaQueryTypeNum() throw(InvalidConfigException)
 {
    if(this->quotaQueryType == MGMT_QUOTA_QUERY_TYPE_SYSTEM_STR)
       this->quotaQueryTypeNum = MgmtQuotaQueryType_SYSTEM;
-   else
-   if(this->quotaQueryType == MGMT_QUOTA_QUERY_TYPE_RANGE_STR)
+   else if(this->quotaQueryType == MGMT_QUOTA_QUERY_TYPE_RANGE_STR)
       this->quotaQueryTypeNum = MgmtQuotaQueryType_RANGE;
+   else if(this->quotaQueryType == MGMT_QUOTA_QUERY_TYPE_FILE_STR)
+      this->quotaQueryTypeNum = MgmtQuotaQueryType_FILE;
    else
       throw InvalidConfigException("Invalid quota query type specified: " + quotaQueryType);
 }

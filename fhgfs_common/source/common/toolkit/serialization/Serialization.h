@@ -99,6 +99,14 @@ class Serialization
          const char* listStart, StringVector* outVec);
       static unsigned serialLenStringVec(StringVector* vec);
 
+      // stringSet (de)serialization
+      static unsigned serializeStringSet(char* buf, const StringSet* set);
+      static bool deserializeStringSetPreprocess(const char* buf, size_t bufLen,
+         unsigned* outElemNum, const char** outSetStart, unsigned* outSetBufLen);
+      static bool deserializeStringSet(unsigned setBufLen, unsigned elemNum,
+         const char* setStart, StringSet* outSet);
+      static unsigned serialLenStringSet(const StringSet* set);
+
       // UIntList (de)serialization
       static unsigned serializeUIntList(char* buf, UIntList* list);
       static bool deserializeUIntListPreprocess(const char* buf, size_t bufLen,
@@ -195,21 +203,21 @@ class Serialization
       static unsigned serialLenInt64Vector(Int64Vector* vec);
 
       // UInt64List (de)serialization
-      static unsigned serializeUInt64List(char* buf, UInt64List* list);
+      static unsigned serializeUInt64List(char* buf, const UInt64List* list);
       static bool deserializeUInt64ListPreprocess(const char* buf, size_t bufLen,
          unsigned* outElemNum, const char** outListStart, unsigned* outListBufLen);
       static bool deserializeUInt64List(unsigned listBufLen, unsigned elemNum,
          const char* listStart, UInt64List* outList);
-      static unsigned serialLenUInt64List(UInt64List* list);
+      static unsigned serialLenUInt64List(const UInt64List* list);
       static unsigned serialLenUInt64List(size_t size);
 
       // UInt64Vector (de)serialization
-      static unsigned serializeUInt64Vector(char* buf, UInt64Vector* vec);
+      static unsigned serializeUInt64Vector(char* buf, const UInt64Vector* vec);
       static bool deserializeUInt64VectorPreprocess(const char* buf, size_t bufLen,
          unsigned* outElemNum, const char** outListStart, unsigned* outVecBufLen);
       static bool deserializeUInt64Vector(unsigned vecBufLen, unsigned elemNum,
          const char* outVecStart, UInt64Vector* outVec);
-      static unsigned serialLenUInt64Vector(UInt64Vector* vec);
+      static unsigned serialLenUInt64Vector(const UInt64Vector* vec);
       static unsigned serialLenUInt64Vector(size_t size);
 
       // BoolList (de)serialization

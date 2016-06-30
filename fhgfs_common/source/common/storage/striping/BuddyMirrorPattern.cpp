@@ -64,6 +64,24 @@ bool BuddyMirrorPattern::updateStripeTargetIDs(StripePattern* updatedStripePatte
    return true;
 }
 
+bool BuddyMirrorPattern::patternEquals(const StripePattern* second, bool checkHeader) const
+{
+   if(checkHeader && (!headerEquals(second) ) )
+      return false;
 
+   BuddyMirrorPattern* pattern = (BuddyMirrorPattern*) second;
 
+   // defaultNumTargets
+   if(this->defaultNumTargets != pattern->getDefaultNumTargets() )
+      return false;
 
+   // stripeTargetIDs
+   if(this->getNumStripeTargetIDs() != pattern->getNumStripeTargetIDs() )
+      return false;
+
+   if(!std::equal(this->mirrorBuddyGroupIDs.begin(), this->mirrorBuddyGroupIDs.end(),
+      pattern->getStripeTargetIDs()->begin() ) )
+      return false;
+
+   return true;
+}

@@ -153,6 +153,8 @@ public class JInternalFrameStriping extends javax.swing.JInternalFrame
       jLabelStorageMirrorIDs = new javax.swing.JLabel();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setMinimumSize(new java.awt.Dimension(0, 0));
       setPreferredSize(new java.awt.Dimension(1000, 400));
@@ -599,7 +601,7 @@ public class JInternalFrameStriping extends javax.swing.JInternalFrame
    private void jButtonFileBrowserActionPerformed(java.awt.event.ActionEvent evt)//GEN-FIRST:event_jButtonFileBrowserActionPerformed
    {//GEN-HEADEREND:event_jButtonFileBrowserActionPerformed
       JInternalFrameFileBrowser frame = new JInternalFrameFileBrowser();
-      if (!FrameManager.isFrameOpen(frame))
+      if (!FrameManager.isFrameOpen(frame, true))
       {
          this.getDesktopPane().add(frame);
          frame.setVisible(true);

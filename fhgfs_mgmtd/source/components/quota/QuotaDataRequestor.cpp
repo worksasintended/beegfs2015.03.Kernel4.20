@@ -23,9 +23,9 @@ bool QuotaDataRequestor::requestQuota(QuotaDataMapForTarget* outQuotaData,
    if(this->cfg.cfgUseAll)
    {
       if(this->cfg.cfgType == QuotaDataType_USER)
-         System::getAllUserIDs(&this->cfg.cfgIDList, true);
+         System::getAllUserIDs(&this->cfg.cfgIDList, !this->cfg.cfgWithSystemUsersGroups);
       else
-         System::getAllGroupIDs(&this->cfg.cfgIDList, true);
+         System::getAllGroupIDs(&this->cfg.cfgIDList, !this->cfg.cfgWithSystemUsersGroups);
    }
 
    //remove all duplicated IDs, the list::unique() needs a sorted list

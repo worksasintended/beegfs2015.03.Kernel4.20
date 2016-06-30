@@ -35,6 +35,12 @@ class DynamicFileAttribs
       int64_t modificationTimeSecs;
       int64_t lastAccessTimeSecs;
 
+      unsigned serialize(char* buf) const;
+      bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+      static unsigned serialLen();
+
+      friend bool dynamicFileAttribsEquals(const DynamicFileAttribs& first,
+         const DynamicFileAttribs& second);
 };
 
 

@@ -40,8 +40,8 @@ class StatRespMsg : public NetMessage
       virtual unsigned calcMessageLength()
       {
          unsigned msgLen = NETMSG_HEADER_LENGTH       +
-            Serialization::serialLenInt()             + // result
-            this->statData.serialLen();                 // statData
+            Serialization::serialLenInt()             +  // result
+            this->statData.serialLen(false, true, true); // statData
 
          if(isMsgHeaderFeatureFlagSet(STATRESPMSG_FLAG_HAS_PARENTINFO) )
          {

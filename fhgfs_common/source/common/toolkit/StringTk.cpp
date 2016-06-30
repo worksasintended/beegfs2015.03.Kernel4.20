@@ -1,4 +1,5 @@
 #include "StringTk.h"
+#include "Random.h"
 
 std::string StringTk::trim(const std::string s)
 {
@@ -418,4 +419,31 @@ bool StringTk::isNumeric(const std::string testString)
    return true;
 }
 
+bool StringTk::stringSetEquals(const StringSet& first, const StringSet& second)
+{
+   if(first.size() != second.size() )
+      return false;
 
+   StringSetCIter firstIter = first.begin();
+   StringSetCIter secondIter = second.begin();
+   for(; firstIter != first.end(); firstIter++, secondIter++)
+   {
+      if(*firstIter != *secondIter)
+         return false;
+   }
+
+   return true;
+}
+
+void StringTk::genRandomAlphaNumericString(std::string& inOutString, const int length)
+{
+   Random rand;
+
+   static const std::string possibleValues =
+           "0123456789"
+           "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+           "abcdefghijklmnopqrstuvwxyz";
+
+   for (int i = 0; i < length; ++i)
+      inOutString.push_back(possibleValues[rand.getNextInRange(0, possibleValues.size() - 1) ] );
+}

@@ -47,6 +47,10 @@ class StringTk
       // inspection
       static bool isNumeric(const std::string testString);
 
+      static bool stringSetEquals(const StringSet& first, const StringSet& second);
+
+      static void genRandomAlphaNumericString(std::string& inOutString, const int length);
+
 
 
       // inline wrappers

@@ -367,7 +367,9 @@ void StorageBenchSlave::run()
 
          LOG_DEBUG(logContext, Log_DEBUG, std::string("Collect response from worker."));
 
-         this->threadData[threadID].neededTime = this->startTime.elapsedMS();
+         if(threadID >= 0)
+            this->threadData[threadID].neededTime = this->startTime.elapsedMS();
+
          this->numThreadsDone++;
       }
 

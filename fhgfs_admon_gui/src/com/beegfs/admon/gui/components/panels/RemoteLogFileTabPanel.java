@@ -216,15 +216,20 @@ public class RemoteLogFileTabPanel extends javax.swing.JPanel
    {
       String logFile = "";
       String node = Node.getNodeIDFromTypedNodeID(typedNodeID);
-      int nodeNumID = Node.getNodeNumIDFromTypedNodeID(typedNodeID);
 
       try
       {
+         int nodeNumID = Node.getNodeNumIDFromTypedNodeID(typedNodeID);
+
          String url = baseUrl + "?service=" + service + "&node=" + node + "&nodeNumID=" +
             String.valueOf(nodeNumID) + "&lines=" + lines;
          XMLParser parser = new XMLParser(url, THREAD_NAME);
          parser.update();
          logFile = parser.getValue("log");
+      }
+      catch (NumberFormatException ex)
+      {
+         LOGGER.log(Level.SEVERE, "Couldn't parse NodeNumID from string: {0}", typedNodeID);
       }
       catch (CommunicationException e)
       {

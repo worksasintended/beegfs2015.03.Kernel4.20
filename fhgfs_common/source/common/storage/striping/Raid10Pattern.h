@@ -49,6 +49,8 @@ class Raid10Pattern : public StripePattern
 
       }
 
+      virtual bool patternEquals(const StripePattern* second, bool checkHeader) const;
+
 
    protected:
       /**

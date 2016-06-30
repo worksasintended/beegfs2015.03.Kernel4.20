@@ -1146,9 +1146,9 @@ int Display::listDirFromOffset(std::string pathStr, int64_t *offset,
          {
             log.logErr("Metadata for entry "+ *nameIter +" could not be read.");
          }
-         SAFE_FREE(respListBuf);
-         SAFE_DELETE(respListDirMsg);
       }
+      SAFE_FREE(respListBuf);
+      SAFE_DELETE(respListDirMsg);
    }
    return 0;
 }

@@ -350,6 +350,8 @@ public class JInternalFrameNotifications extends javax.swing.JInternalFrame
       jTextFieldScript = new javax.swing.JTextField();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setPreferredSize(new java.awt.Dimension(859, 341));
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()

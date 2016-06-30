@@ -34,11 +34,14 @@
 #include <common/net/message/storage/quota/SetExceededQuotaRespMsg.h>
 #include <common/net/message/storage/GetStorageTargetInfoRespMsg.h>
 #include <common/net/message/storage/StatStoragePathRespMsg.h>
+#include <net/message/storage/quota/GetDefaultQuotaMsgEx.h>
+#include <net/message/storage/quota/SetDefaultQuotaMsgEx.h>
 #include <net/message/storage/quota/SetQuotaMsgEx.h>
 #include <net/message/storage/quota/RequestExceededQuotaMsgEx.h>
 #include <net/message/storage/quota/GetQuotaInfoMsgEx.h>
 #include <net/message/storage/GetHighResStatsMsgEx.h>
 #include <net/message/storage/SetStorageTargetInfoMsgEx.h>
+
 
 // admon messages
 #include <net/message/admon/GetNodeInfoMsgEx.h>
@@ -99,6 +102,8 @@ NetMessage* NetMessageFactory::createFromMsgType(unsigned short msgType)
       case NETMSGTYPE_RequestExceededQuota: { msg = new RequestExceededQuotaMsgEx(); } break;
       case NETMSGTYPE_GetQuotaInfo: { msg = new GetQuotaInfoMsgEx(); } break;
       case NETMSGTYPE_GetQuotaInfoResp: { msg = new GetQuotaInfoRespMsg(); } break;
+      case NETMSGTYPE_GetDefaultQuota: { msg = new GetDefaultQuotaMsgEx(); } break;
+      case NETMSGTYPE_SetDefaultQuota: { msg = new SetDefaultQuotaMsgEx(); } break;
 
       // admon messages
       case NETMSGTYPE_GetNodeInfo: { msg = new GetNodeInfoMsgEx(); } break;

@@ -15,10 +15,11 @@ struct QuotaConfig
    bool cfgUseAll;               // true if all available UIDs/GIDs needed
    bool cfgUseList;              // true if a UID/GID list is given
    bool cfgUseRange;             // true if a UID/GID range is given
-   bool cfgCSV;                  // true if csv print (no units and csv) needed
+   bool cfgCsv;                  // true if csv print (no units and csv) needed
    unsigned cfgIDRangeStart;     // the first UIDs/GIDs of a range to collect the quota data/limits
    unsigned cfgIDRangeEnd;       // the last UIDs/GIDs of a range to collect the quota data/limits
    UIntList cfgIDList;           // the list of UIDs/GIDs to collect the quota data/limits
+   bool cfgDefaultLimits;        // true if default quota limits should be set/requested
 };
 
 

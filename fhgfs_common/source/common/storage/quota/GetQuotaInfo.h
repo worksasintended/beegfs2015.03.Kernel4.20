@@ -25,12 +25,14 @@ class GetQuotaInfo
          cfg.cfgUseAll = false;
          cfg.cfgUseList = false;
          cfg.cfgUseRange = false;
-         cfg.cfgCSV = false;
+         cfg.cfgCsv = false;
          cfg.cfgIDRangeStart = 0;
          cfg.cfgIDRangeEnd = 0;
          cfg.cfgTargetSelection = GETQUOTACONFIG_ALL_TARGETS_ONE_REQUEST;
          cfg.cfgTargetNumID = 0;
          cfg.cfgPrintUnused = false;
+         cfg.cfgWithSystemUsersGroups = false;
+         cfg.cfgDefaultLimits = false;
       }
 
       bool requestQuotaDataAndCollectResponses(Node* mgmtNode, NodeStoreServers* storageNodes,

@@ -54,6 +54,14 @@ struct EntryLockDetails
       requests, so it must be a globally unique ID) */
    int lockTypeFlags; // ENTRYLOCKTYPE_...
 
+   unsigned serialize(char* buf) const;
+   bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+   unsigned serialLen() const;
+
+   friend bool entryLockDetailsEquals(const EntryLockDetails& first,
+      const EntryLockDetails& second);
+
+   void initRandomForSerializationTests();
 
    void unset()
    {
@@ -248,6 +256,15 @@ struct RangeLockDetails
 
    uint64_t start;
    uint64_t end; // inclusive end
+
+   unsigned serialize(char* buf) const;
+   bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+   unsigned serialLen() const;
+
+   friend bool rangeLockDetailsEquals(const RangeLockDetails& first,
+      const RangeLockDetails& second);
+
+   void initRandomForSerializationTests();
 
    void unset()
    {

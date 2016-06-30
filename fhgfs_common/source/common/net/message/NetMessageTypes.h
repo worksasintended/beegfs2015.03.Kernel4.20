@@ -157,6 +157,18 @@
 #define NETMSGTYPE_RemoveXAttrResp                 2106
 #define NETMSGTYPE_SetXAttr                        2107
 #define NETMSGTYPE_SetXAttrResp                    2108
+#define NETMSGTYPE_GetDefaultQuota                 2109
+#define NETMSGTYPE_GetDefaultQuotaResp             2110
+#define NETMSGTYPE_SetDefaultQuota                 2111
+#define NETMSGTYPE_SetDefaultQuotaResp             2112
+#define NETMSGTYPE_RetrieveBuddyDirEntries         2113
+#define NETMSGTYPE_RetrieveBuddyDirEntriesResp     2114
+#define NETMSGTYPE_RetrieveBuddyInodes             2115
+#define NETMSGTYPE_RetrieveBuddyInodesResp         2116
+#define NETMSGTYPE_ResyncRawInode                  2117
+#define NETMSGTYPE_ResyncRawInodeResp              2118
+#define NETMSGTYPE_ResyncRawDentry                 2119
+#define NETMSGTYPE_ResyncRawDentryResp             2120
 
 // session messages
 #define NETMSGTYPE_OpenFile                        3001

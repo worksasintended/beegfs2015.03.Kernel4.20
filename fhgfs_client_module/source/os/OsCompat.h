@@ -90,7 +90,11 @@ extern struct dentry* d_materialise_unique(struct dentry *dentry, struct inode *
 static inline int is_32bit_api(void)
 {
 #ifdef CONFIG_COMPAT
+# ifdef in_compat_syscall
+   return in_compat_syscall();
+# else
    return is_compat_task();
+# endif
 #else
    return (BITS_PER_LONG == 32);
 #endif

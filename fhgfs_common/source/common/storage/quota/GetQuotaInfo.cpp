@@ -36,6 +36,7 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
    int maxMessageCount = getMaxMessageCount();
 
    UInt16Vector nodeResults;
+   NodeList allNodes;
 
    MutexMap mutexMap;
 
@@ -73,16 +74,18 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
    { /* download the used quota from the storage daemon, one request for all targets, multiple
         messages will be used if the payload of the message is to small */
 
+      storageNodes->referenceAllNodes(&allNodes);
+
       nodeResults = UInt16Vector(maxMessageCount * storageNodes->getSize() );
 
       // request all subranges (=> msg size limitation) from current server
       for(int messageNumber = 0; messageNumber < maxMessageCount; messageNumber++)
       {
-         Node* storageNode = storageNodes->referenceFirstNode();
-
-         //send command to the storage servers and print the response
-         while(storageNode)
+         for (NodeListIter nodeIt = allNodes.begin(); nodeIt != allNodes.end(); ++nodeIt)
          {
+            //send command to the storage servers and print the response
+            Node* storageNode = *nodeIt;
+
             if(messageNumber == 0)
             {
                QuotaDataMap map;
@@ -100,8 +103,6 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
             workQ->addDirectWork(work);
 
             numWorks++;
-
-            storageNode = storageNodes->referenceNextNodeAndReleaseOld(storageNode);
          }
       }
    }
@@ -110,16 +111,18 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
    { /* download the used quota from the storage daemon, a single request for each target, multiple
         messages will be used if the payload of the message is to small */
 
+      storageNodes->referenceAllNodes(&allNodes);
+
       nodeResults = UInt16Vector(maxMessageCount * mapper->getSize() );
 
       // request all subranges (=> msg size limitation) from current server
       for(int messageNumber = 0; messageNumber < maxMessageCount; messageNumber++)
       {
-         Node* storageNode = storageNodes->referenceFirstNode();
-
-         //send command to the storage servers
-         while(storageNode)
+         for (NodeListIter nodeIt = allNodes.begin(); nodeIt != allNodes.end(); ++nodeIt)
          {
+            Node* storageNode = *nodeIt;
+
+            //send command to the storage servers
             UInt16List targetIDs;
             mapper->getTargetsByNode(storageNode->getNumID(), targetIDs);
 
@@ -145,8 +148,6 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
 
                numWorks++;
             }
-
-            storageNode = storageNodes->referenceNextNodeAndReleaseOld(storageNode);
          }
       }
    }
@@ -155,7 +156,9 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
    { /* download the used quota from the storage daemon, request the data only for a single target,
         multiple messages will be used if the payload of the message is to small */
       uint16_t storageNumID = mapper->getNodeID(this->cfg.cfgTargetNumID);
-      Node* storageNode = storageNodes->referenceNode(storageNumID);
+
+      allNodes.push_back(storageNodes->referenceNode(storageNumID));
+      Node* storageNode = allNodes.front();
 
       // use IntVector because it doesn't work with BoolVector. std::vector<bool> is not a container
       nodeResults = UInt16Vector(maxMessageCount);
@@ -179,8 +182,6 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
 
             numWorks++;
          }
-
-         storageNodes->releaseNode(&storageNode);
       }
       else
       {
@@ -228,6 +229,8 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
          retVal = false;
       }
    }
+
+   storageNodes->releaseAllNodes(&allNodes);
 
    return retVal;
 }

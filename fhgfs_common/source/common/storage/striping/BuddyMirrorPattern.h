@@ -53,7 +53,9 @@ class BuddyMirrorPattern : public StripePattern
             Serialization::serialLenUInt()                            + // defaultNumTargets
             Serialization::serialLenUInt16Vector(&mirrorBuddyGroupIDs); // mirrorBuddyGroupIDs
       };
-      
+
+      virtual bool patternEquals(const StripePattern* second, bool checkHeader) const;
+
 
    private:
       UInt16Vector mirrorBuddyGroupIDs;

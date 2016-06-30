@@ -10,6 +10,7 @@
 typedef ObjectReferencer<SessionFile*> SessionFileReferencer;
 typedef std::map<unsigned, SessionFileReferencer*> SessionFileMap;
 typedef SessionFileMap::iterator SessionFileMapIter;
+typedef SessionFileMap::const_iterator SessionFileMapCIter;
 typedef SessionFileMap::value_type SessionFileMapVal;
 
 typedef std::list<SessionFile*> SessionFileList;
@@ -34,8 +35,32 @@ class SessionFileStore
       bool removeSession(unsigned sessionID);
       void removeAllSessions(SessionFileList* outRemovedSessions,
          UIntList* outReferencedSessions);
-      
+      void deleteAllSessions();
+      void mergeSessionFiles(SessionFileStore* sessionFileStore);
+
       size_t getSize();
+
+      unsigned serialize(char* buf) const;
+      bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+      unsigned serialLen() const;
+
+      bool relinkInodes(MetaStore& store)
+      {
+         bool result = true;
+
+         for (SessionFileMapIter it = sessions.begin(); it != sessions.end(); ++it)
+            result &= it->second->getReferencedObject()->relinkInode(store);
+
+         return result;
+      }
+
+
+      friend bool sessionFileStoreEquals(const SessionFileStore& first,
+         const SessionFileStore& second);
+
+
+   protected:
+      SessionFileMap* getSessionMap();
    
    private:
       SessionFileMap sessions;

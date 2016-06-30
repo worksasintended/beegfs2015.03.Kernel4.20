@@ -230,6 +230,8 @@ public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFra
       jLabelFreeDiskSpace = new javax.swing.JLabel();
 
       setClosable(true);
+      setIconifiable(true);
+      setMaximizable(true);
       setResizable(true);
       setDoubleBuffered(true);
       addInternalFrameListener(new javax.swing.event.InternalFrameListener()
@@ -579,7 +581,7 @@ public class JInternalFrameStorageNodesOverview extends javax.swing.JInternalFra
          JInternalFrameNodeStatus frame = new JInternalFrameNodeStatus(NodeTypesEnum.STORAGE,
             statusVals);
          
-         if (!FrameManager.isFrameOpen(frame))
+         if (!FrameManager.isFrameOpen(frame, true))
          {
             this.getDesktopPane().add(frame);
             frame.setVisible(true);

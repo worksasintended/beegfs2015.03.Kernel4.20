@@ -156,6 +156,10 @@
 #define NETMSGTYPE_RemoveXAttrResp                 2106
 #define NETMSGTYPE_SetXAttr                        2107
 #define NETMSGTYPE_SetXAttrResp                    2108
+#define NETMSGTYPE_GetDefaultQuota                 2109
+#define NETMSGTYPE_GetDefaultQuotaResp             2110
+#define NETMSGTYPE_SetDefaultQuota                 2111
+#define NETMSGTYPE_SetDefaultQuotaResp             2112
 
 // session messages
 #define NETMSGTYPE_OpenFile                        3001

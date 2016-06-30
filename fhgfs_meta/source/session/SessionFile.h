@@ -7,6 +7,7 @@
 #include <storage/DirInode.h>
 #include <storage/FileInode.h>
 
+class MetaStore;
 
 class SessionFile
 {
@@ -26,6 +27,23 @@ class SessionFile
          this->useAsyncCleanup = false;
       }
 
+      /**
+       * For dezerialisation only
+       */
+      SessionFile():
+         inode(NULL), accessFlags(0), sessionID(0), useAsyncCleanup(false)
+      {
+      }
+
+
+      unsigned serialize(char* buf);
+      bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+      unsigned serialLen();
+
+      bool relinkInode(MetaStore& store);
+
+      friend bool sessionFileEquals(const SessionFile* first, const SessionFile* second);
+
 
    private:
       FileInode* inode;
@@ -44,7 +62,6 @@ class SessionFile
       {
          return &inode->rwlock;
       }
-
 
    public:
 
@@ -89,7 +106,7 @@ class SessionFile
       /**
        * Update the parentEntryID
        */
-      void setParentEntryID(std::string& newParentID)
+      void setParentEntryID(const std::string& newParentID)
       {
          this->entryInfo.setParentEntryID(newParentID);
       }

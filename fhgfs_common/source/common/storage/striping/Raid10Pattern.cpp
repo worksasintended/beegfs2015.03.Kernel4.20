@@ -84,5 +84,32 @@ bool Raid10Pattern::updateStripeTargetIDs(StripePattern* updatedStripePattern)
    return true;
 }
 
+bool Raid10Pattern::patternEquals(const StripePattern* second, bool checkHeader) const
+{
+   if(checkHeader && (!headerEquals(second) ) )
+      return false;
 
+   Raid10Pattern* pattern = (Raid10Pattern*) second;
 
+   // defaultNumTargets
+   if(this->defaultNumTargets != pattern->getDefaultNumTargets() )
+      return false;
+
+   // stripeTargetIDs
+   if(this->getNumStripeTargetIDs() != pattern->getNumStripeTargetIDs() )
+      return false;
+
+   if(!std::equal(this->stripeTargetIDs.begin(), this->stripeTargetIDs.end(),
+      pattern->getStripeTargetIDs()->begin() ) )
+      return false;
+
+   // mirrorTargetIDs
+   if(this->mirrorTargetIDs.size() != pattern->getMirrorTargetIDs()->size() )
+      return false;
+
+   if(!std::equal(this->mirrorTargetIDs.begin(), this->mirrorTargetIDs.end(),
+      pattern->getMirrorTargetIDs()->begin() ) )
+      return false;
+
+   return true;
+}

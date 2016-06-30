@@ -215,8 +215,16 @@ public class JTreeMenu extends JTree
 
       String submenu = pathObjects[1].toString();
       String item = pathObjects[pathCount - 1].toString();
+      int nodeNumID = 0;
 
-      int nodeNumID = Node.getNodeNumIDFromTypedNodeID(item);
+      try
+      {
+         nodeNumID = Node.getNodeNumIDFromTypedNodeID(item);
+      }
+      catch (NumberFormatException e)
+      {
+         LOGGER.log(Level.FINEST, "Couldn't parse NodeNumID from string: {0}", item);
+      }
 
       // First check the submenu we are in, especially if we are in meta or storage nodes
       if (submenu.equalsIgnoreCase("metadata nodes") && (Main.getSession().getIsInfo()))
@@ -341,7 +349,7 @@ public class JTreeMenu extends JTree
          return false;
       }
 
-      if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame)) {
+      if (!FrameManager.isFrameOpen((JInternalFrameInterface) frame, true)) {
          Main.getMainWindow().getDesktopPane().add(frame);
          frame.setVisible(true);
          FrameManager.addFrame((JInternalFrameInterface) frame);

@@ -100,6 +100,24 @@ class FileInode
 
       bool deserializeMetaData(const char* buf);
 
+      unsigned serialize(char* buf);
+      bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
+      unsigned serialLen() const;
+
+      static unsigned serializeDentryCompatData(char* buf, const DentryCompatData* data);
+      static bool deserializeDentryCompatData(const char* buf, size_t bufLen, unsigned* outLen,
+         DentryCompatData* data);
+      static unsigned serialLenDentryCompatData();
+
+      friend bool fileInodeEquals(FileInode* first, FileInode* second);
+      static bool dentryCompatDataEquals(const DentryCompatData& first,
+         const DentryCompatData& second);
+
+      /**
+       * only for unit tests
+       */
+      void initLocksRandomForSerializationTests();
+
 
    private:
       FileInodeStoreData inodeDiskData;

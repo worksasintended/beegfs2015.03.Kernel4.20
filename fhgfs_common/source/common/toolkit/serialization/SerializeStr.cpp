@@ -446,3 +446,127 @@ unsigned Serialization::serialLenStringVec(StringVector* vec)
    return requiredLen;
 }
 
+// =========== set ===========
+
+
+/**
+ * Serialization of a StringSet.
+ *
+ * Note: We keep serialization format compatible with stringvectors.
+ */
+unsigned Serialization::serializeStringSet(char* buf, const StringSet* set)
+{
+   unsigned requiredLen = serialLenStringSet(set);
+
+   unsigned setSize = set->size();
+
+   size_t bufPos = 0;
+
+   // totalBufLen info field
+
+   bufPos += serializeUInt(&buf[bufPos], requiredLen);
+
+   // elem count info field
+
+   bufPos += serializeUInt(&buf[bufPos], setSize);
+
+
+   // store each element of the set as a raw zero-terminated string
+
+   StringSetCIter iter = set->begin();
+
+   for(unsigned i=0; i < setSize; i++, iter++)
+   {
+      int serialElemLen = iter->size() + 1; // +1 for the terminating zero
+
+      memcpy(&buf[bufPos], iter->c_str(), serialElemLen);
+
+      bufPos += serialElemLen;
+   }
+
+   return requiredLen;
+}
+
+/**
+ * Pre-processes a serialized StringSet().
+ *
+ * @return false on error or inconsistency
+ */
+bool Serialization::deserializeStringSetPreprocess(const char* buf, size_t bufLen,
+   unsigned* outElemNum, const char** outSetStart, unsigned* outLen)
+{
+   size_t bufPos = 0;
+
+   // totalBufLen info field
+   unsigned bufLenFieldLen;
+   if(!deserializeUInt(&buf[bufPos], bufLen-bufPos, outLen, &bufLenFieldLen) )
+      return false;
+   bufPos += bufLenFieldLen;
+
+   // elem count field
+   unsigned elemNumFieldLen;
+   if(!deserializeUInt(&buf[bufPos], bufLen-bufPos, outElemNum, &elemNumFieldLen) )
+      return false;
+   bufPos += elemNumFieldLen;
+
+   *outSetStart = &buf[bufPos];
+
+   const char* outSetEnd = &buf[*outLen] - 1;
+
+   if(unlikely(
+      (*outLen > bufLen) ||
+      (*outLen < (Serialization::serialLenUInt() + Serialization::serialLenUInt() ) ) ||
+      ( *outElemNum && (*outSetEnd != 0) ) ) )
+      return false;
+
+   return true;
+}
+
+/**
+ * Deserializes a StringSet.
+ * (requires pre-processing)
+ *
+ * @return false on error or inconsistency
+ */
+bool Serialization::deserializeStringSet(unsigned setBufLen, unsigned elemNum,
+   const char* setStart, StringSet* outSet)
+{
+   const char* currentPos = setStart;
+   ssize_t elemsBufLen =
+      setBufLen - serialLenUInt() - serialLenUInt(); // bufLenField & numElemsField
+   const char* setEndPos = setStart + elemsBufLen - 1;
+
+   unsigned lastElemLen;
+
+
+   // read each set element as a raw zero-terminated string
+   // and make sure that we do not read beyond the specified end position
+
+   unsigned i=0;
+   for( ; (i < elemNum) && (currentPos <= setEndPos); i++, currentPos += lastElemLen)
+   {
+      std::string currentElem(currentPos);
+
+      outSet->insert(currentElem);
+
+      lastElemLen = currentElem.size() + 1; // +1 for the terminating zero
+   }
+
+   // check whether all of the elements were read (=consistency)
+   return ( (i==elemNum) && (currentPos > setEndPos) );
+}
+
+
+
+unsigned Serialization::serialLenStringSet(const StringSet* set)
+{
+   // bufLen-field + numElems-field
+   unsigned requiredLen = serialLenUInt() + serialLenUInt();
+
+   for(StringSetCIter iter = set->begin(); iter != set->end(); iter++)
+   {
+      requiredLen += iter->size() + 1; // +1 for the terminating zero
+   }
+
+   return requiredLen;
+}

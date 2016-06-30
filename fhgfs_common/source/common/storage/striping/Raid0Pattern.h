@@ -31,7 +31,9 @@ class Raid0Pattern : public StripePattern
             change in super class contructor, so we need to re-get the value here */
       }
 
-      
+      virtual bool patternEquals(const StripePattern* second, bool checkHeader) const;
+
+
    protected:
       /**
        * Note: for deserialization only
@@ -52,7 +54,7 @@ class Raid0Pattern : public StripePattern
             Serialization::serialLenUInt() + // defaultNumTargets
             Serialization::serialLenUInt16Vector(&stripeTargetIDs);
       };
-      
+
 
    private:
       UInt16Vector stripeTargetIDs;
