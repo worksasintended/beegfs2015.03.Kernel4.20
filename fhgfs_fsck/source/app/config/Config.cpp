@@ -108,7 +108,9 @@ void Config::loadDefaults(bool addDashes)
    configMapRedefine("automatic", "false", addDashes);
 
    configMapRedefine("runOnline", "false", addDashes);
-   
+
+   configMapRedefine("forceRestart", "false", addDashes);
+
    configMapRedefine("quotaEnabled", "false", addDashes);
 
    configMapRedefine("ignoreDBDiskSpace", "false", addDashes);
@@ -244,6 +246,9 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw (Invalid
       else
       if(testConfigMapKeyMatch(iter, "runOnline", addDashes) )
          runOnline = StringTk::strToBool(iter->second);
+      else
+      if(testConfigMapKeyMatch(iter, "forceRestart", addDashes) )
+         forceRestart = StringTk::strToBool(iter->second);
       else
       if(testConfigMapKeyMatch(iter, "quotaEnabled", addDashes) )
          quotaEnabled = StringTk::strToBool(iter->second);

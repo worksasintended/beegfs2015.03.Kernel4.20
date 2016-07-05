@@ -118,6 +118,9 @@ void ModeCheckFS::printHelp()
       "  --logStdFile=<path>    Path to the program error log file, which contains e.g.\n"
       "                         network error messages.\n"
       "                         (Default: " CONFIG_DEFAULT_LOGFILE ")\n"
+      "  --forceRestart         Restart check even though another instance seems to be running.\n"
+      "                         Use only if a previous run was aborted, and make sure no other\n"
+      "                         fsck is running on the same file system at the same time.\n"
       "\n"
       "USAGE:\n"
       " This mode performs a full check and optional repair of a BeeGFS file system\n"
@@ -189,13 +192,30 @@ int ModeCheckFS::execute()
          Program::getApp()->setModificationEventHandler(modificationEventHandler.get() );
 
          // start modification logging
-         bool startLogRes = FsckTkEx::startModificationLogging(app->getMetaNodes(),
-            app->getLocalNode());
+         const FhgfsOpsErr startLogRes = FsckTkEx::startModificationLogging(app->getMetaNodes(),
+            app->getLocalNode(), cfg->getForceRestart());
 
-         if ( !startLogRes )
+         if (startLogRes != FhgfsOpsErr_SUCCESS)
          {
-            std::string errStr = "Unable to start file system modification logging. Fsck cannot "
-               "proceed";
+            std::string errStr;
+
+            switch (startLogRes)
+            {
+               case FhgfsOpsErr_INUSE:
+                  errStr = "Another instance of beegfs-fsck is still running or was aborted. "
+                     "Cannot start a new one unless --forceRestart command line switch is used. "
+                     "Do this only after making sure there is no other instance of beefs-fsck running.";
+
+                  // stop the modification event handler
+                  Program::getApp()->setModificationEventHandler(NULL);
+                  modificationEventHandler->selfTerminate();
+                  modificationEventHandler->join();
+                  break;
+
+               default:
+                  errStr =
+                     "Unable to start file system modification logging. Fsck cannot proceed";
+            }
 
             log.logErr(errStr);
             FsckTkEx::fsckOutput(errStr);
@@ -204,7 +224,7 @@ int ModeCheckFS::execute()
          }
       }
 
-      bool gatherDataRes = gatherData();
+      FhgfsOpsErr gatherDataRes = gatherData(cfg->getForceRestart());
 
       if ( cfg->getRunOnline() )
       {
@@ -248,11 +268,21 @@ int ModeCheckFS::execute()
 
       }
 
-      if ( !gatherDataRes )
+      if (gatherDataRes != FhgfsOpsErr_SUCCESS)
       {
-         std::string errStr =
-            "An error occured while fetching data from servers. Fsck cannot proceed. "
+         std::string errStr;
+
+         switch (gatherDataRes)
+         {
+            case FhgfsOpsErr_INUSE:
+               errStr = "Another instance of beegfs-fsck is still running or was aborted. "
+                  "Cannot start a new one unless --forceRestart command line switch is used. "
+                  "Do this only after making sure there is no other instance of beegfs-fsck running.";
+               break;
+            default:
+               errStr = "An error occured while fetching data from servers. Fsck cannot proceed. "
                "Please see log file for more information";
+         }
 
          log.logErr(errStr);
          FsckTkEx::fsckOutput(errStr);
@@ -367,14 +397,12 @@ void ModeCheckFS::printHeaderInformation()
          + cfg->getDatabasePath(), OutputOptions_LINEBREAK | OutputOptions_HEADLINE);
 }
 
-bool ModeCheckFS::gatherData()
+FhgfsOpsErr ModeCheckFS::gatherData(bool forceRestart)
 {
-   bool retVal;
-
    FsckTkEx::fsckOutput("Step 2: Gather data from nodes: ", OutputOptions_DOUBLELINEBREAK);
 
-   DataFetcher dataFetcher(*this->database);
-   retVal = dataFetcher.execute();
+   DataFetcher dataFetcher(*this->database, forceRestart);
+   const FhgfsOpsErr retVal = dataFetcher.execute();
 
    FsckTkEx::fsckOutput("", OutputOptions_LINEBREAK);
 

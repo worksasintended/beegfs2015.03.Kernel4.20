@@ -5,15 +5,21 @@
 #include <common/toolkit/ListTk.h>
 #include <common/toolkit/serialization/Serialization.h>
 
+#define FSCKSETEVENTLOGGINGMSG_COMPAT_FLAG_NO_FORCE_RESTART 1 // = !forceRestart in version 6
+
 class FsckSetEventLoggingMsg: public NetMessage
 {
    public:
-      FsckSetEventLoggingMsg(bool enableLogging, unsigned portUDP, NicAddressList* nicList) :
+      FsckSetEventLoggingMsg(bool enableLogging, unsigned portUDP, NicAddressList* nicList,
+            bool forceRestart = true) :
          NetMessage(NETMSGTYPE_FsckSetEventLogging)
       {
          this->enableLogging = enableLogging;
          this->portUDP = portUDP;
          this->nicList = nicList;
+
+         if (!forceRestart)
+            addMsgHeaderCompatFeatureFlag(FSCKSETEVENTLOGGINGMSG_COMPAT_FLAG_NO_FORCE_RESTART);
       }
 
       // only for deserialization
@@ -52,6 +58,12 @@ class FsckSetEventLoggingMsg: public NetMessage
       unsigned getPortUDP() const
       {
          return this->portUDP;
+      }
+
+      bool getForceRestart()
+      {
+         return
+            !isMsgHeaderCompatFeatureFlagSet(FSCKSETEVENTLOGGINGMSG_COMPAT_FLAG_NO_FORCE_RESTART);
       }
 
       void parseNicList(NicAddressList *outNicList)

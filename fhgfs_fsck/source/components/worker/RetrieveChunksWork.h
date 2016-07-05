@@ -8,6 +8,7 @@
 #include <common/app/log/LogContext.h>
 #include <common/components/worker/Work.h>
 #include <common/toolkit/SynchronizedCounter.h>
+#include <common/threading/Barrier.h>
 #include <database/FsckDB.h>
 #include <database/FsckDBTable.h>
 
@@ -25,9 +26,11 @@ class RetrieveChunksWork : public Work
        * @param numChunksFound
        */
       RetrieveChunksWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
-         AtomicUInt64* numChunksFound);
+         AtomicUInt64* numChunksFound, bool forceRestart);
       virtual ~RetrieveChunksWork();
       void process(char* bufIn, unsigned bufInLen, char* bufOut, unsigned bufOutLen);
+
+      void waitForStarted(bool* isStarted);
 
    private:
       LogContext log;
@@ -37,6 +40,11 @@ class RetrieveChunksWork : public Work
 
       FsckDBChunksTable* chunks;
       FsckDBChunksTable::BulkHandle chunksHandle;
+
+      bool forceRestart;
+
+      bool started;
+      Barrier startedBarrier;
 
       void doWork();
 };

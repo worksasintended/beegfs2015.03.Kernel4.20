@@ -5,9 +5,21 @@
 #include <common/toolkit/ListTk.h>
 #include <common/toolkit/serialization/Serialization.h>
 
+#define FSCKSETEVENTLOGGINGRESP_COMPAT_FLAG_NOT_ENABLED 1 // !loggingEnabled in version 6
+
 class FsckSetEventLoggingRespMsg: public NetMessage
 {
    public:
+      FsckSetEventLoggingRespMsg(bool result, bool loggingEnabled, bool missedEvents) :
+         NetMessage(NETMSGTYPE_FsckSetEventLoggingResp)
+      {
+         this->result = result;
+         this->missedEvents = missedEvents;
+
+         if (!loggingEnabled)
+            addMsgHeaderCompatFeatureFlag(FSCKSETEVENTLOGGINGRESP_COMPAT_FLAG_NOT_ENABLED);
+      }
+
       FsckSetEventLoggingRespMsg(bool result, bool missedEvents) :
          NetMessage(NETMSGTYPE_FsckSetEventLoggingResp)
       {
@@ -45,6 +57,11 @@ class FsckSetEventLoggingRespMsg: public NetMessage
       unsigned getMissedEvents() const
       {
          return this->missedEvents;
+      }
+
+      bool getLoggingEnabled() const
+      {
+         return !isMsgHeaderCompatFeatureFlagSet(FSCKSETEVENTLOGGINGRESP_COMPAT_FLAG_NOT_ENABLED);
       }
 
       // inliner

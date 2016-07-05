@@ -5,7 +5,9 @@
 #include <common/components/worker/Worker.h>
 #include <common/components/worker/DecAtomicWork.h>
 #include <common/components/worker/IncAtomicWork.h>
+#include <components/worker/BarrierWork.h>
 #include <common/threading/Condition.h>
+#include <common/threading/Barrier.h>
 #include <common/toolkit/MetadataTk.h>
 #include <components/DatagramListener.h>
 #include <program/Program.h>
@@ -28,7 +30,7 @@ class ModificationEventFlusher: public PThread
 
       virtual void run();
 
-      bool add(ModificationEventType eventType, std::string& entryID);
+      bool add(ModificationEventType eventType, const std::string& entryID);
 
    private:
       LogContext log;
@@ -64,17 +66,24 @@ class ModificationEventFlusher: public PThread
    public:
       // inliners
 
-      void enableLogging(unsigned fsckPortUDP, NicAddressList& fsckNicList)
+      bool enableLogging(unsigned fsckPortUDP, NicAddressList& fsckNicList, bool forceRestart)
       {
          App* app = Program::getApp();
-         MultiWorkQueue* workQ = app->getWorkQueue();
+         WorkerList* workers = app->getWorkers();
 
          SafeMutexLock mutexLock(&mutex);
 
-         if (this->loggingEnabled.read() > 0)
+         if (!forceRestart && this->loggingEnabled.read() > 0)
          {
             mutexLock.unlock();
-            return;
+            return false;
+         }
+
+         if (forceRestart)
+         {
+            const bool listEmpty = disableLoggingUnlocked();
+            if (!listEmpty)
+               eventTypeBufferList.clear();
          }
 
          this->loggingEnabled.set(1);
@@ -82,59 +91,20 @@ class ModificationEventFlusher: public PThread
          // set fsckParameters
          setFsckParametersUnlocked(fsckPortUDP, fsckNicList);
 
-         this->numLoggingWorkers.setZero();
-
-         for (std::list<Worker*>::iterator iter = workerList->begin(); iter != workerList->end();
-            iter++)
-         {
-            Worker* worker = *iter;
-            PersonalWorkQueue* personalQ = worker->getPersonalWorkQueue();
-            IncAtomicWork<size_t>* incCounterWork =
-               new IncAtomicWork<size_t>(&(this->numLoggingWorkers));
-
-            workQ->addPersonalWork(incCounterWork, personalQ);
-         }
+         this->numLoggingWorkers.set(workers->size());
+         stallAllWorkers();
 
          mutexLock.unlock();
+
+         return true;
       }
 
-      /*
-       * Note: if logging is already disabled, this function basically does nothing, but returns
-       * if the buffer is empty or not
-       *
-       * @return true if buffer is empty, false otherwise
-       *
-       */
       bool disableLogging()
       {
-         App* app = Program::getApp();
-         MultiWorkQueue* workQ = app->getWorkQueue();
-
          SafeMutexLock mutexLock(&mutex);
-
-         if ( this->loggingEnabled.read() != 0 )
-         {
-            this->loggingEnabled.setZero();
-
-            for ( std::list<Worker*>::iterator iter = workerList->begin();
-               iter != workerList->end(); iter++ )
-            {
-               Worker* worker = *iter;
-               PersonalWorkQueue* personalQ = worker->getPersonalWorkQueue();
-               DecAtomicWork<size_t>* decCounterWork = new DecAtomicWork<size_t>(
-                  &(this->numLoggingWorkers));
-
-               workQ->addPersonalWork(decCounterWork, personalQ);
-            }
-         }
-
-         // make sure list is empty and no worker is logging anymore
-         bool listEmpty = ( (this->eventTypeBufferList.empty())
-            && (this->numLoggingWorkers.read() == 0) );
-
+         const bool res = disableLoggingUnlocked();
          mutexLock.unlock();
-
-         return listEmpty;
+         return res;
       }
 
       bool isLoggingEnabled()
@@ -164,6 +134,50 @@ class ModificationEventFlusher: public PThread
          this->fsckMissedEvent = false;
 
          this->fsckNode->updateInterfaces(portUDP, 0, nicList);
+      }
+
+      /*
+       * Note: if logging is already disabled, this function basically does nothing, but returns
+       * if the buffer is empty or not
+       * Caller must hold mutex lock.
+       *
+       * @return true if buffer is empty, false otherwise
+       *
+       */
+      bool disableLoggingUnlocked()
+      {
+         if ( this->loggingEnabled.read() != 0 )
+            this->loggingEnabled.setZero();
+
+         this->numLoggingWorkers.setZero();
+         stallAllWorkers();
+
+         // make sure list is empty and no worker is logging anymore
+         bool listEmpty = this->eventTypeBufferList.empty();
+
+         return listEmpty;
+      }
+
+      void stallAllWorkers()
+      {
+         App* app = Program::getApp();
+         WorkerList* workers = app->getWorkers();
+         MultiWorkQueue* workQueue = app->getWorkQueue();
+         pthread_t threadID = PThread::getCurrentThreadID();
+
+         Barrier workerBarrier(workers->size());
+         for (WorkerListIter workerIt = workerList->begin(); workerIt != workerList->end();
+              ++workerIt)
+         {
+            if (!PThread::threadIDEquals((*workerIt)->getID(), threadID))
+            {
+               PersonalWorkQueue* personalQ = (*workerIt)->getPersonalWorkQueue();
+               workQueue->addPersonalWork(new BarrierWork(&workerBarrier), personalQ);
+            }
+         }
+
+         workerBarrier.wait();
+         workerBarrier.wait();
       }
 };
 

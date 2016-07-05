@@ -82,7 +82,10 @@ class Config : public AbstractConfig
 
       // runOnline?
       bool        runOnline;
-      
+
+      // forceRestart?
+      bool        forceRestart;
+
       // enable quota support
       bool        quotaEnabled;
 
@@ -217,6 +220,11 @@ class Config : public AbstractConfig
       bool getRunOnline() const
       {
          return runOnline;
+      }
+
+      bool getForceRestart() const
+      {
+         return forceRestart;
       }
 
       bool getQuotaEnabled() const

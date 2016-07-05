@@ -5,17 +5,23 @@
 #include <common/toolkit/FsckTk.h>
 #include <common/toolkit/serialization/Serialization.h>
 
+#define FETCHFSCKCHUNKLISTMSG_COMPAT_FLAG_NO_FORCE_RESTART 1 // = !forceRestart in version 6
+
 class FetchFsckChunkListMsg: public NetMessage
 {
    public:
       /*
        * @param maxNumChunks max number of chunks to fetch at once
        */
-      FetchFsckChunkListMsg(unsigned maxNumChunks, FetchFsckChunkListStatus lastStatus) :
+      FetchFsckChunkListMsg(unsigned maxNumChunks, FetchFsckChunkListStatus lastStatus,
+            bool forceRestart = true) :
          NetMessage(NETMSGTYPE_FetchFsckChunkList)
       {
          this->maxNumChunks = maxNumChunks;
          this->lastStatus = lastStatus;
+
+         if (!forceRestart)
+            addMsgHeaderCompatFeatureFlag(FETCHFSCKCHUNKLISTMSG_COMPAT_FLAG_NO_FORCE_RESTART);
       }
 
       // only for deserialization
@@ -48,6 +54,12 @@ class FetchFsckChunkListMsg: public NetMessage
       FetchFsckChunkListStatus getLastStatus()
       {
          return this->lastStatus;
+      }
+
+      bool getForceRestart()
+      {
+         return
+            !isMsgHeaderCompatFeatureFlagSet(FETCHFSCKCHUNKLISTMSG_COMPAT_FLAG_NO_FORCE_RESTART);
       }
 
       // inliner

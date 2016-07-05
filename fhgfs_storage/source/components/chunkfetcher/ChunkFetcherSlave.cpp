@@ -8,6 +8,7 @@ Mutex ChunkFetcherSlave::staticMapsMutex;
 std::map<std::string, uint16_t> ChunkFetcherSlave::currentTargetIDs;
 std::map<std::string, uint16_t> ChunkFetcherSlave::currentBuddyGroupIDs;
 std::map<std::string, size_t> ChunkFetcherSlave::basePathLenghts;
+std::map<std::string, PThread*> ChunkFetcherSlave::threads;
 
 ChunkFetcherSlave::ChunkFetcherSlave(uint16_t targetID) throw(ComponentInitException):
    PThread("ChunkFetcherSlave-" + StringTk::uintToStr(targetID))
@@ -73,6 +74,7 @@ void ChunkFetcherSlave::walkAllChunks()
 
    currentBuddyGroupIDs[PThread::getCurrentThreadName()] = 0;
    basePathLenghts[PThread::getCurrentThreadName()] = strlen(walkPath.c_str());
+   threads[PThread::getCurrentThreadName()] = this;
 
    staticMapsLock.unlock();
 
@@ -137,8 +139,12 @@ int ChunkFetcherSlave::handleDiscoveredChunk(const char* path, const struct stat
    size_t basePathLen = basePathLenghts[PThread::getCurrentThreadName()];
    uint16_t targetID = currentTargetIDs[PThread::getCurrentThreadName()];
    uint16_t buddyGroupID = currentBuddyGroupIDs[PThread::getCurrentThreadName()];
+   PThread* thread = threads[PThread::getCurrentThreadName()];
 
    staticMapsLock.unlock();
+
+   if (thread->getSelfTerminate())
+      return FTW_STOP;
 
    // get only the dirname part of the path
    char* tmpPathCopy = strdup(path);

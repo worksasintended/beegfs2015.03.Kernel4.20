@@ -38,6 +38,8 @@ class NetworkInterfaceCard
    public:
       static bool findAll(StringList* allowedInterfacesList, bool useSDP, bool useRDMA,
          NicAddressList* outList);
+      static bool findAllInterfaces(const StringList& allowedInterfacesList, bool useSDP,
+         NicAddressList& outList);
       static bool findByName(const char* interfaceName, NicAddress* outAddr);
       
       static const char* nicTypeToString(NicAddrType nicType);
@@ -50,6 +52,7 @@ class NetworkInterfaceCard
       static void supportedCapabilities(NicAddressList* nicList,
          NicListCapabilities* outCapabilities);
    
+      static bool checkAndAddRdmaCapability(NicAddressList& nicList);
       
    private:
       NetworkInterfaceCard() {}
@@ -57,7 +60,7 @@ class NetworkInterfaceCard
       static bool fillNicAddress(int sock, NicAddrType nicType, struct ifreq* ifr,
          NicAddress* outAddr);
       static bool findAllBySocketDomain(int domain, NicAddrType nicType,
-         StringList* allowedInterfacesList, NicAddressList* outList);
+         const StringList* allowedInterfacesList, NicAddressList* outList);
       static void filterInterfacesForRDMA(NicAddressList* list, NicAddressList* outList);
       
    

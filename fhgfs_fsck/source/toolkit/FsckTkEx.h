@@ -76,7 +76,8 @@ class FsckTkEx
 
       static std::string getRepairActionDesc(FsckRepairAction repairAction, bool shortDesc = false);
 
-      static bool startModificationLogging(NodeStore* metaNodes, Node* localNode);
+      static FhgfsOpsErr startModificationLogging(NodeStore* metaNodes, Node* localNode,
+            bool forceRestart);
       static bool stopModificationLogging(NodeStore* metaNodes);
 
       static bool testVersions(NodeStore* metaNodes, NodeStore* storageNodes);

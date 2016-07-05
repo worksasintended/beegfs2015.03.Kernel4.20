@@ -3,6 +3,7 @@
 
 #include <components/chunkfetcher/ChunkFetcherSlave.h>
 #include <common/toolkit/ListTk.h>
+#include <common/threading/SafeMutexLock.h>
 
 #define MAX_CHUNKLIST_SIZE 5000
 
@@ -48,6 +49,14 @@ class ChunkFetcher
          chunksList.push_back(chunk);
 
          mutexLock.unlock();
+      }
+
+      bool isQueueEmpty()
+      {
+         SafeMutexLock lock(&chunksListMutex);
+         const bool res = chunksList.empty();
+         lock.unlock();
+         return res;
       }
 
       void getAndDeleteChunks(FsckChunkList& outList, unsigned numChunks)

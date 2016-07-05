@@ -198,7 +198,8 @@ public class JFrameStatsFilter extends javax.swing.JFrame
       fillerButtons = new javax.swing.Box.Filler(new java.awt.Dimension(200, 50), new java.awt.Dimension(200, 50), new java.awt.Dimension(32767, 0));
       jButtonCancel = new javax.swing.JButton();
 
-      setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+      setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+      setAlwaysOnTop(true);
       setMinimumSize(new java.awt.Dimension(400, 200));
       setPreferredSize(new java.awt.Dimension(400, 200));
       setResizable(false);

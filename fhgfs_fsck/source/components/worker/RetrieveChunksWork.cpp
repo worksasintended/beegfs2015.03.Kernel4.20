@@ -14,13 +14,15 @@
 #include <program/Program.h>
 
 RetrieveChunksWork::RetrieveChunksWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
-   AtomicUInt64* numChunksFound)
+   AtomicUInt64* numChunksFound, bool forceRestart)
     : Work(),
       log("RetrieveChunksWork"),
       node(node),
       counter(counter),
       numChunksFound(numChunksFound),
-      chunks(db->getChunksTable() ), chunksHandle(chunks->newBulkHandle() )
+      chunks(db->getChunksTable() ), chunksHandle(chunks->newBulkHandle() ),
+      forceRestart(forceRestart),
+      started(false), startedBarrier(2)
 {
 }
 
@@ -71,7 +73,8 @@ void RetrieveChunksWork::doWork()
          char *respBuf = NULL;
          NetMessage *respMsg = NULL;
 
-         FetchFsckChunkListMsg fetchFsckChunkListMsg(RETRIEVE_CHUNKS_PACKET_SIZE, status);
+         FetchFsckChunkListMsg fetchFsckChunkListMsg(RETRIEVE_CHUNKS_PACKET_SIZE, status,
+               forceRestart);
 
          commRes = MessagingTk::requestResponse(node, &fetchFsckChunkListMsg,
             NETMSGTYPE_FetchFsckChunkListResp, &respBuf, &respMsg);
@@ -88,11 +91,25 @@ void RetrieveChunksWork::doWork()
 
             status = fetchFsckChunkListRespMsg->getStatus();
 
-            if (status == FetchFsckChunkListStatus_READERROR)
+            if (status == FetchFsckChunkListStatus_NOTSTARTED)
+            {
+               started = false;
+               startedBarrier.wait();
+               startedBarrier.wait();
+               return;
+            }
+            else if (status == FetchFsckChunkListStatus_READERROR)
             {
                storageNodes->releaseNode(&node);
                throw FsckException("Read error occured while fetching chunks from node; nodeID: "
                   + nodeID);
+            }
+
+            if (!started)
+            {
+               started = true;
+               startedBarrier.wait();
+               startedBarrier.wait();
             }
 
             this->chunks->insert(chunks, this->chunksHandle);
@@ -124,4 +141,11 @@ void RetrieveChunksWork::doWork()
       log.logErr("Requested node does not exist");
       throw FsckException("Requested node does not exist");
    }
+}
+
+void RetrieveChunksWork::waitForStarted(bool* isStarted)
+{
+   startedBarrier.wait();
+   *isStarted = started;
+   startedBarrier.wait();
 }

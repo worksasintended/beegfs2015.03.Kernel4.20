@@ -13,6 +13,7 @@ bool FsckSetEventLoggingMsgEx::processIncoming(struct sockaddr_in* fromAddr, Soc
 
    bool result;
    bool missedEvents;
+   bool loggingEnabled;
 
    App* app = Program::getApp();
 
@@ -24,7 +25,8 @@ bool FsckSetEventLoggingMsgEx::processIncoming(struct sockaddr_in* fromAddr, Soc
       NicAddressList nicList;
       this->parseNicList(&nicList);
 
-      app->getModificationEventFlusher()->enableLogging(portUDP, nicList);
+      loggingEnabled = app->getModificationEventFlusher()->enableLogging(portUDP, nicList,
+            getForceRestart());
 
       if (app->getModificationEventFlusher()->getNumLoggingWorkers() == app->getWorkers()->size() )
          result = true;
@@ -36,11 +38,11 @@ bool FsckSetEventLoggingMsgEx::processIncoming(struct sockaddr_in* fromAddr, Soc
    else
    { // disable logging
       result = app->getModificationEventFlusher()->disableLogging();
-
+      loggingEnabled = false; // (value ignored when logging is disabled)
       missedEvents = app->getModificationEventFlusher()->getFsckMissedEvent();
    }
 
-   FsckSetEventLoggingRespMsg respMsg(result, missedEvents);
+   FsckSetEventLoggingRespMsg respMsg(result, loggingEnabled, missedEvents);
    respMsg.serialize(respBuf, bufLen);
    sock->sendto(respBuf, respMsg.getMsgLength(), 0, (struct sockaddr*) fromAddr,
       sizeof(struct sockaddr_in) );

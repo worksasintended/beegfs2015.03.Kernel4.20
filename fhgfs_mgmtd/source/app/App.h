@@ -75,7 +75,6 @@ class App : public AbstractApp
 
       NetFilter* netFilter; // empty filter means "all nets allowed"
       NetFilter* tcpOnlyFilter; // for IPs that allow only plain TCP (no RDMA etc)
-      StringList* allowedInterfaces; // empty list means "all interfaces accepted"
       NicAddressList localNicList; // intersection set of dicsovered NICs and allowedInterfaces
       uint16_t localNodeNumID; // 0 means invalid/undefined
       std::string localNodeID;

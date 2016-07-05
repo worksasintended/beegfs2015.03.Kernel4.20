@@ -82,10 +82,14 @@ void ChunkFetcher::waitForStopFetching()
    {
       SafeMutexLock safeLock(&(iter->statusMutex));
 
+      chunksListFetchedCondition.broadcast();
+
       while (iter->isRunning)
       {
          iter->isRunningChangeCond.wait(&(iter->statusMutex));
       }
+
+      chunksList.clear();
 
       safeLock.unlock();
    }

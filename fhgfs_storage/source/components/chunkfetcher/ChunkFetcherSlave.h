@@ -40,6 +40,7 @@ class ChunkFetcherSlave : public PThread
       static std::map<std::string, uint16_t> currentTargetIDs;
       static std::map<std::string, uint16_t> currentBuddyGroupIDs;
       static std::map<std::string, size_t> basePathLenghts;
+      static std::map<std::string, PThread*> threads;
 
       virtual void run();
 

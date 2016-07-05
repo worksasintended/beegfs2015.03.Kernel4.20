@@ -21,19 +21,20 @@ class DataFetcher
       AtomicUInt64 numChunksFound;
 
    public:
-      DataFetcher(FsckDB& db);
+      DataFetcher(FsckDB& db, bool forceRestart);
 
-      bool execute();
+      FhgfsOpsErr execute();
 
    private:
       SynchronizedCounter finishedPackages;
       unsigned generatedPackages;
+      bool forceRestart;
 
       std::list<std::set<FsckTargetID> > usedTargets;
 
       void retrieveDirEntries(NodeList* nodeList);
       void retrieveInodes(NodeList* nodeList);
-      void retrieveChunks();
+      bool retrieveChunks();
 
       void printStatus(bool toLogFile = false);
 };

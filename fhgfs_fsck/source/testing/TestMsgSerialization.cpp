@@ -184,8 +184,9 @@ void TestMsgSerialization::testFetchFsckChunkListMsgSerialization()
 
    unsigned maxNum = 100;
    FetchFsckChunkListStatus lastStatus = (FetchFsckChunkListStatus)3;
+   bool forceRestart = false;
 
-   FetchFsckChunkListMsg msg(maxNum, lastStatus);
+   FetchFsckChunkListMsg msg(maxNum, lastStatus, forceRestart);
    FetchFsckChunkListMsg msgClone;
 
    bool testRes = this->testMsgSerialization(msg, msgClone);
@@ -259,7 +260,7 @@ void TestMsgSerialization::testFsckSetEventLoggingMsg()
    log.log(Log_DEBUG, "testFsckSetEventLoggingMsg started");
 
    NicAddressList nicList;
-   FsckSetEventLoggingMsg msg(true, 1024, &nicList);
+   FsckSetEventLoggingMsg msg(true, 1024, &nicList, false);
 
    FsckSetEventLoggingMsg msgClone;
 
@@ -275,7 +276,7 @@ void TestMsgSerialization::testFsckSetEventLoggingRespMsg()
 {
    log.log(Log_DEBUG, "testFsckSetEventLoggingRespMsg started");
 
-   FsckSetEventLoggingRespMsg msg(true, true);
+   FsckSetEventLoggingRespMsg msg(true, true, false);
 
    FsckSetEventLoggingRespMsg msgClone;
 

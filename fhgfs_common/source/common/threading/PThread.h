@@ -374,6 +374,16 @@ class PThread
          return threadID;
       }
 
+      static pthread_t getCurrentThreadID()
+      {
+         return pthread_self();
+      }
+
+      static bool threadIDEquals(pthread_t t, pthread_t u)
+      {
+         return pthread_equal(t, u) != 0;
+      }
+
       bool getSelfTerminate()
       {
          return (shallSelfTerminateAtomic.read() != 0);

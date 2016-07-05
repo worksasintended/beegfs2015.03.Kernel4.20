@@ -20,11 +20,12 @@ class ListTk
       /**
        * @param outPos zero-based list position if found, -1 otherwise
        */
-      static bool listContains(std::string searchStr, StringList* list, ssize_t* outPos)
+      static bool listContains(const std::string& searchStr, const StringList* list,
+         ssize_t* outPos)
       {
          (*outPos) = 0;
          
-         for(StringListIter iter=list->begin(); iter != list->end(); iter++)
+         for(StringListConstIter iter=list->begin(); iter != list->end(); iter++)
          {
             if(!searchStr.compare(*iter) )
                return true;

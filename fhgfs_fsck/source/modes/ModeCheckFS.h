@@ -51,7 +51,7 @@ class ModeCheckFS : public Mode
 
       int initDatabase();
       void printHeaderInformation();
-      bool gatherData();
+      FhgfsOpsErr gatherData(bool forceRestart);
 
       template<typename Obj, typename State>
       int64_t checkAndRepairGeneric(Cursor<Obj> cursor,

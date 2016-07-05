@@ -21,7 +21,6 @@ App::App(int argc, char** argv)
    this->tcpOnlyFilter = NULL;
    this->logger = NULL;
    this->log = NULL;
-   this->allowedInterfaces = NULL;
    this->localNode = NULL;
    this->workQueue = NULL;
    this->ackStore = NULL;
@@ -52,7 +51,6 @@ App::~App()
    workersDelete();
 
    SAFE_DELETE(this->datagramListener);
-   SAFE_DELETE(this->allowedInterfaces);
    SAFE_DELETE(this->netMessageFactory);
    SAFE_DELETE(this->internodeSyncer);
    SAFE_DELETE(this->ackStore);
@@ -148,7 +146,6 @@ void App::runNormal()
    try
    {
       initComponents();
-      // tests
    }
    catch(ComponentInitException& e)
    {
@@ -157,6 +154,9 @@ void App::runNormal()
       appResult = APPCODE_INITIALIZATION_ERROR;
       return;
    }
+
+   // prepare ibverbs for forking
+   RDMASocket::rdmaForkInitOnce();
 
    // detach process
    try
@@ -170,6 +170,21 @@ void App::runNormal()
       log->log(Log_CRITICAL, "A hard error occurred. Shutting down...");
       appResult = APPCODE_INVALID_CONFIG;
       return;
+   }
+
+   // find RDMA interfaces (based on TCP/IP interfaces)
+
+   // note: we do this here, because when we first create an RDMASocket (and this is done in this
+   // check), the process opens the verbs device. Recent OFED versions have a check if the
+   // credentials of the opening process match those of the calling process (not only the values
+   // are compared, but the pointer is checked for equality). Thus, the first open needs to happen
+   // after the fork, because we need to access the device in the child process.
+   if(cfg->getConnUseRDMA() && RDMASocket::rdmaDevicesExist() )
+   {
+      bool foundRdmaInterfaces = NetworkInterfaceCard::checkAndAddRdmaCapability(localNicList);
+
+      if (foundRdmaInterfaces)
+         localNicList.sort(&NetworkInterfaceCard::nicAddrPreferenceComp); // re-sort the niclist
    }
 
    logInfos();
@@ -210,11 +225,6 @@ void App::initDataObjects(int argc, char** argv) throw(InvalidConfigException, D
    this->db = new Database();
    this->db->readRuntimeConfig();
 
-   this->allowedInterfaces = new StringList();
-   std::string interfacesFilename = cfg->getConnInterfacesFile();
-   if(interfacesFilename.length() )
-      this->cfg->loadStringListFile(interfacesFilename.c_str(), *this->allowedInterfaces);
-
    this->workQueue = new MultiWorkQueue();
    this->metaNodes = new NodeStoreMetaEx();
    this->storageNodes = new NodeStoreStorageEx();
@@ -235,10 +245,14 @@ void App::initDataObjects(int argc, char** argv) throw(InvalidConfigException, D
 void App::initLocalNodeInfo() throw(InvalidConfigException)
 {
    bool useSDP = this->cfg->getConnUseSDP();
-   bool useRDMA = this->cfg->getConnUseRDMA();
    unsigned portUDP = cfg->getConnAdmonPortUDP();
 
-   NetworkInterfaceCard::findAll(allowedInterfaces, useSDP, useRDMA, &localNicList);
+   StringList allowedInterfaces;
+   std::string interfacesFilename = cfg->getConnInterfacesFile();
+   if(interfacesFilename.length() )
+      cfg->loadStringListFile(interfacesFilename.c_str(), allowedInterfaces);
+
+   NetworkInterfaceCard::findAllInterfaces(allowedInterfaces, useSDP, localNicList);
 
    if(localNicList.empty() )
       throw InvalidConfigException("Couldn't find any usable NIC");

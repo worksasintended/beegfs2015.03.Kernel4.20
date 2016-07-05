@@ -15,6 +15,8 @@
 
 
 /**
+ * find all network interfaces and check if they are capable of doing RDMA
+ *
  * @return true if any usable standard interface was found
  */
 bool NetworkInterfaceCard::findAll(StringList* allowedInterfacesList, bool useSDP, bool useRDMA,
@@ -45,8 +47,32 @@ bool NetworkInterfaceCard::findAll(StringList* allowedInterfacesList, bool useSD
    return retVal;
 }
 
+/**
+ * find all network interfaces. This differs from findAll because here only the interfaces are
+ * (TCP and SDP) are detected. No check for there RDMA capability is performed.
+ *
+ * @return true if any usable standard interface was found
+ */
+bool NetworkInterfaceCard::findAllInterfaces(const StringList& allowedInterfacesList, bool useSDP,
+   NicAddressList& outList)
+{
+   bool retVal = false;
+
+   // find standard TCP/IP interfaces
+   if(findAllBySocketDomain(PF_INET, NICADDRTYPE_STANDARD, &allowedInterfacesList, &outList) )
+      retVal = true;
+
+   // find SDP interfaces
+   if(useSDP)
+   {
+      findAllBySocketDomain(PF_SDP, NICADDRTYPE_SDP, &allowedInterfacesList, &outList);
+   }
+
+   return retVal;
+}
+
 bool NetworkInterfaceCard::findAllBySocketDomain(int domain, NicAddrType nicType,
-   StringList* allowedInterfacesList, NicAddressList* outList)
+   const StringList* allowedInterfacesList, NicAddressList* outList)
 {
    int sock = socket(domain, SOCK_STREAM, 0);
    if(sock == -1)
@@ -148,6 +174,50 @@ void NetworkInterfaceCard::filterInterfacesForRDMA(NicAddressList* list, NicAddr
          // interface is not RDMA-capable in this case
       }
    }
+}
+
+/*
+ * Checks for RDMA-capable interfaces in a list of TCP/IP interfaces and adds the devices as
+ * new RDMA devices to the list
+ *
+ * @param nicList a reference to a list of TCP interfaces; RDMA interfaces will be added to the list
+ *
+ * @return true, if at least one RDMA-capable interface was found
+ */
+bool NetworkInterfaceCard::checkAndAddRdmaCapability(NicAddressList& nicList)
+{
+   // Note: This works by binding an RDMASocket to each IP of the passed list.
+   // Note: This only checks standard interfaces (no SDP interfaces)
+
+   NicAddressList rdmaInterfaces;
+
+   for(NicAddressListIter iter = nicList.begin(); iter != nicList.end(); iter++)
+   {
+      try
+      {
+         if (iter->nicType == NICADDRTYPE_STANDARD)
+         {
+            RDMASocket rdmaSock;
+
+            rdmaSock.bindToAddr(iter->ipAddr.s_addr, 0);
+
+            // interface is RDMA-capable => append to outList
+
+            NicAddress nicAddr = *iter;
+            nicAddr.nicType = NICADDRTYPE_RDMA;
+
+            rdmaInterfaces.push_back(nicAddr);
+         }
+      }
+      catch(SocketException& e)
+      {
+         // interface is not RDMA-capable in this case
+      }
+   }
+
+   nicList.splice(nicList.end(), rdmaInterfaces);
+
+   return (rdmaInterfaces.size() > 0);
 }
 
 /**

@@ -141,32 +141,28 @@ int ModeListTargets::checkConfig()
       cfg->erase(iter);
    }
 
-   iter = cfg->find(MODELISTTARGETS_ARG_NODETYPE);
-   if(iter == cfg->end() )
-   { // default is storage
-      cfgPoolQueryType = CapacityPoolQuery_STORAGE;
-      cfgNodeType = NODETYPE_Storage;
-   }
-   else
-   { // check given pool query type
-      if(iter->second == std::string(MODELISTTARGETS_ARG_NODETYPE_META) )
-      {
+   bool nodeTypeSet;
+   cfgNodeType = ModeHelper::nodeTypeFromCfg(cfg, &nodeTypeSet);
+   switch (cfgNodeType)
+   {
+      case NODETYPE_Meta:
          cfgPoolQueryType = CapacityPoolQuery_META;
-         cfgNodeType = NODETYPE_Meta;
-      }
-      else
-      if(iter->second == std::string(MODELISTTARGETS_ARG_NODETYPE_STORAGE) )
-      {
+         break;
+      case NODETYPE_Storage:
          cfgPoolQueryType = CapacityPoolQuery_STORAGE;
-         cfgNodeType = NODETYPE_Storage;
-      }
-      else
-      {
-         std::cerr << "Invalid node type." << std::endl;
-         return APPCODE_INVALID_CONFIG;
-      }
-
-      cfg->erase(iter);
+         break;
+      default:
+         if (!nodeTypeSet)
+         {
+            // Default to storage
+            cfgNodeType = NODETYPE_Storage;
+            cfgPoolQueryType = CapacityPoolQuery_STORAGE;
+         }
+         else
+         {
+            std::cerr << "Invalid node type." << std::endl;
+            return APPCODE_INVALID_CONFIG;
+         }
    }
 
    iter = cfg->find(MODELISTTARGETS_ARG_MIRRORGROUPS);

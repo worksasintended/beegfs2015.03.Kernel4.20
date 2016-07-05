@@ -10,16 +10,17 @@
 #include <toolkit/FsckTkEx.h>
 #include <toolkit/FsckException.h>
 
-DataFetcher::DataFetcher(FsckDB& db)
+DataFetcher::DataFetcher(FsckDB& db, bool forceRestart)
    : database(&db),
      workQueue(Program::getApp()->getWorkQueue() ),
-     generatedPackages(0)
+     generatedPackages(0),
+     forceRestart(forceRestart)
 {
 }
 
-bool DataFetcher::execute()
+FhgfsOpsErr DataFetcher::execute()
 {
-   bool retVal = true;
+   FhgfsOpsErr retVal = FhgfsOpsErr_SUCCESS;
 
    NodeStore* metaNodeStore = Program::getApp()->getMetaNodes();
    NodeList metaNodeList;
@@ -29,7 +30,13 @@ bool DataFetcher::execute()
 
    retrieveDirEntries(&metaNodeList);
    retrieveInodes(&metaNodeList);
-   retrieveChunks();
+   const bool retrieveRes = retrieveChunks();
+
+   if (!retrieveRes)
+   {
+      retVal = FhgfsOpsErr_INUSE;
+      Program::getApp()->abort();
+   }
 
    // wait for all packages to finish, because we cannot proceed if not all data was fetched
    // BUT : update output each OUTPUT_INTERVAL_MS ms
@@ -38,16 +45,16 @@ bool DataFetcher::execute()
    {
       printStatus();
 
-      if ( Program::getApp()->getShallAbort() )
+      if ( retVal != FhgfsOpsErr_INUSE && Program::getApp()->getShallAbort() )
       {
-         // setting retVal to false
+         // setting retVal to INTERRUPTED
          // but still, we needed to wait for the workers to terminate, because of the
          // SynchronizedCounter (this object cannnot be destroyed before all workers terminate)
-         retVal = false;
+         retVal = FhgfsOpsErr_INTERRUPTED;
       }
    }
 
-   if(retVal)
+   if(retVal == FhgfsOpsErr_SUCCESS)
    {
       std::set<FsckTargetID> allUsedTargets;
 
@@ -144,7 +151,7 @@ void DataFetcher::retrieveInodes(NodeList* nodeList)
    }
 }
 
-void DataFetcher::retrieveChunks()
+bool DataFetcher::retrieveChunks()
 {
    App* app = Program::getApp();
 
@@ -161,11 +168,19 @@ void DataFetcher::retrieveChunks()
       this->generatedPackages++;
 
       // node will be released inside of work package
-      this->workQueue->addIndirectWork(new RetrieveChunksWork(this->database, node,
-         &(this->finishedPackages), &numChunksFound));
+      RetrieveChunksWork* retrieveWork = new RetrieveChunksWork(this->database, node,
+            &(this->finishedPackages), &numChunksFound, forceRestart);
+      this->workQueue->addIndirectWork(retrieveWork);
+
+      bool started;
+      retrieveWork->waitForStarted(&started);
+      if (!started)
+         return false;
 
       node = storageNodes->referenceNextNode(nodeNumID);
    }
+
+   return true;
 }
 
 void DataFetcher::printStatus(bool toLogFile)

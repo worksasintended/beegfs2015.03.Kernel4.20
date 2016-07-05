@@ -58,7 +58,8 @@ public class JFrameFileChooser extends javax.swing.JFrame
       jScrollPaneDescription = new javax.swing.JScrollPane();
       jTextAreaDescription = new javax.swing.JTextArea();
 
-      setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+      setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+      setAlwaysOnTop(true);
       setResizable(false);
 
       jPanelFrame.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));

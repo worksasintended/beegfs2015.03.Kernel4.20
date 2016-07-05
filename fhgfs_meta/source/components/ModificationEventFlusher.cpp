@@ -6,19 +6,15 @@
 
 #include <program/Program.h>
 
-ModificationEventFlusher::ModificationEventFlusher(): PThread("ModificationEventFlusher")
+ModificationEventFlusher::ModificationEventFlusher()
+ : PThread("ModificationEventFlusher"),
+   log("ModificationEventFlusher"),
+   dGramLis(Program::getApp()->getDatagramListener() ),
+   workerList(Program::getApp()->getWorkers() ),
+   fsckMissedEvent(false)
 {
-   log.setContext("ModificationEventFlusher");
-
-   App* app = Program::getApp();
-
-   this->dGramLis = app->getDatagramListener();
-   this->workerList = app->getWorkers();
-
    NicAddressList nicList;
    this->fsckNode = new Node("fsck", 0, 0, 0, nicList);
-
-   this->fsckMissedEvent = false;
 
    sentCounter = 0;
 }
@@ -50,7 +46,7 @@ void ModificationEventFlusher::run()
          this->sendToFsck();
       }
 
-      stop_component:
+stop_component:
       log.log(Log_DEBUG, "Component stopped.");
    }
    catch (std::exception& e)
@@ -59,7 +55,7 @@ void ModificationEventFlusher::run()
    }
 }
 
-bool ModificationEventFlusher::add(ModificationEventType eventType, std::string& entryID)
+bool ModificationEventFlusher::add(ModificationEventType eventType, const std::string& entryID)
 {
    while (true)
    {

@@ -163,7 +163,7 @@ class App : public AbstractApp
 
       void initLogging() throw(InvalidConfigException);
       void initDataObjects() throw(InvalidConfigException);
-      void initNet() throw(InvalidConfigException);
+      void initBasicNetwork();
       void initLocalNodeIDs() throw(InvalidConfigException);
       void initLocalNode() throw(InvalidConfigException);
       void initLocalNodeNumIDFile() throw(InvalidConfigException);

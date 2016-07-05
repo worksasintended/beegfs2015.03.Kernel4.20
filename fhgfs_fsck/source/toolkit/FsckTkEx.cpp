@@ -468,11 +468,11 @@ std::string FsckTkEx::getRepairActionDesc(FsckRepairAction repairAction, bool sh
    return "";
 }
 
-bool FsckTkEx::startModificationLogging(NodeStore* metaNodes, Node* localNode)
+FhgfsOpsErr FsckTkEx::startModificationLogging(NodeStore* metaNodes, Node* localNode, bool forceRestart)
 {
    const char* logContext = "FsckTkEx (startModificationLogging)";
 
-   bool retVal = true;
+   FhgfsOpsErr retVal = FhgfsOpsErr_SUCCESS;
 
    NicAddressList localNicList = localNode->getNicList();
    unsigned localPortUDP = localNode->getPortUDP();
@@ -510,7 +510,7 @@ bool FsckTkEx::startModificationLogging(NodeStore* metaNodes, Node* localNode)
 
       NicAddressList nicList;
       FsckSetEventLoggingMsg fsckSetEventLoggingMsg(true, localPortUDP,
-         &localNicList );
+         &localNicList, forceRestart);
 
       commRes = MessagingTk::requestResponse(node, &fsckSetEventLoggingMsg,
          NETMSGTYPE_FsckSetEventLoggingResp, &respBuf, &respMsg);
@@ -520,17 +520,32 @@ bool FsckTkEx::startModificationLogging(NodeStore* metaNodes, Node* localNode)
          FsckSetEventLoggingRespMsg* fsckSetEventLoggingRespMsg =
             (FsckSetEventLoggingRespMsg*) respMsg;
 
-         bool result = fsckSetEventLoggingRespMsg->getResult();
+         bool started = fsckSetEventLoggingRespMsg->getLoggingEnabled();
+         if ( !started )
+         {
+            LogContext(logContext).logErr("Modification logging already running on node: " +
+                  node->getID());
 
+            retVal = FhgfsOpsErr_INUSE;
+
+            SAFE_FREE(respBuf);
+            SAFE_DELETE(respMsg);
+
+            metaNodes->releaseNode(&node);
+
+            break;
+         }
+
+         bool result = fsckSetEventLoggingRespMsg->getResult();
          if ( result )
             nodeIdIter = nodeIDs.erase(nodeIdIter);
          else
-            nodeIdIter++; // keep in list and try again later
+            nodeIdIter++; // keep in list and try again (only for nodes not supporting forceRestart)
       }
       else
       {
          LogContext(logContext).logErr("Communication error occured with node: " + node->getID());
-         retVal = false;
+         retVal = FhgfsOpsErr_COMMUNICATION;
       }
 
       SAFE_FREE(respBuf);
@@ -586,7 +601,7 @@ bool FsckTkEx::stopModificationLogging(NodeStore* metaNodes)
       NetMessage *respMsg = NULL;
 
       NicAddressList nicList;
-      FsckSetEventLoggingMsg fsckSetEventLoggingMsg(false, 0, &nicList );
+      FsckSetEventLoggingMsg fsckSetEventLoggingMsg(false, 0, &nicList, false);
 
       commRes = MessagingTk::requestResponse(node, &fsckSetEventLoggingMsg,
          NETMSGTYPE_FsckSetEventLoggingResp, &respBuf, &respMsg);

@@ -55,7 +55,6 @@ App::App(int argc, char** argv)
    this->tcpOnlyFilter = NULL;
    this->logger = NULL;
    this->log = NULL;
-   this->allowedInterfaces = NULL;
    this->localNodeNumID = 0; // 0 means invalid/undefined
    this->localNode = NULL;
    this->mgmtNodes = NULL;
@@ -114,7 +113,6 @@ App::~App()
 
    SAFE_DELETE(this->heartbeatMgr);
    SAFE_DELETE(this->dgramListener);
-   SAFE_DELETE(this->allowedInterfaces);
    SAFE_DELETE(this->dentriesPath);
    SAFE_DELETE(this->inodesPath);
    SAFE_DELETE(this->netMessageFactory);
@@ -227,7 +225,7 @@ void App::runNormal()
    initLogging();
    initLocalNodeIDs();
    initDataObjects();
-   initNet();
+   initBasicNetwork();
 
    initStorage();
    initRootDir();
@@ -235,19 +233,33 @@ void App::runNormal()
 
    registerSignalHandler();
 
-
    bool startupTestsRes = runStartupTests();
    if(!startupTestsRes)
       return;
 
+   // prepare ibverbs for forking
+   RDMASocket::rdmaForkInitOnce();
 
    // detach process
-
    if(cfg->getRunDaemonized() )
       daemonize();
 
-   // retrieve localNodeNumID from management node (if we don't have it yet)
+   // find RDMA interfaces (based on TCP/IP interfaces)
 
+   // note: we do this here, because when we first create an RDMASocket (and this is done in this
+   // check), the process opens the verbs device. Recent OFED versions have a check if the
+   // credentials of the opening process match those of the calling process (not only the values
+   // are compared, but the pointer is checked for equality). Thus, the first open needs to happen
+   // after the fork, because we need to access the device in the child process.
+   if(cfg->getConnUseRDMA() && RDMASocket::rdmaDevicesExist() )
+   {
+      bool foundRdmaInterfaces = NetworkInterfaceCard::checkAndAddRdmaCapability(localNicList);
+
+      if (foundRdmaInterfaces)
+         localNicList.sort(&NetworkInterfaceCard::nicAddrPreferenceComp); // re-sort the niclist
+   }
+
+   // retrieve localNodeNumID from management node (if we don't have it yet)
    if(!localNodeNumID)
    { // no local num ID yet => try to retrieve one from mgmt
       bool mgmtWaitRes = waitForMgmtNode();
@@ -489,8 +501,10 @@ void App::initDataObjects() throw(InvalidConfigException)
 
 /**
  * Init basic networking data structures.
+ *
+ * Note: no RDMA is detected here, because this needs to be done later
  */
-void App::initNet() throw(InvalidConfigException)
+void App::initBasicNetwork()
 {
    // check if management host is defined
    if(!cfg->getSysMgmtdHost().length() )
@@ -500,24 +514,17 @@ void App::initNet() throw(InvalidConfigException)
    this->netFilter = new NetFilter(cfg->getConnNetFilterFile() );
    this->tcpOnlyFilter = new NetFilter(cfg->getConnTcpOnlyFilterFile() );
 
-   // prepare filter for published local interfaces
-   this->allowedInterfaces = new StringList();
-
+   // prepare filter for interfaces
+   StringList allowedInterfaces;
    std::string interfacesList = cfg->getConnInterfacesList();
    if(!interfacesList.empty() )
    {
       log->log(Log_DEBUG, "Allowed interfaces: " + interfacesList);
-      StringTk::explodeEx(interfacesList, ',', true, allowedInterfaces);
+      StringTk::explodeEx(interfacesList, ',', true, &allowedInterfaces);
    }
 
-   // prepare ibverbs
-   RDMASocket::rdmaForkInitOnce();
-
    // discover local NICs and filter them
-   bool useSDP = cfg->getConnUseSDP();
-   bool useRDMA = cfg->getConnUseRDMA();
-
-   NetworkInterfaceCard::findAll(allowedInterfaces, useSDP, useRDMA, &localNicList);
+   NetworkInterfaceCard::findAllInterfaces(allowedInterfaces, cfg->getConnUseSDP(), localNicList);
 
    if(localNicList.empty() )
       throw InvalidConfigException("Couldn't find any usable NIC");
