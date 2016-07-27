@@ -11,17 +11,29 @@ bool SetDefaultQuotaMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket*
 {
    LogContext log("SetDefaultQuotaMsg incoming");
 
+   App* app = Program::getApp();
+
    std::string peer = fromAddr ? Socket::ipaddrToStr(&fromAddr->sin_addr) : sock->getPeername();
    LOG_DEBUG_CONTEXT(log, 4, std::string("Received a SetDefaultQuotaMsg from: ") + peer);
 
    bool respVal = false;
 
-   QuotaManager* manager = Program::getApp()->getQuotaManager();
+   if(app->getConfig()->getQuotaEnableEnforcment() )
+   {
+      QuotaManager* manager = app->getQuotaManager();
 
-   if(type == QuotaDataType_USER)
-      respVal = manager->updateDefaultUserLimits(inodes, size);
+      if(type == QuotaDataType_USER)
+         respVal = manager->updateDefaultUserLimits(inodes, size);
+      else
+         respVal = manager->updateDefaultGroupLimits(inodes, size);
+   }
    else
-      respVal = manager->updateDefaultGroupLimits(inodes, size);
+   {
+      log.log(Log_ERR, "Unable to set default quota limits. Configuration problem detected. Quota "
+         "enforcement is not enabled for this management daemon, but a admin tried to set default "
+         "quota limits. Fix this configuration problem or quota enforcement with default quota "
+         "limits will not work correctly.");
+   }
 
    // send response
 

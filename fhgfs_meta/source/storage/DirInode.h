@@ -100,9 +100,11 @@ class DirInode
       FhgfsOpsErr listXAttr(const std::string& fileName, StringVector& outAttrList);
       FhgfsOpsErr getXAttr(const std::string& fileName, const std::string& xAttrName,
             CharVector& outValue, ssize_t& inOutSize);
-      FhgfsOpsErr removeXAttr(const std::string& fileName, const std::string& xAttrName);
-      FhgfsOpsErr setXAttr(const std::string& fileName, const std::string& xAttrName,
-            const CharVector& xAttrValue, int flags);
+      FhgfsOpsErr removeXAttr(EntryInfo* entryInfo, const std::string& fileName,
+            const std::string& xAttrName);
+      FhgfsOpsErr setXAttr(EntryInfo* entryInfo, const std::string& fileName,
+            const std::string& xAttrName, const CharVector& xAttrValue, int flags,
+            bool updateTimestamps = true);
 
    private:
       std::string id; // filesystem-wide unique string

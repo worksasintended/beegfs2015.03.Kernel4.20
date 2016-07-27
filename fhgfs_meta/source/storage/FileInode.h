@@ -234,6 +234,19 @@ class FileInode
          return retVal;
       }
 
+      bool updateInodeChangeTime(EntryInfo* entryInfo)
+      {
+         SafeRWLock lock(&rwlock, SafeRWLock_WRITE);
+
+         inodeDiskData.inodeStatData.setAttribChangeTimeSecs(TimeAbs().getTimeval()->tv_sec);
+
+         bool result = storeUpdatedInodeUnlocked(entryInfo, NULL);
+
+         lock.unlock();
+
+         return result;
+      }
+
       /**
        * Unlink the stored file-inode file on disk.
        */

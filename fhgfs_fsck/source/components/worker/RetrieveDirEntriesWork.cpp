@@ -36,6 +36,10 @@ void RetrieveDirEntriesWork::process(char* bufIn, unsigned bufInLen, char* bufOu
    try
    {
       doWork();
+      // flush buffers before signaling completion
+      dentries->flush(dentriesHandle);
+      files->flush(filesHandle);
+      contDirs->flush(contDirsHandle);
       // work package finished => increment counter
       this->counter->incCount();
    }

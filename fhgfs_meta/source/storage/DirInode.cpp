@@ -780,14 +780,14 @@ FhgfsOpsErr DirInode::storeInitialMetaData(const CharVector& defaultACLXAttr,
       return res;
 
    if (!defaultACLXAttr.empty() )
-      res = setXAttr(MsgHelperXAttr::CURRENT_DIR_FILENAME, PosixACL::defaultACLXAttrName,
+      res = setXAttr(NULL, MsgHelperXAttr::CURRENT_DIR_FILENAME, PosixACL::defaultACLXAttrName,
          defaultACLXAttr, 0);
 
    if (res != FhgfsOpsErr_SUCCESS)
       return res;
 
    if (!accessACLXAttr.empty() )
-      res = setXAttr(MsgHelperXAttr::CURRENT_DIR_FILENAME, PosixACL::accessACLXAttrName,
+      res = setXAttr(NULL, MsgHelperXAttr::CURRENT_DIR_FILENAME, PosixACL::accessACLXAttrName,
          accessACLXAttr, 0);
 
    return res;
@@ -1706,12 +1706,32 @@ FhgfsOpsErr DirInode::getXAttr(const std::string& fileName, const std::string& x
    }
 }
 
-FhgfsOpsErr DirInode::removeXAttr(const std::string& fileName, const std::string& xAttrName)
+FhgfsOpsErr DirInode::removeXAttr(EntryInfo* entryInfo, const std::string& fileName,
+   const std::string& xAttrName)
 {
    const char* logContext = "DirInode removeXAttr";
    std::string dentryPath = entries.getDirEntryPath() + "/" + fileName;
 
    int res = removexattr(dentryPath.c_str(), xAttrName.c_str() );
+
+   if (res == 0 && fileName == MsgHelperXAttr::CURRENT_DIR_FILENAME)
+   {
+      rwlock.writeLock();
+      updateTimeStampsAndStoreToDisk(__func__);
+      rwlock.unlock();
+   }
+
+   if (res == 0 && fileName != MsgHelperXAttr::CURRENT_DIR_FILENAME)
+   {
+      MetaStore* metaStore = Program::getApp()->getMetaStore();
+
+      FileInode* inode = metaStore->referenceFile(entryInfo);
+      if (inode)
+      {
+         inode->updateInodeChangeTime(entryInfo);
+         metaStore->releaseFile(getID(), inode);
+      }
+   }
 
    if(res != 0)
    {
@@ -1739,14 +1759,33 @@ FhgfsOpsErr DirInode::removeXAttr(const std::string& fileName, const std::string
       return FhgfsOpsErr_SUCCESS;
 }
 
-FhgfsOpsErr DirInode::setXAttr(const std::string& fileName, const std::string& xAttrName,
-      const CharVector& xAttrValue, int flags)
+FhgfsOpsErr DirInode::setXAttr(EntryInfo* entryInfo, const std::string& fileName,
+   const std::string& xAttrName, const CharVector& xAttrValue, int flags, bool updateTimestamps)
 {
    const char* logContext = "DirInode setXAttr";
    std::string dentryPath = entries.getDirEntryPath() + "/" + fileName;
 
    int res = setxattr(dentryPath.c_str(), xAttrName.c_str(), &xAttrValue.front(),
          xAttrValue.size(), flags);
+
+   if (res == 0 && fileName == MsgHelperXAttr::CURRENT_DIR_FILENAME && updateTimestamps)
+   {
+      rwlock.writeLock();
+      updateTimeStampsAndStoreToDisk(__func__);
+      rwlock.unlock();
+   }
+
+   if (res == 0 && fileName != MsgHelperXAttr::CURRENT_DIR_FILENAME && updateTimestamps)
+   {
+      MetaStore* metaStore = Program::getApp()->getMetaStore();
+
+      FileInode* inode = metaStore->referenceFile(entryInfo);
+      if (inode)
+      {
+         inode->updateInodeChangeTime(entryInfo);
+         metaStore->releaseFile(getID(), inode);
+      }
+   }
 
    if(res != 0)
    {

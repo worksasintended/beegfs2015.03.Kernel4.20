@@ -34,6 +34,7 @@ void RetrieveFsIDsWork::process(char* bufIn, unsigned bufInLen, char* bufOut,
    try
    {
       doWork();
+      table->flush(bulkHandle);
       // work package finished => increment counter
       this->counter->incCount();
 

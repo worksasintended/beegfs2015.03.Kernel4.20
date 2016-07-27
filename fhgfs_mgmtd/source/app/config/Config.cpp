@@ -56,8 +56,8 @@ void Config::loadDefaults(bool addDashes)
    configMapRedefine("tuneMetaInodesLowDynamicLimit",         "0");
    configMapRedefine("tuneMetaInodesEmergencyDynamicLimit",   "0");
 
-   configMapRedefine("tuneStorageSpaceLowLimit",              "512G");
-   configMapRedefine("tuneStorageSpaceEmergencyLimit",        "10G");
+   configMapRedefine("tuneStorageSpaceLowLimit",              "1T");
+   configMapRedefine("tuneStorageSpaceEmergencyLimit",        "20G");
    configMapRedefine("tuneStorageInodesLowLimit",             "10M");
    configMapRedefine("tuneStorageInodesEmergencyLimit",       "1M");
    configMapRedefine("tuneStorageDynamicPools",               "true");

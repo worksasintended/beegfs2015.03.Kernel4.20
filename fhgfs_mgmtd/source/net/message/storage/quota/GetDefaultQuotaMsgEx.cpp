@@ -10,13 +10,21 @@ bool GetDefaultQuotaMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket*
 {
    LogContext log("GetDefaultQuotaMsg incoming");
 
+   App* app = Program::getApp();
+
    std::string peer = fromAddr ? Socket::ipaddrToStr(&fromAddr->sin_addr) : sock->getPeername();
    LOG_DEBUG_CONTEXT(log, 4, std::string("Received a GetDefaultQuotaMsg from: ") + peer);
 
+   QuotaDefaultLimits limits;
 
-   QuotaManager* manager = Program::getApp()->getQuotaManager();
+   if(app->getConfig()->getQuotaEnableEnforcment() )
+   {
+      QuotaManager* manager = app->getQuotaManager();
+      limits = QuotaDefaultLimits(manager->getDefaultLimits() );
+   }
 
-   GetDefaultQuotaRespMsg respMsg(manager->getDefaultLimits() );
+   GetDefaultQuotaRespMsg respMsg(limits);
+
    respMsg.serialize(respBuf, bufLen);
    sock->sendto(respBuf, respMsg.getMsgLength(), 0,
       (struct sockaddr*)fromAddr, sizeof(struct sockaddr_in) );

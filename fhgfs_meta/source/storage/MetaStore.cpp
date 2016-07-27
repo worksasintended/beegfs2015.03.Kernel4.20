@@ -759,6 +759,11 @@ FhgfsOpsErr MetaStore::mkNewMetaFileUnlocked(DirInode* dir, MkFileDetails* mkDet
    uint16_t ownerNodeID = localNode->getNumID();
    std::string parentEntryID = dir->getID();
 
+   EntryInfo tmpInfo;
+
+   if (!outEntryInfo)
+      outEntryInfo = &tmpInfo;
+
    // load DirInode on demand if required, we need it now
    if (dir->loadIfNotLoadedUnlocked() == false)
    {
@@ -861,18 +866,13 @@ FhgfsOpsErr MetaStore::mkNewMetaFileUnlocked(DirInode* dir, MkFileDetails* mkDet
 
    }
 
-   if (outEntryInfo)
-   {
-      outEntryInfo->set(ownerNodeID, parentEntryID, newEntryID, mkDetails->newName,
-         entryType, flags);
-
-   }
+   outEntryInfo->set(ownerNodeID, parentEntryID, newEntryID, mkDetails->newName, entryType, flags);
 
    // apply access ACL calculated from default ACL
    if (needsACL)
    {
-      FhgfsOpsErr setXAttrRes = dir->setXAttr(mkDetails->newName,
-         PosixACL::accessACLXAttrName, aclXAttr, 0);
+      FhgfsOpsErr setXAttrRes = dir->setXAttr(outEntryInfo, mkDetails->newName,
+         PosixACL::accessACLXAttrName, aclXAttr, 0, false);
 
       if (setXAttrRes != FhgfsOpsErr_SUCCESS)
       {

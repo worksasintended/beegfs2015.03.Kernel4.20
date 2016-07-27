@@ -135,9 +135,9 @@ class Display
       unsigned sessionCountMeta(uint16_t nodeID);
       unsigned sessionCountStorage(uint16_t nodeID);
       bool getEntryInfo(std::string pathStr, std::string *outChunkSize,
-         std::string *outNumTargets, UInt16Vector *outTargetNumIDs, unsigned* outPatternID,
-         UInt16Vector *outMirrorTargetNumIDs, uint16_t* outMetaNodeNumID,
-         uint16_t* outMetaMirrorNodeNumID);
+         std::string *outNumTargets, UInt16Vector *outPrimaryTargetNumIDs, unsigned* outPatternID,
+         UInt16Vector *outSecondaryTargetNumIDs, UInt16Vector *outStorageBMGs,
+         uint16_t* outMetaNodeNumID, uint16_t* outMetaMirrorNodeNumID);
       bool setPattern(std::string pathStr, uint chunkSize, uint defaultNumNodes,
          unsigned patternID, bool doMetaMirroring);
       int listDirFromOffset(std::string pathStr, int64_t *offset, FileEntryList *outEntries,

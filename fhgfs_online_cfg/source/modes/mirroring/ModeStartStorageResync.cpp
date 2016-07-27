@@ -112,6 +112,13 @@ int ModeStartStorageResync::execute()
    iter = cfg->find(MODESTARTSTORAGERESYNC_ARG_RESTART);
    if(iter != cfg->end() )
    { // restart flag set
+      if (cfgTimestamp < 0)
+      {
+         std::cerr << "Resync can only be restarted in combination with --timestamp of --timespan."
+            << std::endl;
+         return APPCODE_INVALID_CONFIG;
+      }
+
       cfgRestart = true;
       cfg->erase(iter);
    }
@@ -165,6 +172,7 @@ void ModeStartStorageResync::printHelp()
    std::cout << "  --timespan=<timespan>           Resync entries modified in the given timespan." << std::endl;
    std::cout << "  --restart                       Abort any running resyncs and start a new one." << std::endl;
    std::cout << std::endl;
+   std::cout << " Note: --restart can only be used in combination with --timestamp or --timespan." << std::endl;
    std::cout << " Note: Either --timestamp or --timespan can be used, not both." << std::endl;
    std::cout << " Note: --timespan must have exactly one unit. Possible units are (s)econds, " << std::endl;
    std::cout << "       (m)inutes, (h)ours and (d)ays." << std::endl;

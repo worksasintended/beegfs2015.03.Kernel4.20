@@ -870,10 +870,12 @@ unsigned Display::sessionCountStorage(uint16_t nodeID)
  * @return false on error (e.g. communication error or path does not exist)
  */
 bool Display::getEntryInfo(std::string pathStr, std::string *outChunkSize,
-   std::string *outNumTargets, UInt16Vector *outTargetNumIDs, unsigned* outPatternID,
-   UInt16Vector *outMirrorTargetNumIDs, uint16_t* outMetaNodeNumID,
-   uint16_t* outMetaMirrorNodeNumID)
+   std::string *outNumTargets, UInt16Vector *outPrimaryTargetNumIDs, unsigned* outPatternID,
+   UInt16Vector *outSecondaryTargetNumIDs,  UInt16Vector *outStorageBMGs,
+   uint16_t* outMetaNodeNumID, uint16_t* outMetaMirrorNodeNumID)
 {
+   Logger* log = Program::getApp()->getLogger();
+
    bool retVal = false;
 
    // find owner node
@@ -888,8 +890,8 @@ bool Display::getEntryInfo(std::string pathStr, std::string *outChunkSize,
 
    if (findRes != FhgfsOpsErr_SUCCESS)
    {
-      std::cerr << "Unable to find metadata node for path: " << pathStr << std::endl;
-      std::cerr << "Error: " << FhgfsOpsErrTk::toErrString(findRes) << std::endl;
+      log->logErr(__FUNCTION__ , "Unable to find metadata node for path: " + pathStr +
+         "Error: " + FhgfsOpsErrTk::toErrString(findRes) );
    }
    else
    {
@@ -913,8 +915,55 @@ bool Display::getEntryInfo(std::string pathStr, std::string *outChunkSize,
          *outChunkSize = StringTk::uintToStr(pattern->getChunkSize());
          *outNumTargets = StringTk::uintToStr(pattern->getDefaultNumTargets());
          *outPatternID = pattern->getPatternType();
-         pattern->getStripeTargetIDs(outTargetNumIDs);
-         pattern->getMirrorTargetIDs(outMirrorTargetNumIDs);
+
+         if(*outPatternID == STRIPEPATTERN_Raid10)
+         {
+            *outPrimaryTargetNumIDs = *pattern->getStripeTargetIDs();
+            *outSecondaryTargetNumIDs = *pattern->getMirrorTargetIDs();
+         }
+         else if(*outPatternID == STRIPEPATTERN_BuddyMirror)
+         {
+            *outStorageBMGs = *pattern->getStripeTargetIDs();
+
+            Node *mgmtNode = mgmtdNodes->referenceFirstNode();
+
+            UInt16List buddyGroupIDs;
+            UInt16List buddyGroupPrimaryTargetIDs;
+            UInt16List buddyGroupSecondaryTargetIDs;
+            if(!NodesTk::downloadMirrorBuddyGroups(mgmtNode, NODETYPE_Storage, &buddyGroupIDs,
+               &buddyGroupPrimaryTargetIDs, &buddyGroupSecondaryTargetIDs, false) )
+            {
+               log->logErr(__FUNCTION__ , "Download of mirror buddy groups failed.");
+               mgmtdNodes->releaseNode(&mgmtNode);
+
+               return APPCODE_RUNTIME_ERROR;
+            }
+            mgmtdNodes->releaseNode(&mgmtNode);
+
+            UInt16ListIter buddyGroupIDIter = buddyGroupIDs.begin();
+            UInt16ListIter primaryTargetIDIter = buddyGroupPrimaryTargetIDs.begin();
+            UInt16ListIter secondaryTargetIDIter = buddyGroupSecondaryTargetIDs.begin();
+            for( ; (buddyGroupIDIter != buddyGroupIDs.end() ) &&
+                   (primaryTargetIDIter != buddyGroupPrimaryTargetIDs.end() ) &&
+                   (secondaryTargetIDIter != buddyGroupSecondaryTargetIDs.end() );
+               buddyGroupIDIter++, primaryTargetIDIter++, secondaryTargetIDIter++)
+            {
+               UInt16VectorIter iter = std::find(outStorageBMGs->begin(), outStorageBMGs->end(),
+                  *buddyGroupIDIter);
+               if (iter != outStorageBMGs->end() )
+               {
+                  outPrimaryTargetNumIDs->push_back(*primaryTargetIDIter);
+                  outSecondaryTargetNumIDs->push_back(*secondaryTargetIDIter);
+               }
+            }
+         }
+         else
+         {
+            *outPrimaryTargetNumIDs = *pattern->getStripeTargetIDs();
+         }
+
+         pattern->getStripeTargetIDs(outPrimaryTargetNumIDs);
+         pattern->getMirrorTargetIDs(outSecondaryTargetNumIDs);
 
          *outMetaNodeNumID = ownerNode->getNumID();
          *outMetaMirrorNodeNumID = respMsgCast->getMirrorNodeID();

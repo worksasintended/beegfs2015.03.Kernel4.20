@@ -700,6 +700,37 @@ public class JInternalFrameStriping extends javax.swing.JInternalFrame
       if(!isDirectory)
       {
          ArrayList<String> targets = parser.getVector("storageTargets");
+         ArrayList<String> mirrorTargets = parser.getVector("mirrorStorageTargets");
+         ArrayList<String> mirrorBuddyGroups = parser.getVector("storageMirrorBuddyGroups");
+         if(!mirrorBuddyGroups.isEmpty() )
+         {
+            int stringLen = mirrorBuddyGroups.size() * (3 + 2);
+            StringBuilder builder = new StringBuilder(stringLen);
+            for (String id : mirrorBuddyGroups)
+            {
+               if(builder.length() == 0)
+               {
+                  builder.append(id);
+               }
+               else
+               {
+                  builder.append(", ").append(id);
+               }
+            }
+
+            gridX = 0;
+            gridY++;
+            gbcText.gridx = gridX;
+            gbcText.gridy = gridY;
+            jLabelStorage = new JLabel("Storage Mirror Groups:");
+            jPanelLocation.add(jLabelStorage, gbcText);
+
+            gridX++;
+            gbcIDs.gridx = gridX;
+            gbcIDs.gridy = gridY;
+            JLabel mirrorLabel = new JLabel(builder.toString());
+            jPanelLocation.add(mirrorLabel, gbcIDs);
+         }
 
          gridX = 0;
          gridY++;
@@ -718,9 +749,7 @@ public class JInternalFrameStriping extends javax.swing.JInternalFrame
             gridY++;
          }
 
-         ArrayList<String> mirrorTargets = parser.getVector("mirrorStorageTargets");
-
-         if(!mirrorTargets.isEmpty())
+         if(!mirrorTargets.isEmpty() )
          {
             gridX = 0;
             gbcText.gridx = gridX;

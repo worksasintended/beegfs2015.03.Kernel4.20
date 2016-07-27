@@ -188,6 +188,13 @@ class FsckDBDentryTable
          return result;
       }
 
+      void flush(BulkHandle& handle)
+      {
+         handle.dentries.reset();
+         handle.byParent.reset();
+         handle.nameBuffer = NULL;
+      }
+
       void insert(FsckDirEntryList& dentries, const BulkHandle& handle)
       {
          insert(dentries, &handle);
@@ -304,6 +311,12 @@ class FsckDBFileInodesTable
          return BulkHandle(this->inodes.bulkInsert(), this->targets.bulkInsert() );
       }
 
+      void flush(BulkHandle& handle)
+      {
+         handle.first.reset();
+         handle.second.reset();
+      }
+
       void insert(FsckFileInodeList& fileInodes, const BulkHandle& handle)
       {
          insert(fileInodes, &handle);
@@ -340,6 +353,11 @@ class FsckDBDirInodesTable
       BulkHandle newBulkHandle()
       {
          return this->table.bulkInsert();
+      }
+
+      void flush(BulkHandle& handle)
+      {
+         handle.reset();
       }
 
       void insert(FsckDirInodeList& fileInodes, const BulkHandle& handle)
@@ -379,6 +397,11 @@ class FsckDBChunksTable
          return this->table.bulkInsert();
       }
 
+      void flush(BulkHandle& handle)
+      {
+         handle.reset();
+      }
+
       void insert(FsckChunkList& chunks, const BulkHandle& handle)
       {
          insert(chunks, &handle);
@@ -412,6 +435,11 @@ class FsckDBContDirsTable
       BulkHandle newBulkHandle()
       {
          return this->table.bulkInsert();
+      }
+
+      void flush(BulkHandle& handle)
+      {
+         handle.reset();
       }
 
       void insert(FsckContDirList& contDirs, const BulkHandle& handle)
@@ -450,6 +478,11 @@ class FsckDBFsIDsTable
          return this->table.bulkInsert();
       }
 
+      void flush(BulkHandle& handle)
+      {
+         handle.reset();
+      }
+
       void insert(FsckFsIDList& fsIDs, const BulkHandle& handle)
       {
          insert(fsIDs, &handle);
@@ -484,6 +517,11 @@ class FsckUniqueTable
          BulkHandle result(new Buffer<Data>(set, bufferSize) );
          bulkHandles.push_back(result);
          return result;
+      }
+
+      void flush(BulkHandle& handle)
+      {
+         handle.reset();
       }
 
       SetFragmentCursor<Data> get()

@@ -236,8 +236,11 @@ int64_t ReadLocalFileV2MsgEx::incrementalReadStatefulAndSendV2(Socket* sock,
    int64_t oldOffset = sessionLocalFile->getOffset();
    int64_t newOffset = getOffset();
 
-   ssize_t readAheadSize = unlikely(isMsgHeaderFeatureFlagSet(READLOCALFILEMSG_FLAG_DISABLE_IO) ) ?
-      0 : cfg->getTuneFileReadAheadSize();
+   bool skipReadAhead =
+      unlikely(isMsgHeaderFeatureFlagSet(READLOCALFILEMSG_FLAG_DISABLE_IO) ||
+      sessionLocalFile->getIsDirectIO());
+
+   ssize_t readAheadSize = skipReadAhead ? 0 : cfg->getTuneFileReadAheadSize();
    ssize_t readAheadTriggerSize = cfg->getTuneFileReadAheadTriggerSize();
 
    if( (oldOffset < 0) || (oldOffset != newOffset) )

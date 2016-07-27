@@ -111,7 +111,7 @@ FhgfsOpsErr MsgHelperXAttr::removexattr(EntryInfo* entryInfo, const std::string&
       if (unlikely(!dir) )
          return FhgfsOpsErr_INTERNAL;
 
-      retVal = dir->removeXAttr(CURRENT_DIR_FILENAME, XATTR_PREFIX + name);
+      retVal = dir->removeXAttr(NULL, CURRENT_DIR_FILENAME, XATTR_PREFIX + name);
 
       metaStore->releaseDir(dirEntryID);
    }
@@ -124,7 +124,7 @@ FhgfsOpsErr MsgHelperXAttr::removexattr(EntryInfo* entryInfo, const std::string&
       if (unlikely(!dir) )
          return FhgfsOpsErr_INTERNAL;
 
-      retVal = dir->removeXAttr(fileName, XATTR_PREFIX + name);
+      retVal = dir->removeXAttr(entryInfo, fileName, XATTR_PREFIX + name);
 
       metaStore->releaseDir(parentID);
    }
@@ -146,7 +146,7 @@ FhgfsOpsErr MsgHelperXAttr::setxattr(EntryInfo* entryInfo, const std::string& na
       if (unlikely(!dir) )
          return FhgfsOpsErr_INTERNAL;
 
-      retVal = dir->setXAttr(CURRENT_DIR_FILENAME, XATTR_PREFIX + name, value, flags);
+      retVal = dir->setXAttr(NULL, CURRENT_DIR_FILENAME, XATTR_PREFIX + name, value, flags);
 
       metaStore->releaseDir(dirEntryID);
    }
@@ -159,7 +159,7 @@ FhgfsOpsErr MsgHelperXAttr::setxattr(EntryInfo* entryInfo, const std::string& na
       if (unlikely(!dir) )
          return FhgfsOpsErr_INTERNAL;
 
-      retVal = dir->setXAttr(fileName, XATTR_PREFIX + name, value, flags);
+      retVal = dir->setXAttr(entryInfo, fileName, XATTR_PREFIX + name, value, flags);
 
       metaStore->releaseDir(parentID);
    }

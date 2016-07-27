@@ -37,6 +37,8 @@ void RetrieveChunksWork::process(char* bufIn, unsigned bufInLen, char* bufOut, u
    try
    {
       doWork();
+      // flush buffers before signaling completion
+      chunks->flush(chunksHandle);
       // work package finished => increment counter
       this->counter->incCount();
 

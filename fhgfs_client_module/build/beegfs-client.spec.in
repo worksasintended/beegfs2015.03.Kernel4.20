@@ -138,9 +138,6 @@ touch /var/lib/beegfs/client/force-auto-build
 %preun
 make -C %{CLIENT_DIR}/build/ clean --silent || true
 
-%preun %{COMPAT}
-make -C %{CLIENT_COMPAT_DIR}/build/ clean --silent || true
-
 # only disable the service if this is the last installation
 # (package removal and not upgrade)
 if [ "$1" = 0 ]
@@ -154,6 +151,8 @@ then
 	fi
 fi
 
+%preun %{COMPAT}
+make -C %{CLIENT_COMPAT_DIR}/build/ clean --silent || true
 
 
 %files

@@ -35,6 +35,9 @@ void RetrieveInodesWork::process(char* bufIn, unsigned bufInLen, char* bufOut,
    try
    {
       doWork();
+      // flush buffers before signaling completion
+      files->flush(filesHandle);
+      dirs->flush(dirsHandle);
       // work package finished => increment counter
       this->counter->incCount();
 

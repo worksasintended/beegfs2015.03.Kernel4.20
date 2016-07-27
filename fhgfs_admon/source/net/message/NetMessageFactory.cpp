@@ -7,6 +7,7 @@
 #include <common/net/message/control/GenericResponseMsg.h>
 #include <common/net/message/nodes/GetNodesRespMsg.h>
 #include <common/net/message/nodes/GetClientStatsRespMsg.h>
+#include <common/net/message/nodes/GetMirrorBuddyGroupsRespMsg.h>
 #include <common/net/message/nodes/GetTargetMappingsRespMsg.h>
 #include <common/net/message/storage/attribs/GetEntryInfoRespMsg.h>
 #include <common/net/message/storage/attribs/SetDirPatternRespMsg.h>
@@ -35,6 +36,7 @@ NetMessage* NetMessageFactory::createFromMsgType(unsigned short msgType)
       case NETMSGTYPE_FindOwnerResp: { msg = new FindOwnerRespMsg(); } break;
       case NETMSGTYPE_GenericResponse: { msg = new GenericResponseMsg(); } break;
       case NETMSGTYPE_GetClientStatsResp: { msg = new GetClientStatsRespMsg(); } break;
+      case NETMSGTYPE_GetMirrorBuddyGroupsResp: { msg = new GetMirrorBuddyGroupsRespMsg(); }; break;
       case NETMSGTYPE_GetNodeInfoResp: { msg = new GetNodeInfoRespMsg(); } break;
       case NETMSGTYPE_GetNodesResp: { msg = new GetNodesRespMsg(); } break;
       case NETMSGTYPE_GetEntryInfoResp: { msg = new GetEntryInfoRespMsg(); } break;

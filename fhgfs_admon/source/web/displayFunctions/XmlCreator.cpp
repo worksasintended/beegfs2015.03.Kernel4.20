@@ -2923,6 +2923,8 @@ void XmlCreator::striping(struct mg_connection *conn,
 #endif
 
    App* app = Program::getApp();
+   Logger* log = app->getLogger();
+
    NodeStoreMgmtEx* mgmtNodes = app->getMgmtNodes();
    NodeStoreMetaEx* metaNodes = app->getMetaNodes();
    NodeStoreStorageEx* storageNodes = app->getStorageNodes();
@@ -2980,13 +2982,14 @@ void XmlCreator::striping(struct mg_connection *conn,
             std::string defaultNumNodes;
             UInt16Vector currentTargetNumIDs;
             UInt16Vector currentMirrorTargetNumIDs;
+            UInt16Vector currentBMGIDs;
             uint16_t currentMetaNodeNumID;
             uint16_t currentMirrorMetaNodeNumID;
             unsigned pattern;
 
             bool getInfoRes = display.getEntryInfo(pathStr, &chunkSize,
                &defaultNumNodes, &currentTargetNumIDs, &pattern, &currentMirrorTargetNumIDs,
-               &currentMetaNodeNumID, &currentMirrorMetaNodeNumID);
+               &currentBMGIDs, &currentMetaNodeNumID, &currentMirrorMetaNodeNumID);
 
             if(!getInfoRes)
                responseErr = true; // error on entry info retrieval
@@ -3052,8 +3055,10 @@ void XmlCreator::striping(struct mg_connection *conn,
                {
                   targetMapper->syncTargetsFromLists(mappedTargetIDs, mappedNodeIDs);
                   targetMappingSuccess = true;
-
-                  mgmtNodes->releaseNode(&mgmtNode);
+               }
+               else
+               {
+                  log->log(Log_ERR, __func__, "Failed to download target mappings from mgmtd.");
                }
 
                TiXmlElement *targetElement = new TiXmlElement("storageTargets");
@@ -3091,8 +3096,19 @@ void XmlCreator::striping(struct mg_connection *conn,
                      StringTk::uintToStr(*iter) + " @ " + node) );
                   mirrorTargetElement->LinkEndChild(nodeElement);
                }
+
+               TiXmlElement *mirrorBuddyGroupsElement =
+                  new TiXmlElement("storageMirrorBuddyGroups");
+               rootElement->LinkEndChild(mirrorBuddyGroupsElement);
+               for(UInt16VectorIter iter = currentBMGIDs.begin(); iter != currentBMGIDs.end();
+                  iter++)
+               {
+                  TiXmlElement *nodeElement = new TiXmlElement("id");
+                  nodeElement->LinkEndChild(new TiXmlText(StringTk::uintToStr(*iter) ) );
+                  mirrorBuddyGroupsElement->LinkEndChild(nodeElement);
+               }
             }
-         } // end of "if(!pathStr.empty() )"
+         }
       }
 
       // add the general error element
