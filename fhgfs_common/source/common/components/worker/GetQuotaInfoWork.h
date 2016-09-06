@@ -5,6 +5,7 @@
 #include <common/Common.h>
 #include <common/net/message/storage/quota/GetQuotaInfoMsg.h>
 #include <common/nodes/Node.h>
+#include <common/storage/quota/Quota.h>
 #include <common/storage/quota/QuotaData.h>
 #include <common/storage/quota/GetQuotaInfo.h>
 #include <common/toolkit/SynchronizedCounter.h>
@@ -21,13 +22,14 @@ class GetQuotaInfoWork: public Work
        */
       GetQuotaInfoWork(GetQuotaInfoConfig cfg, Node* storageNode, int messageNumber,
          QuotaDataMap* outQuotaResults, Mutex* quotaResultsMutex,
-         SynchronizedCounter *counter, uint16_t* result)
+         SynchronizedCounter *counter, uint16_t* result, QuotaInodeSupport* quotaInodeSupport)
       {
          this->cfg = cfg;
          this->storageNode = storageNode;
          this->messageNumber = messageNumber;
          this->quotaResults = outQuotaResults;
          this->quotaResultsMutex = quotaResultsMutex;
+         this->quotaInodeSupport = quotaInodeSupport;
 
          this->counter = counter;
          this->result = result;
@@ -42,10 +44,11 @@ class GetQuotaInfoWork: public Work
    private:
       GetQuotaInfoConfig cfg;       // configuration qith all information to query the quota data
       Node* storageNode;            // the node query
-      int messageNumber;            // the
+      int messageNumber;            // the message number which is processed by this work
 
       QuotaDataMap* quotaResults;   // the quota data from the server after requesting the server
-      Mutex* quotaResultsMutex;     // synchronize quotaResultsMutex
+      QuotaInodeSupport* quotaInodeSupport;  // the support level for inode quota of the blockdevice
+      Mutex* quotaResultsMutex;     // synchronize quotaResults and quotaInodeSupport
 
       SynchronizedCounter* counter; // counter for finished worker
       uint16_t* result;             // result of the worker, 0 if success, if error the TargetNumID
@@ -53,7 +56,8 @@ class GetQuotaInfoWork: public Work
       void prepareMessage(int messageNumber, GetQuotaInfoMsg* msg);
       void getIDRangeForMessage(int messageNumber, unsigned &outFirstID, unsigned &outLastID);
       void getIDsFromListForMessage(int messageNumber, UIntList* outList);
-      void mergeOrInsertNewQuotaData(QuotaDataList* inList);
+      void mergeOrInsertNewQuotaData(QuotaDataList* inList, QuotaInodeSupport quotaInodeSupport);
+      void mergeQuotaInodeSupportUnlocked(QuotaInodeSupport inQuotaInodeSupport);
 };
 
 #endif /* GETQUOTAINFOWORK_H_ */

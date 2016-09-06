@@ -212,6 +212,8 @@ bool MgmtdTargetStateStore::autoOfflineTargets(const unsigned pofflineTimeoutMS,
    const unsigned offlineTimeoutMS, MirrorBuddyGroupMapper* buddyGroups)
 {
    const char* logContext = "Auto-offline";
+   LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG,
+         "Checking for offline nodes. NodeType: " + nodeTypeStr(true));
 
    bool retVal = false;
    UInt16List offlinedTargets;
@@ -237,7 +239,7 @@ bool MgmtdTargetStateStore::autoOfflineTargets(const unsigned pofflineTimeoutMS,
       {
          if (targetStateInfo.reachabilityState != TargetReachabilityState_OFFLINE)
          {
-            LogContext(logContext).log(Log_WARNING,
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
                "No state report received from " + nodeTypeStr(false) + " for " +
                StringTk::uintToStr(timeSinceLastUpdateMS / 1000) + " seconds. "
                "Setting " + nodeTypeStr(false) + " to offline. "
@@ -254,7 +256,7 @@ bool MgmtdTargetStateStore::autoOfflineTargets(const unsigned pofflineTimeoutMS,
       {
          if (targetStateInfo.reachabilityState != TargetReachabilityState_POFFLINE)
          {
-            LogContext(logContext).log(Log_WARNING,
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
                "No state report received from " + nodeTypeStr(false) + " for "
                + StringTk::uintToStr(timeSinceLastUpdateMS / 1000) + " seconds. "
                "Setting " + nodeTypeStr(false) + " to probably-offline. " +
@@ -285,7 +287,8 @@ bool MgmtdTargetStateStore::autoOfflineTargets(const unsigned pofflineTimeoutMS,
          bool getStateRes = getStateUnlocked(secondaryTargetID, secondaryTargetState);
          if (!getStateRes)
          {
-            LogContext(logContext).log(Log_ERR, "Tried to switch mirror group members, "
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
+               "Tried to switch mirror group members, "
                "but refusing to switch because secondary " + nodeTypeStr(false) +
                " state is unknown. Primary " + nodeTypeStr(false) + "ID: "
                + StringTk::uintToStr(*targetIDIter) );
@@ -295,7 +298,8 @@ bool MgmtdTargetStateStore::autoOfflineTargets(const unsigned pofflineTimeoutMS,
          if ( (secondaryTargetState.reachabilityState != TargetReachabilityState_ONLINE) ||
               (secondaryTargetState.consistencyState != TargetConsistencyState_GOOD) )
          {
-            LogContext(logContext).log(Log_ERR, "Tried to switch mirror group members, "
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
+               "Tried to switch mirror group members, "
                "but refusing to switch due to secondary " + nodeTypeStr(false) + " state. "
                "Secondary " + nodeTypeStr(false) + " ID: " + StringTk::uintToStr(*targetIDIter) +
                "; secondary state: " + TargetStateStore::stateToStr(secondaryTargetState) );
@@ -321,6 +325,7 @@ bool MgmtdTargetStateStore::autoOfflineTargets(const unsigned pofflineTimeoutMS,
 bool MgmtdTargetStateStore::resolveDoubleResync()
 {
    const char* logContext = "Resolve double resync";
+   LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG, "Checking for double-resync.");
 
    App* app = Program::getApp();
    MirrorBuddyGroupMapper* mirrorBuddyGroupMapper = app->getMirrorBuddyGroupMapper();
@@ -352,8 +357,9 @@ bool MgmtdTargetStateStore::resolveDoubleResync()
 
       if (!primaryStateRes)
       {
-         LOG_DEBUG(logContext, Log_ERR, "Failed to get state for " + nodeTypeStr(false) + " "
-            + StringTk::uintToStr(primaryTargetID) );
+         LogContext(logContext).log(LogTopic_STATESYNC,Log_ERR,
+            "Failed to get state for " + nodeTypeStr(false) + " "
+            + StringTk::uintToStr(primaryTargetID));
 
          continue;
       }
@@ -365,7 +371,8 @@ bool MgmtdTargetStateStore::resolveDoubleResync()
 
          if (!secondaryStateRes)
          {
-            LOG_DEBUG(logContext, Log_ERR, "Failed to get state for " + nodeTypeStr(false) + " "
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
+               "Failed to get state for " + nodeTypeStr(false) + " "
                + StringTk::uintToStr(primaryTargetID) );
 
             continue;
@@ -377,7 +384,7 @@ bool MgmtdTargetStateStore::resolveDoubleResync()
             // on them. We can't tell which is better, but we have to decide for one or the other.
             // So we take the current primary because it is probably more up to date.
 
-            LogContext(logContext).log(Log_WARNING,
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
                "Both " + nodeTypeStr(false) + "s of a mirror group need a resync. "
                "Setting primary " + nodeTypeStr(false) + " to state good; "
                "Primary " + nodeTypeStr(false) + " ID: " + StringTk::uintToStr(primaryTargetID) );
@@ -407,7 +414,8 @@ bool MgmtdTargetStateStore::resolveDoubleResync()
 
          if (refNodeErr != FhgfsOpsErr_SUCCESS)
          {
-            LogContext(logContext).logErr("Error referencing storge node for target ID "
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
+               "Error referencing storge node for target ID "
                + StringTk::uintToStr(targetID) );
 
             continue;
@@ -425,7 +433,8 @@ bool MgmtdTargetStateStore::resolveDoubleResync()
             storageNode, &msg, NETMSGTYPE_SetTargetConsistencyStatesResp, &respBuf, &respMsg);
          if (!commRes)
          {
-            LogContext(logContext).logErr("Unable to set primary " + nodeTypeStr(false) +
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
+               "Unable to set primary " + nodeTypeStr(false) +
                " to target state good for " + nodeTypeStr(false) +
                " ID " + StringTk::uintToStr(targetID) );
 
@@ -438,13 +447,17 @@ bool MgmtdTargetStateStore::resolveDoubleResync()
 
          if (result != FhgfsOpsErr_SUCCESS)
          {
-            LogContext(logContext).logErr("Error setting primary " + nodeTypeStr(false) +
-               " to state good for " + nodeTypeStr(false) + " ID " + StringTk::uintToStr(targetID) );
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
+               "Error setting primary " + nodeTypeStr(false) +
+               " to state good for " + nodeTypeStr(false) +
+               " ID " + StringTk::uintToStr(targetID) );
          }
          else
          {
-            LOG_DEBUG(logContext, Log_DEBUG, "Sucessfully set primary " + nodeTypeStr(false) +
-               " to state good for " + nodeTypeStr(false) + " ID " + StringTk::uintToStr(targetID) );
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG,
+               "Sucessfully set primary " + nodeTypeStr(false) +
+               " to state good for " + nodeTypeStr(false) +
+               " ID " + StringTk::uintToStr(targetID) );
 
             setConsistencyState(targetID, TargetConsistencyState_GOOD);
             res = true;

@@ -107,7 +107,7 @@ void Config::loadDefaults(bool addDashes)
 
    configMapRedefine("automatic", "false", addDashes);
 
-   configMapRedefine("runOnline", "false", addDashes);
+   configMapRedefine("runOffline", "false", addDashes);
 
    configMapRedefine("forceRestart", "false", addDashes);
 
@@ -244,8 +244,8 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw (Invalid
       if(testConfigMapKeyMatch(iter, "automatic", addDashes) )
          automatic = StringTk::strToBool(iter->second);
       else
-      if(testConfigMapKeyMatch(iter, "runOnline", addDashes) )
-         runOnline = StringTk::strToBool(iter->second);
+      if(testConfigMapKeyMatch(iter, "runOffline", addDashes) )
+         runOffline = StringTk::strToBool(iter->second);
       else
       if(testConfigMapKeyMatch(iter, "forceRestart", addDashes) )
          forceRestart = StringTk::strToBool(iter->second);

@@ -146,6 +146,7 @@ FhgfsOpsErr MkDirMsgEx::mkDir(EntryInfo* parentInfo, std::string newName,
    if (config->getStoreClientACLs() )
    {
       // Determine the ACLs of the new directory.
+      PosixACL parentDefaultACL;
       bool needsACL;
       FhgfsOpsErr parentDefaultACLRes = metaStore->getDirXAttr(parentDir,
          PosixACL::defaultACLXAttrName, parentDefaultACLXAttr);
@@ -153,7 +154,6 @@ FhgfsOpsErr MkDirMsgEx::mkDir(EntryInfo* parentInfo, std::string newName,
       if (parentDefaultACLRes == FhgfsOpsErr_SUCCESS)
       {
          // parent has a default ACL
-         PosixACL parentDefaultACL;
          if (!parentDefaultACL.deserializeXAttr(parentDefaultACLXAttr) )
          {
             LogContext(logContext).log(Log_ERR,
@@ -162,26 +162,35 @@ FhgfsOpsErr MkDirMsgEx::mkDir(EntryInfo* parentInfo, std::string newName,
             goto clean_up;
          }
 
-         // Note: This modifies the mode bits as well as the ACL itself.
-         FhgfsOpsErr modeRes = parentDefaultACL.modifyModeBits(mode, needsACL);
-         setMode(mode, 0);
-
-         if (modeRes != FhgfsOpsErr_SUCCESS)
+         if (!parentDefaultACL.empty())
          {
-            LogContext(logContext).log(Log_ERR, "Error generating access ACL for new directory "
-               + newName);
-            retVal = FhgfsOpsErr_INTERNAL;
-            goto clean_up;
+            // Note: This modifies the mode bits as well as the ACL itself.
+            FhgfsOpsErr modeRes = parentDefaultACL.modifyModeBits(mode, needsACL);
+            setMode(mode, 0);
+
+            if (modeRes != FhgfsOpsErr_SUCCESS)
+            {
+               LogContext(logContext).log(Log_ERR, "Error generating access ACL for new directory "
+                     + newName);
+               retVal = FhgfsOpsErr_INTERNAL;
+               goto clean_up;
+            }
+
+            if (needsACL)
+            {
+               accessACLXAttr.resize(parentDefaultACL.serialLenXAttr() );
+               parentDefaultACL.serializeXAttr(&accessACLXAttr.front() );
+            }
          }
-
-         if (needsACL)
+         else
          {
-            accessACLXAttr.resize(parentDefaultACL.serialLenXAttr() );
-            parentDefaultACL.serializeXAttr(&accessACLXAttr.front() );
+            // On empty ACL, clear the Xattr, so it doesn't get set on the newly created dir
+            parentDefaultACLXAttr.clear();
          }
       }
-      else
-      if (parentDefaultACLRes == FhgfsOpsErr_NODATA)
+
+      if (parentDefaultACLRes == FhgfsOpsErr_NODATA
+            || (parentDefaultACLRes == FhgfsOpsErr_SUCCESS && parentDefaultACL.empty()))
       {
          // containing dir has no ACL, so we can continue without one
          if (isMsgHeaderFeatureFlagSet(MKDIRMSG_FLAG_UMASK) )
@@ -190,7 +199,8 @@ FhgfsOpsErr MkDirMsgEx::mkDir(EntryInfo* parentInfo, std::string newName,
             setMode(mode, umask);
          }
       }
-      else
+
+      if (parentDefaultACLRes != FhgfsOpsErr_SUCCESS && parentDefaultACLRes != FhgfsOpsErr_NODATA)
       {
          LogContext(logContext).log(Log_ERR,
             "Error loading default ACL for directory ID " + parentDir->getID() );

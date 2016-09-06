@@ -232,22 +232,30 @@ int ModeIoctl::ioctlGetStripeTargets(IoctlTk& ioctlTk)
 
    // retrieve the individual stripe targets...
 
-   for(uint16_t i=0; i < numTargets; i++)
+   for (uint32_t i=0; i < numTargets; i++)
    {
-      uint16_t targetID;
-      uint16_t nodeNumID;
-      std::string nodeStrID;
+      BeegfsIoctl_GetStripeTargetV2_Arg targetInfo;
 
-      bool getRes = ioctlTk.getStripeTarget(i, &targetID, &nodeNumID, &nodeStrID);
-
+      bool getRes = ioctlTk.getStripeTarget(i, targetInfo);
       if(!getRes)
       {
          ioctlTk.printErrMsg();
          return APPCODE_RUNTIME_ERROR;
       }
 
-      std::cout << targetID << " @ " << nodeStrID << " "
-         "[ID: " << nodeNumID << "]" << std::endl;
+      if (targetInfo.primaryTarget == 0)
+      {
+         std::cout << targetInfo.targetOrGroup << " @ " << targetInfo.primaryNodeStrID << " "
+            "[ID: " << targetInfo.primaryNodeID << "]" << std::endl;
+      }
+      else
+      {
+         std::cout << targetInfo.targetOrGroup << " @ ("
+            << targetInfo.primaryTarget << " @ " << targetInfo.primaryNodeStrID <<
+               " [ID: " << targetInfo.primaryNodeStrID << "], "
+            << targetInfo.secondaryTarget << " @ " << targetInfo.secondaryNodeStrID <<
+               " [ID: " << targetInfo.secondaryNodeID << "])" << std::endl;
+      }
    }
 
    return APPCODE_NO_ERROR;

@@ -205,9 +205,6 @@ void AbstractConfig::applyConfigMap(bool enableException, bool addDashes)
       if(testConfigMapKeyMatch(iter, "connTcpOnlyFilterFile", addDashes) )
          connTcpOnlyFilterFile = iter->second;
       else
-      if(testConfigMapKeyMatch(iter, "connIgnoreMsgHeaderCompatFlags", addDashes) )
-         connUseRDMA = StringTk::strToBool(iter->second);
-      else
       if(testConfigMapKeyMatch(iter, "debugFindOtherNodes", addDashes) )
          debugFindOtherNodes = StringTk::strToBool(iter->second);
       else

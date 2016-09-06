@@ -147,18 +147,6 @@ fhgfs_bool _StandardSocket_initSock(StandardSocket* this, int domain, int type, 
 {
    int createRes;
 
-   #ifdef KERNEL_HAS_CURRENT_NSPROXY
-   // sanity check: make sure that current->nsproxy is set
-   /* this is a workaround for a kernel bug, where remaining open files are being closed during
-      process termination in kernel's do_exit() after current->nsproxy has already been free'd. */
-   if(unlikely(!current || !current->nsproxy) )
-   {
-      printk_fhgfs_debug(KERN_WARNING, "Skipping socket_create(), because nsproxy==NULL "
-         "(most likely we're being called from do_exit()\n");
-      return fhgfs_false;
-   }
-   #endif // KERNEL_HAS_CURRENT_NSPROXY
-
    // prepare/create socket
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
    createRes = sock_create_kern(domain, type, protocol, &this->sock);
@@ -778,7 +766,11 @@ ssize_t StandardSocket_recvfrom(StandardSocket* this, void *buf, size_t len, int
 
    ACQUIRE_PROCESS_CONTEXT(oldfs);
 
+#ifdef KERNEL_HAS_RECVMSG_SIZE
    recvRes = sock_recvmsg(this->sock, &msg, len, flags);
+#else
+   recvRes = sock_recvmsg(this->sock, &msg, flags);
+#endif
 
    RELEASE_PROCESS_CONTEXT(oldfs);
 

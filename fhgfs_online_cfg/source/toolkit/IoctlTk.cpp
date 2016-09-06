@@ -115,23 +115,9 @@ bool IoctlTk::getStripeInfo(unsigned* outPatternType, unsigned* outChunkSize,
 /**
  * ioctl to get the stripe target of a file (via 0-based index).
  */
-bool IoctlTk::getStripeTarget(uint16_t targetIndex, uint16_t* outTargetNumID,
-   uint16_t* outNodeNumID, std::string* outNodeStrID)
+bool IoctlTk::getStripeTarget(uint32_t targetIndex, BeegfsIoctl_GetStripeTargetV2_Arg& outInfo)
 {
-   char* nodeStrID;
-
-   bool getRes = beegfs_getStripeTarget(fd, targetIndex, outTargetNumID, outNodeNumID, &nodeStrID);
-
-   if(!getRes)
-   {
-      this->errorMsg = strerror(errno);
-      return false;
-   }
-
-   *outNodeStrID = nodeStrID;
-   free(nodeStrID);
-
-   return true;
+   return beegfs_getStripeTargetV2(fd, targetIndex, &outInfo);
 }
 
 bool IoctlTk::mkFileWithStripeHints(std::string filename, mode_t mode, unsigned numtargets,

@@ -8,9 +8,12 @@
  *
  * @param inList the list with the QuotaData to merge with the QuotaDataMap of this worker
  */
-void GetQuotaInfoWork::mergeOrInsertNewQuotaData(QuotaDataList* inList)
+void GetQuotaInfoWork::mergeOrInsertNewQuotaData(QuotaDataList* inList,
+   QuotaInodeSupport inQuotaInodeSupport)
 {
    SafeMutexLock lock = SafeMutexLock(this->quotaResultsMutex);         // L O C K
+
+   mergeQuotaInodeSupportUnlocked(inQuotaInodeSupport);
 
    for(QuotaDataListIter inListIter = inList->begin(); inListIter != inList->end(); inListIter++)
    {
@@ -89,8 +92,7 @@ void GetQuotaInfoWork::process(char* bufIn, unsigned bufInLen, char* bufOut, uns
    respMsgCast->parseQuotaDataList(&results);
 
    //merge the QuotaData from the response with the existing quotaData
-
-   mergeOrInsertNewQuotaData(&results);
+   mergeOrInsertNewQuotaData(&results, respMsgCast->getQuotaInodeSupport());
 
    this->counter->incCount();
 
@@ -190,4 +192,30 @@ void GetQuotaInfoWork::getIDsFromListForMessage(int messageNumber, UIntList* out
       outList->push_back(*iter);
    }
 
+}
+
+void GetQuotaInfoWork::mergeQuotaInodeSupportUnlocked(QuotaInodeSupport inQuotaInodeSupport)
+{
+   if(*quotaInodeSupport == QuotaInodeSupport_UNKNOWN)
+   { // if the current state is QuotaInodeSupport_UNKNOWN, the input value is the new state
+      *quotaInodeSupport = inQuotaInodeSupport;
+      return;
+   }
+
+   if(inQuotaInodeSupport == QuotaInodeSupport_ALL_BLOCKDEVICES)
+   {
+      if(*quotaInodeSupport == QuotaInodeSupport_NO_BLOCKDEVICES)
+      {
+         *quotaInodeSupport = QuotaInodeSupport_SOME_BLOCKDEVICES;
+      }
+   }
+   else if(inQuotaInodeSupport == QuotaInodeSupport_NO_BLOCKDEVICES)
+   {
+      if(*quotaInodeSupport == QuotaInodeSupport_ALL_BLOCKDEVICES)
+      {
+         *quotaInodeSupport = QuotaInodeSupport_SOME_BLOCKDEVICES;
+      }
+   }
+   // we ignore QuotaInodeSupport_SOME_BLOCKDEVICES because this state couldn't be changed
+   // we also ignore QuotaInodeSupport_UNKNOWN because it can not change the state
 }

@@ -140,6 +140,8 @@ void InternodeSyncer::updateStorageCapacityPools(bool updateForced)
  */
 void InternodeSyncer::updateNodeCapacityPools(NodeStore* nodes, NodeCapacityPools* pools)
 {
+   LogContext("Update Node CapPools").log(LogTopic_STATESYNC, Log_DEBUG,
+         "Starting node capacity pools update.");
    bool poolsModified = false; // true if pool lists changed and we need to inform others about it
 
    // minima and maxima of the pools' free capacity - needed for adaptive pooling
@@ -239,6 +241,8 @@ void InternodeSyncer::updateNodeCapacityPools(NodeStore* nodes, NodeCapacityPool
 void InternodeSyncer::updateTargetCapacityPools(TargetMapper* targetMapper,
    TargetCapacityPools* pools, bool updateForced)
 {
+   LogContext("Update Target CapPools").log(LogTopic_STATESYNC, Log_DEBUG,
+         "Starting target capacity pools update.");
    bool poolsModified = false; // true if pool lists changed and we need to inform others about it
 
    // Minima and maxima of the pools' free capacity - needed for adaptive pooling.
@@ -419,7 +423,8 @@ bool InternodeSyncer::assignTargetToPool(TargetCapacityPools* pools, uint16_t ta
 
    bool updateRes = pools->addOrUpdate(targetID, nodeID, pool);
    if(updateRes)
-      LogContext(logContext).log(Log_WARNING, "Storage target capacity pool assignment updated. "
+      LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
+         "Storage target capacity pool assignment updated. "
          "NodeID: " + StringTk::uintToStr(nodeID) + "; "
          "TargetID: " + StringTk::uintToStr(targetID) + "; "
          "Pool: " + TargetCapacityPools::poolTypeToStr(pool) + "; "
@@ -441,7 +446,8 @@ bool InternodeSyncer::assignNodeToPool(NodeCapacityPools* pools, uint16_t nodeID
 
    bool updateRes = pools->addOrUpdate(nodeID, pool);
    if(updateRes)
-      LogContext(logContext).log(Log_WARNING, "Metadata node capacity pool assignment updated. "
+      LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
+         "Metadata node capacity pool assignment updated. "
          "NodeID: " + StringTk::uintToStr(nodeID) + "; "
          "Pool: " + NodeCapacityPools::poolTypeToStr(pool) + "; "
          "Reason: " + reason);

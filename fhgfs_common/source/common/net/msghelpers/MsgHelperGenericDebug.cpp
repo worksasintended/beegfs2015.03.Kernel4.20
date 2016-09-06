@@ -43,8 +43,21 @@ std::string MsgHelperGenericDebug::processOpGetLogLevel(std::istringstream& comm
 
    Logger* log = PThread::getCurrentThreadApp()->getLogger();
    std::ostringstream responseStream;
+   std::string logTopicStr;
 
-   responseStream << "Level: " << log->getLogLevel();
+   // get logTopic from command string
+ /*  std::getline(commandStream, logTopicStr, ' ');
+
+   int logTopic;
+   if (logTopicStr.empty())
+      logTopic = LogTopic_GENERAL;
+   else
+      logTopic = StringTk::strToInt(logTopicStr); */
+
+   const IntVector logLevels = log->getLogLevels();
+
+   for (size_t i = 0; i < logLevels.size(); i++)
+      responseStream << Logger::logTopicToName((LogTopic)i) << ": " << logLevels[i] << std::endl;
 
    return responseStream.str();
 }
@@ -57,6 +70,7 @@ std::string MsgHelperGenericDebug::processOpSetLogLevel(std::istringstream& comm
    std::ostringstream responseStream;
 
    std::string logLevelStr;
+   std::string logTopicStr;
 
    // get logLevel from command string
    std::getline(commandStream, logLevelStr, ' ');
@@ -66,11 +80,20 @@ std::string MsgHelperGenericDebug::processOpSetLogLevel(std::istringstream& comm
 
    int logLevel = StringTk::strToInt(logLevelStr);
 
-   responseStream << "Old level: " << log->getLogLevel() << std::endl;
+   // get logTopic from command string
+   std::getline(commandStream, logTopicStr, ' ');
 
-   log->setLogLevel(logLevel);
+   LogTopic logTopic;
+   if (logTopicStr.empty())
+      logTopic = LogTopic_GENERAL;
+   else
+      logTopic = Logger::logTopicFromName(logTopicStr);
 
-   responseStream << "New level: " << log->getLogLevel();
+   responseStream << "Old level: " << log->getLogLevel(logTopic) << std::endl;
+
+   log->setLogLevel(logLevel, logTopic);
+
+   responseStream << "New level: " << log->getLogLevel(logTopic);
 
    return responseStream.str();
 }

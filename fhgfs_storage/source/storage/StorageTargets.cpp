@@ -87,18 +87,20 @@ void StorageTargets::initTargetPathsList(Config* cfg) throw(InvalidConfigExcepti
  * initialize the quotaBlockDevice which contains quota related information about the block devices
  *
  * Note: requires initialized targetPaths
+ * Note: No locking needed because it is only used in the constructor (no parallel access).
  */
 void StorageTargets::initQuotaBlockDevices()
 {
-   // create Quota block devices
-   TargetPathMap targets;
-   getAllTargets(&targets);
+   supportForInodeQuota = QuotaInodeSupport_UNKNOWN;
 
    for (StorageTargetDataMapIter iter = storageTargetDataMap.begin();
       iter != storageTargetDataMap.end(); iter++)
    {
       (iter->second).quotaBlockDevice = QuotaBlockDevice::getBlockDeviceOfTarget(
          (iter->second).targetPath, iter->first);
+
+      supportForInodeQuota = QuotaBlockDevice::updateQuotaInodeSupport(supportForInodeQuota,
+         (iter->second).quotaBlockDevice.getFsType() );
    }
 }
 
@@ -873,4 +875,3 @@ void StorageTargets::updateTargetStateLists(const TargetStateMap& stateMap, cons
       *consistencyStateIter = newStateIter->second.consistencyState;
    }
 }
-

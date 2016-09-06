@@ -192,19 +192,6 @@ KERNEL_HAS_PDE_DATA = $(shell \
 	fi)
 # KERNEL_HAS_PDE_DATA Detection [END]
 
-# KERNEL_HAS_CURRENT_NSPROXY Detection [START]
-#
-# Find out whether the kernel has current->nsproxy
-#
-# Note: This was added in vanilla linux-2.6.19
-#
-KERNEL_HAS_CURRENT_NSPROXY = $(shell \
-	if grep "struct nsproxy \*nsproxy;" \
-		${KSRCDIR_PRUNED_HEAD}/include/linux/sched.h 1>/dev/null 2>&1 ; \
-	then echo "-DKERNEL_HAS_CURRENT_NSPROXY" ; \
-	fi)
-# KERNEL_HAS_CURRENT_NSPROXY Detection [END]
-
 
 # KERNEL_HAS_GET_UNALIGNED_LE Detection [START]
 #
@@ -477,6 +464,19 @@ $(call define_if_matches, KERNEL_HAS_I_MMAP_RWSEM, -F "i_mmap_rwsem", fs.h)
 $(call define_if_matches, KERNEL_HAS_I_MMAP_MUTEX, -F "i_mmap_mutex", fs.h)
 $(call define_if_matches, KERNEL_HAS_I_MMAP_RBTREE, -P "struct rb_root\s+i_mmap", fs.h)
 $(call define_if_matches, KERNEL_HAS_I_MMAP_NONLINEAR, -F "i_mmap_nonlinear", fs.h)
+
+$(call define_if_matches, KERNEL_HAS_LONG_IOV_DIO, \
+   -F "ssize_t (*direct_IO)(struct kiocb *, struct iov_iter *iter, loff_t offset);", fs.h)
+$(call define_if_matches, KERNEL_HAS_IOV_DIO, \
+   -F "ssize_t (*direct_IO)(struct kiocb *, struct iov_iter *iter);", fs.h)
+$(call define_if_matches, KERNEL_HAS_XATTR_HANDLERS_INODE_ARG, \
+   -P "generic_getxattr.*struct inode", xattr.h)
+$(call define_if_matches, KERNEL_HAS_INODE_LOCK, "static inline void inode_lock", fs.h)
+
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -sFA1 "sock_recvmsg" ${KSRCDIR_PRUNED_HEAD}/include/linux/net.h \
+      | grep -qsF "size_t size" \
+      && echo "-DKERNEL_HAS_RECVMSG_SIZE")
 
 # Combine results
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_DROP_NLINK)

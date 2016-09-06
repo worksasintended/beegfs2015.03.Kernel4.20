@@ -1032,21 +1032,28 @@ int SetupFunctions::checkSSH(StringList *hosts, StringList *failedNodes)
 int SetupFunctions::getLogFile(NodeType nodeType, uint16_t nodeNumID, uint lines,
    std::string *outStr, std::string nodeID)
 {
+   Logger* log = Program::getApp()->getLogger();
+
    *outStr = "";
 
    // get the path to the log file
 
    std::string logFilePath;
+   std::string hostname;
 
    if (nodeType == NODETYPE_Mgmt)
    {
       NodeStoreMgmtEx *nodeStore = Program::getApp()->getMgmtNodes();
       Node *node = nodeStore->referenceNode(nodeNumID);
       if (node == NULL)
+      {
+         log->log(Log_ERR, __FUNCTION__, "Could not reference management server. nodeNumID: " +
+            StringTk::uintToStr(nodeNumID) );
          return -1;
+      }
 
       logFilePath = ( (MgmtNodeEx*)node)->getGeneralInformation().logFilePath;
-      nodeID = ( (MgmtNodeEx*)node)->getID();
+      hostname = ( (MgmtNodeEx*)node)->getID();
       nodeStore->releaseNode(&node);
    }
    else
@@ -1055,10 +1062,14 @@ int SetupFunctions::getLogFile(NodeType nodeType, uint16_t nodeNumID, uint lines
       NodeStoreMetaEx *nodeStore = Program::getApp()->getMetaNodes();
       Node *node =  nodeStore->referenceNode(nodeNumID);
       if (node == NULL)
+      {
+         log->log(Log_ERR, __FUNCTION__, "Could not reference metadata server. nodeNumID: " +
+            StringTk::uintToStr(nodeNumID) );
          return -1;
+      }
 
       logFilePath = ( (MetaNodeEx*)node)->getGeneralInformation().logFilePath;
-      nodeID = ( (MetaNodeEx*)node)->getID();
+      hostname = ( (MetaNodeEx*)node)->getID();
       nodeStore->releaseNode(&node);
    }
    else
@@ -1067,10 +1078,14 @@ int SetupFunctions::getLogFile(NodeType nodeType, uint16_t nodeNumID, uint lines
       NodeStoreStorageEx *nodeStore = Program::getApp()->getStorageNodes();
       Node *node =  nodeStore->referenceNode(nodeNumID);
       if (node == NULL)
+      {
+         log->log(Log_ERR, __FUNCTION__, "Could not reference storage server. nodeNumID: " +
+            StringTk::uintToStr(nodeNumID) );
          return -1;
+      }
 
       logFilePath = ( (StorageNodeEx*)node)->getGeneralInformation().logFilePath;
-      nodeID = ( (StorageNodeEx*)node)->getID();
+      hostname = ( (StorageNodeEx*)node)->getID();
       nodeStore->releaseNode(&node);
    }
    else
@@ -1080,8 +1095,22 @@ int SetupFunctions::getLogFile(NodeType nodeType, uint16_t nodeNumID, uint lines
 
       StringList idParts;
       StringTk::explode(nodeID, '-', &idParts);
-      if(idParts.size() == 3)
-         nodeID = idParts.back();
+
+      if(idParts.size() > 2)
+      {
+         StringListIter startIter = idParts.begin();
+         std::advance(startIter, 2);
+         StringList hostnameList(startIter, idParts.end() );
+         hostname = StringTk::implode('-', hostnameList, false);
+      }
+   }
+
+   if(hostname.empty() )
+   {
+      log->log(Log_ERR, __FUNCTION__, "Destination hostname is empty. nodeID: " + nodeID +
+         "; nodeNumID: " + StringTk::uintToStr(nodeNumID) +
+         "; nodeType: " + Node::nodeTypeToStr(nodeType) );
+      return -1;
    }
 
    ExternalJobRunner *jobRunner = Program::getApp()->getJobRunner();
@@ -1089,7 +1118,7 @@ int SetupFunctions::getLogFile(NodeType nodeType, uint16_t nodeNumID, uint lines
    Mutex mutex;
    SafeMutexLock mutexLock(&mutex);
 
-   std::string cmdLine = BASH + " " + SCRIPT_GET_REMOTE_FILE + " " + nodeID + " " + logFilePath +
+   std::string cmdLine = BASH + " " + SCRIPT_GET_REMOTE_FILE + " " + hostname + " " + logFilePath +
       " " + StringTk::uintToStr(lines);
    Job *job = jobRunner->addJob(cmdLine, &mutex);
 

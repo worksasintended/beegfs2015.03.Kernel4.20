@@ -6,6 +6,12 @@ void GetQuotaInfoRespMsg::serializePayload(char* buf)
 
    // quotaData
    bufPos += Serialization::serializeQuotaDataList(&buf[bufPos], this->quotaData);
+
+   if(isMsgHeaderCompatFeatureFlagSet(MsgCompatFlags::QUOTA_INODE_SUPPORT) )
+   {
+      // quotaInodeSupport
+      bufPos += Serialization::serializeUInt(&buf[bufPos], this->quotaInodeSupport);
+   }
 }
 
 bool GetQuotaInfoRespMsg::deserializePayload(const char* buf, size_t bufLen)
@@ -19,6 +25,20 @@ bool GetQuotaInfoRespMsg::deserializePayload(const char* buf, size_t bufLen)
       return false;
 
    bufPos += this->quotaDataBufLen;
+
+
+   if(isMsgHeaderCompatFeatureFlagSet(MsgCompatFlags::QUOTA_INODE_SUPPORT) )
+   {
+      // quotaInodeSupport
+
+      unsigned quotaInodeSupportBufLen;
+
+      if(!Serialization::deserializeUInt(&buf[bufPos], bufLen-bufPos,
+         &this->quotaInodeSupport, &quotaInodeSupportBufLen) )
+         return false;
+
+      bufPos += quotaInodeSupportBufLen;
+   }
 
    return true;
 }

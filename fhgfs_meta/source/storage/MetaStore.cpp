@@ -773,7 +773,7 @@ FhgfsOpsErr MetaStore::mkNewMetaFileUnlocked(DirInode* dir, MkFileDetails* mkDet
 
    CharVector aclXAttr;
    bool needsACL;
-   if (config->getStoreClientACLs() )
+   if (config->getStoreClientACLs())
    {
       // Find out if parent dir has an ACL.
       FhgfsOpsErr aclXAttrRes = getDirXAttr(dir, PosixACL::defaultACLXAttrName, aclXAttr);
@@ -782,28 +782,36 @@ FhgfsOpsErr MetaStore::mkNewMetaFileUnlocked(DirInode* dir, MkFileDetails* mkDet
       {
          // dir has a default acl.
          PosixACL defaultACL;
-         if (!defaultACL.deserializeXAttr(aclXAttr) )
+         if (!defaultACL.deserializeXAttr(aclXAttr))
          {
             LogContext(logContext).log(Log_ERR, "Error deserializing directory default ACL.");
             return FhgfsOpsErr_INTERNAL;
          }
          else
          {
-            // Note: This modifies mkDetails->mode as well as the ACL.
-            FhgfsOpsErr modeRes = defaultACL.modifyModeBits(mkDetails->mode, needsACL);
-
-            if (modeRes != FhgfsOpsErr_SUCCESS)
-               return modeRes;
-
-            if (needsACL)
+            if (!defaultACL.empty())
             {
-               aclXAttr.resize(defaultACL.serialLenXAttr() );
-               defaultACL.serializeXAttr(&aclXAttr.front() );
+               // Note: This modifies mkDetails->mode as well as the ACL.
+               FhgfsOpsErr modeRes = defaultACL.modifyModeBits(mkDetails->mode, needsACL);
+
+               if (modeRes != FhgfsOpsErr_SUCCESS)
+                  return modeRes;
+
+               if (needsACL)
+               {
+                  aclXAttr.resize(defaultACL.serialLenXAttr());
+                  defaultACL.serializeXAttr(&aclXAttr.front());
+               }
+            }
+            else
+            {
+               // Default ACL empty - subtract umask from mode bits.
+               mkDetails->mode &= ~mkDetails->umask;
+               needsACL = false;
             }
          }
       }
-      else
-      if (aclXAttrRes == FhgfsOpsErr_NODATA)
+      else if (aclXAttrRes == FhgfsOpsErr_NODATA)
       {
          // Directory does not have a default ACL - subtract umask from mode bits.
          mkDetails->mode &= ~mkDetails->umask;
@@ -816,7 +824,9 @@ FhgfsOpsErr MetaStore::mkNewMetaFileUnlocked(DirInode* dir, MkFileDetails* mkDet
       }
    }
    else
+   {
       needsACL = false;
+   }
 
    DirEntryType entryType = MetadataTk::posixFileTypeToDirEntryType(mkDetails->mode);
    StatData statData(mkDetails->mode, mkDetails->userID, mkDetails->groupID,

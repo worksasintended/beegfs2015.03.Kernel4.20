@@ -9,6 +9,7 @@ import static com.beegfs.admon.gui.common.tools.DefinesTk.BEEGFS_ADMON_GUI_NAMES
 import com.beegfs.admon.gui.components.MainWindow;
 import com.beegfs.admon.gui.components.dialogs.JDialogNewConfig;
 import com.beegfs.admon.gui.components.lf.BeegfsLookAndFeel;
+import java.awt.HeadlessException;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -283,9 +284,12 @@ public class Main
          }
       }
       catch (ClassNotFoundException | InstantiationException | IllegalAccessException |
-         UnsupportedLookAndFeelException ex)
+         UnsupportedLookAndFeelException | HeadlessException | NullPointerException ex)
       {
-         logger.log(Level.SEVERE, "Error", ex);
+         System.err.println("Please check your graphic environment. " +
+            "Is a X-environment available or X-forwarding in your ssh session enabled?");
+         logger.log(Level.SEVERE, "Please check your graphic environment. " +
+            "Is a X-environment available or X-forwarding in your ssh session enabled? Error:", ex);
          return false;
       }
 

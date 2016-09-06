@@ -100,9 +100,9 @@ class FileInode
 
       bool deserializeMetaData(const char* buf);
 
-      unsigned serialize(char* buf);
-      bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
-      unsigned serialLen() const;
+      unsigned serializeLockState(char* buf);
+      bool deserializeLockState(const char* buf, size_t bufLen, unsigned* outLen);
+      unsigned serialLenLockState() const;
 
       static unsigned serializeDentryCompatData(char* buf, const DentryCompatData* data);
       static bool deserializeDentryCompatData(const char* buf, size_t bufLen, unsigned* outLen,

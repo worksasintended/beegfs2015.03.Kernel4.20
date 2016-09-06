@@ -117,6 +117,10 @@ BEEGFS_CFLAGS  :=  $(BUILD_ARCH) $(KERNEL_FEATURE_DETECTION) \
 	-Wextra -Wno-unused-parameter \
 	-DBEEGFS_MODULE_NAME_STR='\"$(TARGET)\"'
 
+ifeq ($(shell echo | gcc -Wtype-limits -E - >/dev/null 2>&1 && echo 1),1)
+   BEEGFS_CFLAGS += -Wno-type-limits
+endif
+
 # -O0 would be better, but is not allowed by kernel includes (will not work)
 BEEGFS_CFLAGS_DEBUG := -O1 -ggdb3 -rdynamic -fno-inline -DBEEGFS_DEBUG \
 	-DLOG_DEBUG_MESSAGES -DDEBUG_REFCOUNT -DBEEGFS_OPENTK_LOG_CONN_ERRORS

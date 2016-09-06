@@ -2,6 +2,7 @@
 #include <common/app/log/LogContext.h>
 #include <common/net/message/storage/quota/GetQuotaInfoRespMsg.h>
 #include <common/storage/quota/GetQuotaConfig.h>
+#include <common/storage/quota/Quota.h>
 #include <session/ZfsSession.h>
 #include <storage/QuotaBlockDevice.h>
 #include <program/Program.h>
@@ -24,17 +25,21 @@ bool GetQuotaInfoMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
    QuotaBlockDeviceMap quotaBlockDevices;
    QuotaDataList outQuotaDataList;
    ZfsSession session;
+   QuotaInodeSupport quotaInodeSupport = QuotaInodeSupport_UNKNOWN;
 
    switch(getTargetSelection() )
    {
       case GETQUOTACONFIG_ALL_TARGETS_ONE_REQUEST:
          app->getStorageTargets()->getQuotaBlockDevices(&quotaBlockDevices);
+         quotaInodeSupport = app->getStorageTargets()->getSupportForInodeQuota();
          break;
       case GETQUOTACONFIG_ALL_TARGETS_ONE_REQUEST_PER_TARGET:
-         app->getStorageTargets()->getQuotaBlockDevice(&quotaBlockDevices, getTargetNumID() );
+         app->getStorageTargets()->getQuotaBlockDevice(&quotaBlockDevices, getTargetNumID(),
+            &quotaInodeSupport);
          break;
       case GETQUOTACONFIG_SINGLE_TARGET:
-         app->getStorageTargets()->getQuotaBlockDevice(&quotaBlockDevices, getTargetNumID() );
+         app->getStorageTargets()->getQuotaBlockDevice(&quotaBlockDevices, getTargetNumID(),
+            &quotaInodeSupport);
          break;
    }
 
@@ -62,7 +67,7 @@ bool GetQuotaInfoMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
    }
 
    // send response
-   GetQuotaInfoRespMsg respMsg(&outQuotaDataList);
+   GetQuotaInfoRespMsg respMsg(&outQuotaDataList, quotaInodeSupport);
    respMsg.serialize(respBuf, bufLen);
 
    sock->sendto(respBuf, respMsg.getMsgLength(), 0,

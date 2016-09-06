@@ -75,6 +75,24 @@ struct BeegfsIoctl_GetStripeTarget_Arg
                                                        target is mapped */
 };
 
+struct BeegfsIoctl_GetStripeTargetV2_Arg
+{
+   /* inputs */
+   uint32_t targetIndex;
+
+   /* outputs */
+   uint32_t targetOrGroup; // target ID if the file is not buddy mirrored, otherwise mirror group ID
+
+   uint32_t primaryTarget; // target ID != 0 if buddy mirrored
+   uint32_t secondaryTarget; // target ID != 0 if buddy mirrored
+
+   uint32_t primaryNodeID; // node ID of target (if unmirrored) or primary target (if mirrored)
+   uint32_t secondaryNodeID; // node ID of secondary target, or 0 if unmirrored
+
+   char primaryNodeStrID[BEEGFS_IOCTL_NODESTRID_BUFLEN];
+   char secondaryNodeStrID[BEEGFS_IOCTL_NODESTRID_BUFLEN];
+};
+
 /* used to pass information for file creation with stripe hints */
 struct BeegfsIoctl_MkFileWithStripeHints_Arg
 {
@@ -133,6 +151,8 @@ struct BeegfsIoctl_MkFileWithStripeHints_Arg
    BEEGFS_IOCTYPE_ID, BEEGFS_IOCNUM_GET_STRIPEINFO, struct BeegfsIoctl_GetStripeInfo_Arg)
 #define BEEGFS_IOC_GET_STRIPETARGET        _IOR( \
    BEEGFS_IOCTYPE_ID, BEEGFS_IOCNUM_GET_STRIPETARGET, struct BeegfsIoctl_GetStripeTarget_Arg)
+#define BEEGFS_IOC_GET_STRIPETARGET_V2     _IOR( \
+   BEEGFS_IOCTYPE_ID, BEEGFS_IOCNUM_GET_STRIPETARGET, struct BeegfsIoctl_GetStripeTargetV2_Arg)
 #define BEEGFS_IOC_MKFILE_STRIPEHINTS      _IOW( \
    BEEGFS_IOCTYPE_ID, BEEGFS_IOCNUM_MKFILE_STRIPEHINTS, struct BeegfsIoctl_MkFileWithStripeHints_Arg)
 

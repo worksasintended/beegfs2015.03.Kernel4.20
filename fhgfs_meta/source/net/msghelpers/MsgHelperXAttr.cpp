@@ -16,7 +16,7 @@ FhgfsOpsErr MsgHelperXAttr::listxattr(EntryInfo* entryInfo, StringVector& outNam
    {
       const std::string dirEntryID(entryInfo->getEntryID() );
 
-      DirInode* dir = metaStore->referenceDir(dirEntryID, false );
+      DirInode* dir = metaStore->referenceDir(dirEntryID, false);
       if (unlikely(!dir) )
          return FhgfsOpsErr_INTERNAL;
 
@@ -107,7 +107,7 @@ FhgfsOpsErr MsgHelperXAttr::removexattr(EntryInfo* entryInfo, const std::string&
    {
       const std::string dirEntryID(entryInfo->getEntryID() );
 
-      DirInode* dir = metaStore->referenceDir(dirEntryID, false);
+      DirInode* dir = metaStore->referenceDir(dirEntryID, true);
       if (unlikely(!dir) )
          return FhgfsOpsErr_INTERNAL;
 
@@ -142,7 +142,7 @@ FhgfsOpsErr MsgHelperXAttr::setxattr(EntryInfo* entryInfo, const std::string& na
    {
       const std::string dirEntryID(entryInfo->getEntryID() );
 
-      DirInode* dir = metaStore->referenceDir(dirEntryID, false);
+      DirInode* dir = metaStore->referenceDir(dirEntryID, true);
       if (unlikely(!dir) )
          return FhgfsOpsErr_INTERNAL;
 

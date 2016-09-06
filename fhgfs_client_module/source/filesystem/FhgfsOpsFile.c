@@ -1771,7 +1771,15 @@ int FhgfsOps_write_end(struct file* file, struct address_space* mapping,
  * @param pos file offset
  * @param nr_segs length of iov array
  */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+#if defined(KERNEL_HAS_IOV_DIO)
+ssize_t FhgfsOps_directIO(struct kiocb *iocb, struct iov_iter *iter)
+{
+   int rw = iov_iter_rw(iter);
+   const struct iovec* iov = iter->iov;
+   unsigned long nr_segs = iter->nr_segs;
+   loff_t pos = iocb->ki_pos;
+
+#elif defined(KERNEL_HAS_LONG_IOV_DIO)
 ssize_t FhgfsOps_directIO(struct kiocb *iocb, struct iov_iter *iter, loff_t pos)
 {
    int rw = iov_iter_rw(iter);

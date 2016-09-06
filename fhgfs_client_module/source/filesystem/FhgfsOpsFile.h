@@ -108,7 +108,9 @@ extern int FhgfsOps_mmap(struct file *, struct vm_area_struct *);
       loff_t pos, unsigned len, unsigned copied, struct page* page, void* fsdata);
 #endif // LINUX_VERSION_CODE
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+#if defined(KERNEL_HAS_IOV_DIO)
+   extern ssize_t FhgfsOps_directIO(struct kiocb *iocb, struct iov_iter *iter);
+#elif defined(KERNEL_HAS_LONG_IOV_DIO)
    extern ssize_t FhgfsOps_directIO(struct kiocb *iocb, struct iov_iter *iter, loff_t pos);
 #elif defined(KERNEL_HAS_DIRECT_IO_ITER)
    extern ssize_t FhgfsOps_directIO(int rw, struct kiocb *iocb, struct iov_iter *iter, loff_t pos);

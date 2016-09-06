@@ -64,6 +64,8 @@
    BEEGFS_IOCTYPE_ID, BEEGFS_IOCNUM_GET_STRIPEINFO, struct BeegfsIoctl_GetStripeInfo_Arg)
 #define BEEGFS_IOC_GET_STRIPETARGET        _IOR( \
    BEEGFS_IOCTYPE_ID, BEEGFS_IOCNUM_GET_STRIPETARGET, struct BeegfsIoctl_GetStripeTarget_Arg)
+#define BEEGFS_IOC_GET_STRIPETARGET_V2     _IOR( \
+   BEEGFS_IOCTYPE_ID, BEEGFS_IOCNUM_GET_STRIPETARGET, struct BeegfsIoctl_GetStripeTargetV2_Arg)
 #define BEEGFS_IOC_MKFILE_STRIPEHINTS      _IOW( \
    BEEGFS_IOCTYPE_ID, BEEGFS_IOCNUM_MKFILE_STRIPEHINTS, struct BeegfsIoctl_MkFileWithStripeHints_Arg)
 
@@ -74,6 +76,39 @@ struct BeegfsIoctl_GetCfgFile_Arg
       char path[BEEGFS_IOCTL_CFG_MAX_PATH]; // (out-value) where the result path will be stored
       int length;                          /* (in-value) length of path buffer (unused, because it's
                                               after a fixed-size path buffer anyways) */
+};
+
+/* used to pass information for file creation */
+struct BeegfsIoctl_MkFile_Arg
+{
+   uint16_t ownerNodeID; // owner node of the parent dir
+
+   const char* parentParentEntryID; // entryID of the parent of the parent (=> the grandparentID)
+   int parentParentEntryIDLen;
+
+   const char* parentEntryID; // entryID of the parent
+   int parentEntryIDLen;
+
+   const char* parentName;   // name of parent dir
+   int parentNameLen;
+
+   // file information
+   const char* entryName; // file name we want to create
+   int entryNameLen;
+   int fileType; // see linux/fs.h or man 3 readdir, DT_UNKNOWN, DT_FIFO, ...
+
+   const char* symlinkTo;  // Only must be set for symlinks. The name a symlink is supposed to point to
+   int symlinkToLen; // Length of the symlink name
+
+   int mode; // mode (permission) of the new file
+
+   // user ID and group only will be used, if the current user is root
+   uid_t uid; // user ID
+   gid_t gid; // group ID
+
+   int numTargets;     // number of targets in prefTargets array (without final 0 element)
+   uint16_t* prefTargets;  // array of preferred targets (additional last element must be 0)
+   int prefTargetsLen; // raw byte length of prefTargets array (including final 0 element)
 };
 
 /* uset to get the stripe info of a file */
@@ -93,6 +128,24 @@ struct BeegfsIoctl_GetStripeTarget_Arg
    uint16_t outNodeNumID; // (out-value) numeric ID of node to which this target is mapped
    char outNodeStrID[BEEGFS_IOCTL_NODESTRID_BUFLEN]; /* (out-value) string ID of node to which this
                                                        target is mapped */
+};
+
+struct BeegfsIoctl_GetStripeTargetV2_Arg
+{
+   /* inputs */
+   uint32_t targetIndex;
+
+   /* outputs */
+   uint32_t targetOrGroup; // target ID if the file is not buddy mirrored, otherwise mirror group ID
+
+   uint32_t primaryTarget; // target ID != 0 if buddy mirrored
+   uint32_t secondaryTarget; // target ID != 0 if buddy mirrored
+
+   uint32_t primaryNodeID; // node ID of target (if unmirrored) or primary target (if mirrored)
+   uint32_t secondaryNodeID; // node ID of secondary target, or 0 if unmirrored
+
+   char primaryNodeStrID[BEEGFS_IOCTL_NODESTRID_BUFLEN];
+   char secondaryNodeStrID[BEEGFS_IOCTL_NODESTRID_BUFLEN];
 };
 
 /* used to pass information for file creation with stripe hints */

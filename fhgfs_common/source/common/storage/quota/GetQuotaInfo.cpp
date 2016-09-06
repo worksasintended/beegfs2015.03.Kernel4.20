@@ -26,7 +26,7 @@ typedef MutexMap::value_type MutexMapVal;
  */
 bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
    NodeStoreServers* storageNodes, MultiWorkQueue* workQ, QuotaDataMapForTarget* outQuotaResults,
-   TargetMapper* mapper, bool requestLimits)
+   TargetMapper* mapper, bool requestLimits, QuotaInodeSupport* quotaInodeSupport)
 {
    bool retVal = true;
 
@@ -62,11 +62,13 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
             Work* work = new GetQuotaInfoWork(this->cfg, mgmtNode, messageNumber,
                &outQuotaResults->find(QUOTADATAMAPFORTARGET_ALL_TARGETS_ID)->second,
                &mutexMap.find(QUOTADATAMAPFORTARGET_ALL_TARGETS_ID)->second, &counter,
-               &nodeResults[numWorks]);
+               &nodeResults[numWorks], quotaInodeSupport);
             workQ->addDirectWork(work);
 
             numWorks++;
          }
+
+      *quotaInodeSupport = QuotaInodeSupport_UNKNOWN;
       }
    }
    else
@@ -99,7 +101,7 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
             Work* work = new GetQuotaInfoWork(this->cfg, storageNode, messageNumber,
                &outQuotaResults->find(storageNode->getNumID())->second,
                &mutexMap.find(storageNode->getNumID())->second, &counter,
-               &nodeResults[numWorks]);
+               &nodeResults[numWorks], quotaInodeSupport);
             workQ->addDirectWork(work);
 
             numWorks++;
@@ -143,7 +145,7 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
 
                Work* work = new GetQuotaInfoWork(requestCfg, storageNode, messageNumber,
                   &outQuotaResults->at(*iter), &mutexMap.at(*iter), &counter,
-                  &nodeResults[numWorks]);
+                  &nodeResults[numWorks], quotaInodeSupport);
                workQ->addDirectWork(work);
 
                numWorks++;
@@ -177,7 +179,8 @@ bool GetQuotaInfo::requestQuotaDataAndCollectResponses(Node* mgmtNode,
          {
             Work* work = new GetQuotaInfoWork(this->cfg, storageNode, messageNumber,
                &outQuotaResults->find(this->cfg.cfgTargetNumID)->second,
-               &mutexMap.find(this->cfg.cfgTargetNumID)->second, &counter, &nodeResults[numWorks]);
+               &mutexMap.find(this->cfg.cfgTargetNumID)->second, &counter, &nodeResults[numWorks],
+               quotaInodeSupport);
             workQ->addDirectWork(work);
 
             numWorks++;

@@ -7,6 +7,7 @@
 #include <common/net/message/storage/quota/GetQuotaInfoMsg.h>
 #include <common/nodes/NodeStoreServers.h>
 #include <common/nodes/Node.h>
+#include <common/storage/quota/Quota.h>
 #include <common/storage/quota/QuotaData.h>
 #include <common/storage/quota/GetQuotaConfig.h>
 
@@ -36,8 +37,8 @@ class GetQuotaInfo
       }
 
       bool requestQuotaDataAndCollectResponses(Node* mgmtNode, NodeStoreServers* storageNodes,
-         MultiWorkQueue* workQ,  QuotaDataMapForTarget* quotaResults, TargetMapper* mapper,
-         bool requestLimits);
+         MultiWorkQueue* workQ, QuotaDataMapForTarget* quotaResults, TargetMapper* mapper,
+         bool requestLimits, QuotaInodeSupport* quotaInodeSupport);
 
    protected:
       GetQuotaInfoConfig cfg;

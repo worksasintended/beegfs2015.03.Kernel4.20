@@ -49,8 +49,11 @@ class PosixACL
          ACLEntry& outEntry, unsigned& outLen);
       static size_t serializeACLEntry(char* buf, const ACLEntry& entry);
 
+   /* inliners */
+   public:
+      bool empty() { return entries.empty(); }
+
    private:
-      /* inliners */
 
       static unsigned serialLenACLEntry()
       {
@@ -59,15 +62,20 @@ class PosixACL
                 Serialization::serialLenInt();    // id
       }
 
+      enum AclEntryListLenReturn {
+         AclListLen_EMPTY = -1,
+         AclListLen_TOOSHORT = -2,
+         AclListLen_NOTMULTIPLE = -3 };
+
       static int aclEntryListLen(unsigned bufLen)
       {
-         if (bufLen < Serialization::serialLenInt() ) // Too small for header.
-            return -1;
+         if (bufLen < Serialization::serialLenInt()) // Too small for header.
+            return AclListLen_TOOSHORT;
 
          bufLen -= Serialization::serialLenInt(); // Subtract header length.
 
-         if (bufLen % serialLenACLEntry() )
-            return -1;
+         if (bufLen % serialLenACLEntry())
+            return AclListLen_NOTMULTIPLE;
 
          return bufLen / serialLenACLEntry();
       }

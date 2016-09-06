@@ -257,6 +257,38 @@ unsigned SessionStore::serialize(char* buf)
       bufPos += iter->second->getReferencedObject()->serialize(&buf[bufPos]);
    }
 
+   // lock state
+   {
+      unsigned lenPos = bufPos;
+
+      bufPos += Serialization::serializeUInt(buf + bufPos, 0);
+
+      std::set<const FileInode*> inodesSeen;
+
+      for (SessionMapIter sessionIter = sessions.begin(); sessionIter != sessions.end();
+            ++sessionIter)
+      {
+         Session& session = *sessionIter->second->getReferencedObject();
+         SessionFileMap& fileMap = session.getFiles()->sessions;
+
+         for (SessionFileMapCIter fileMapIter = fileMap.begin(); fileMapIter != fileMap.end();
+               ++fileMapIter)
+         {
+            SessionFile& file = *fileMapIter->second->getReferencedObject();
+            FileInode* inode = file.getInode();
+
+            if (!inodesSeen.insert(inode).second)
+               continue;
+
+            bufPos += file.getEntryInfo()->serialize(buf + bufPos);
+
+            bufPos += inode->serializeLockState(buf + bufPos);
+         }
+      }
+
+      Serialization::serializeUInt(buf + lenPos, inodesSeen.size());
+   }
+
    LOG_DEBUG("SessionStore serialize", Log_DEBUG, "count of serialized Sessions: " +
       StringTk::uintToStr(elementCount));
 
@@ -330,6 +362,51 @@ bool SessionStore::deserialize(const char* buf, size_t bufLen, unsigned* outLen)
    return true;
 }
 
+bool SessionStore::deserializeLockStates(const char* buf, unsigned& bufPos, size_t bufLen)
+{
+   MetaStore* metaStore = Program::getApp()->getMetaStore();
+
+   unsigned states;
+   unsigned statesLen;
+
+   if (!Serialization::deserializeUInt(buf + bufPos, bufLen - bufPos, &states, &statesLen))
+      return false;
+
+   bufPos += statesLen;
+
+   while (states > 0)
+   {
+      unsigned fieldLen;
+
+      EntryInfo info;
+
+      if (!info.deserialize(buf + bufPos, bufLen - bufPos, &fieldLen))
+         break;
+
+      bufPos += fieldLen;
+
+      FileInode* inode = metaStore->referenceFile(&info);
+
+      if (!inode->deserializeLockState(buf + bufPos, bufLen - bufPos, &fieldLen))
+      {
+         metaStore->releaseFile(info.getParentEntryID(), inode);
+         break;
+      }
+
+      metaStore->releaseFile(info.getParentEntryID(), inode);
+
+      states--;
+   }
+
+   if (states > 0)
+   {
+      LogContext(__func__).log(Log_ERR, "Could not restore file inode lock states.");
+      return false;
+   }
+
+   return true;
+}
+
 unsigned SessionStore::serialLen()
 {
    unsigned sessionStoreSize = this->sessions.size();
@@ -346,6 +423,33 @@ unsigned SessionStore::serialLen()
       len += iter->second->getReferencedObject()->serialLen();
    }
 
+   {
+      len += Serialization::serialLenUInt();
+
+      std::set<const FileInode*> inodesSeen;
+
+      for (SessionMapIter sessionIter = sessions.begin(); sessionIter != sessions.end();
+            ++sessionIter)
+      {
+         Session& session = *sessionIter->second->getReferencedObject();
+         SessionFileMap& fileMap = session.getFiles()->sessions;
+
+         for (SessionFileMapCIter fileMapIter = fileMap.begin(); fileMapIter != fileMap.end();
+               ++fileMapIter)
+         {
+            SessionFile& file = *fileMapIter->second->getReferencedObject();
+            FileInode* inode = file.getInode();
+
+            if (!inodesSeen.insert(inode).second)
+               continue;
+
+            len += file.getEntryInfo()->serialLen();
+
+            len += inode->serialLenLockState();
+         }
+      }
+   }
+
    return len;
 }
 
@@ -356,10 +460,12 @@ bool SessionStore::loadFromFile(const std::string& filePath)
 
    bool retVal = false;
    char* buf = NULL;
-   int readRes;
+   ssize_t readRes;
 
    struct stat statBuf;
    int retValStat;
+
+   unsigned outLen;
 
    if(!filePath.length() )
       return false;
@@ -393,12 +499,15 @@ bool SessionStore::loadFromFile(const std::string& filePath)
    }
    else
    { // parse contents
-      unsigned outLen;
       retVal = deserialize(buf, readRes, &outLen);
    }
 
    if (retVal)
       retVal = relinkInodes(*Program::getApp()->getMetaStore());
+
+   // lock state may not be present; older releases did not have it
+   if (retVal && (ssize_t) outLen < readRes)
+      retVal = !deserializeLockStates(buf, outLen, readRes);
 
    if (!retVal)
       log.logErr("Could not deserialize SessionStore from file: " + filePath);

@@ -83,3 +83,55 @@ void QuotaBlockDevice::getBlockDevicesOfTargets(TargetPathMap* targetPaths,
       outBlockDevices->insert(QuotaBlockDeviceMapVal(targetNumID, blockDevice) );
    }
 }
+
+QuotaInodeSupport QuotaBlockDevice::updateQuotaInodeSupport(
+   QuotaInodeSupport currentQuotaInodeSupport, QuotaBlockDeviceFsType fsTypeBlockDevice)
+{
+   switch(fsTypeBlockDevice)
+   {
+      case QuotaBlockDeviceFsType_EXTX: //no break because both FS requires the same handling
+      case QuotaBlockDeviceFsType_XFS:
+         if(currentQuotaInodeSupport == QuotaInodeSupport_UNKNOWN)
+         {
+            return QuotaInodeSupport_ALL_BLOCKDEVICES;
+         }
+         else if(currentQuotaInodeSupport == QuotaInodeSupport_NO_BLOCKDEVICES)
+         {
+            return QuotaInodeSupport_SOME_BLOCKDEVICES;
+         }
+         break;
+      case QuotaBlockDeviceFsType_ZFS:
+         if(currentQuotaInodeSupport == QuotaInodeSupport_UNKNOWN)
+         {
+            return QuotaInodeSupport_NO_BLOCKDEVICES;
+         }
+         else if(currentQuotaInodeSupport == QuotaInodeSupport_ALL_BLOCKDEVICES)
+         {
+            return QuotaInodeSupport_SOME_BLOCKDEVICES;
+         }
+         break;
+      default:
+            return currentQuotaInodeSupport;
+         break;
+   }
+
+   return QuotaInodeSupport_UNKNOWN;
+}
+
+
+QuotaInodeSupport QuotaBlockDevice::quotaInodeSupportFromBlockDevice()
+{
+   switch(fsType)
+   {
+      case QuotaBlockDeviceFsType_EXTX: //no break because both FS requires the same handling
+      case QuotaBlockDeviceFsType_XFS:
+         return QuotaInodeSupport_ALL_BLOCKDEVICES;
+         break;
+      case QuotaBlockDeviceFsType_ZFS:
+         return QuotaInodeSupport_NO_BLOCKDEVICES;
+         break;
+      default:
+         return QuotaInodeSupport_UNKNOWN;
+         break;
+   }
+}

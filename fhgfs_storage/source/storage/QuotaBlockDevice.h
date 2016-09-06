@@ -45,12 +45,17 @@ class QuotaBlockDevice
       static void getBlockDevicesOfTargets(TargetPathMap* targetPaths,
          QuotaBlockDeviceMap* outBlockDevices);
 
+      static QuotaInodeSupport updateQuotaInodeSupport(QuotaInodeSupport currentQuotaInodeSupport,
+         QuotaBlockDeviceFsType fsTypeBlockDevice);
+      QuotaInodeSupport quotaInodeSupportFromBlockDevice();
+
 
    private:
       std::string storageTargetPath;
       std::string mountPath;
       std::string blockDevicePath;
       QuotaBlockDeviceFsType fsType;
+
 
    public:
       // getter & setter

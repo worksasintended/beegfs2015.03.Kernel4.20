@@ -10,7 +10,7 @@
 
 #define BEEGFS_API_MAJOR_VERSION 1 // major version number of the API, different major version
                                    // are  incompatible
-#define BEEGFS_API_MINOR_VERSION 0 // minor version number of the API, the minor versions of the
+#define BEEGFS_API_MINOR_VERSION 1 // minor version number of the API, the minor versions of the
                                    // same major version are backward compatible
 
 #define beegfs_api_version_check() { return beegfs_checkApiVersion(); } // backward compatibility
@@ -24,6 +24,8 @@ static inline bool beegfs_getStripeInfo(int fd, unsigned* outPatternType, unsign
    uint16_t* outNumTargets);
 static inline bool beegfs_getStripeTarget(int fd, uint16_t targetIndex, uint16_t* outTargetNumID, 
    uint16_t* outNodeNumID, char** outNodeStrID);
+static inline bool beegfs_getStripeTargetV2(int fd, uint32_t targetIndex,
+   struct BeegfsIoctl_GetStripeTargetV2_Arg* outTargetInfo);
 static inline bool beegfs_createFile(int fd, const char* filename, mode_t mode,
    unsigned numtargets, unsigned chunksize);
 static inline bool beegfs_checkApiVersion(const unsigned required_major_version,
@@ -191,6 +193,26 @@ bool beegfs_getStripeTarget(int fd, uint16_t targetIndex, uint16_t* outTargetNum
       return false;
 
    return true;
+}
+
+/**
+ * Get the stripe target of a file (with 0-based index).
+ * 
+ * @param fd filedescriptor pointing to some file inside a BeeGFS mount.
+ * @param targetIndex index of target that should be retrieved (start with 0 and then call this
+ *        again with index up to "*outNumTargets-1" to retrieve remaining targets).
+ * @param outTargetInfo pointer to struct that will be filled with information about the selected
+ *        stripe target
+ * @return true on success, false on error (in which case errno will be set).
+ */
+bool beegfs_getStripeTargetV2(int fd, uint32_t targetIndex,
+   struct BeegfsIoctl_GetStripeTargetV2_Arg* outTargetInfo)
+{
+   memset(outTargetInfo, 0, sizeof(*outTargetInfo));
+
+   outTargetInfo->targetIndex = targetIndex;
+
+   return ioctl(fd, BEEGFS_IOC_GET_STRIPETARGET_V2, outTargetInfo) == 0;
 }
 
 /**

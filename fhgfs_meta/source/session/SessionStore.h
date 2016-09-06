@@ -50,7 +50,6 @@ class SessionStore
       }
 
 
-
    private:
       SessionMap sessions;
       
@@ -59,6 +58,8 @@ class SessionStore
       void addSession(Session* session); // actually not needed (maybe later one day...)
       bool removeSession(std::string sessionID); // actually not needed (maybe later one day...)
       Session* removeSessionUnlocked(std::string sessionID);
+
+      bool deserializeLockStates(const char* buf, unsigned& bufPos, size_t bufLen);
 };
 
 #endif /*SESSIONSTORE_H_*/

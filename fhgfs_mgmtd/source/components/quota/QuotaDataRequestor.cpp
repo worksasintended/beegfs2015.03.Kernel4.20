@@ -1,4 +1,5 @@
 #include "QuotaDataRequestor.h"
+#include <common/storage/quota/Quota.h>
 #include <program/Program.h>
 
 
@@ -41,10 +42,11 @@ bool QuotaDataRequestor::requestQuota(QuotaDataMapForTarget* outQuotaData,
       return false;
 
    QuotaDataMapForTarget tmpQuotaData;
+   QuotaInodeSupport quotaInodeSupport;
 
    // ignore return value, update of quota data is required also when a target is off-line
    requestQuotaDataAndCollectResponses(mgmtNode, storageNodes, app->getWorkQueue(), &tmpQuotaData,
-      mapper, false);
+      mapper, false, &quotaInodeSupport);
 
    mgmtNodes->releaseNode(&mgmtNode);
 

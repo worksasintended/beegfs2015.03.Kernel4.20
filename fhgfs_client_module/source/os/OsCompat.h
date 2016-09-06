@@ -445,4 +445,26 @@ static inline bool beegfs_hasMappings(struct inode* inode)
    return false;
 }
 
+#ifndef KERNEL_HAS_INODE_LOCK
+static inline void os_inode_lock(struct inode* inode)
+{
+   mutex_lock(&inode->i_mutex);
+}
+
+static inline void os_inode_unlock(struct inode* inode)
+{
+   mutex_unlock(&inode->i_mutex);
+}
+#else
+static inline void os_inode_lock(struct inode* inode)
+{
+   inode_lock(inode);
+}
+
+static inline void os_inode_unlock(struct inode* inode)
+{
+   inode_unlock(inode);
+}
+#endif
+
 #endif /* OSCOMPAT_H_ */

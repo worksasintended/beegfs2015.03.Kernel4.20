@@ -16,8 +16,7 @@ bool PosixACL::deserializeXAttr(const CharVector& xattr)
       unsigned versionBufLen;
       int32_t version;
 
-      if ( !Serialization::deserializeInt(&buf[bufPos], bufLen-bufPos,
-            &version, &versionBufLen) )
+      if (!Serialization::deserializeInt(&buf[bufPos], bufLen-bufPos, &version, &versionBufLen))
          return false;
       bufPos += versionBufLen;
 
@@ -26,7 +25,10 @@ bool PosixACL::deserializeXAttr(const CharVector& xattr)
    }
 
    int listLen = aclEntryListLen(bufLen);
-   if (listLen < 0)
+   if (listLen == AclListLen_EMPTY)
+      return true;
+
+   if (listLen == AclListLen_TOOSHORT || listLen == AclListLen_NOTMULTIPLE)
       return false;
 
    entries.clear();
@@ -37,7 +39,7 @@ bool PosixACL::deserializeXAttr(const CharVector& xattr)
       ACLEntry newEntry;
 
       unsigned entryBufLen;
-      if ( !deserializeACLEntry(&buf[bufPos], bufLen-bufPos, newEntry, entryBufLen) )
+      if (!deserializeACLEntry(&buf[bufPos], bufLen-bufPos, newEntry, entryBufLen))
          return false;
 
       bufPos += entryBufLen;
@@ -158,7 +160,7 @@ FhgfsOpsErr PosixACL::modifyModeBits(int& mode, bool& needsACL)
             break;
 
          case ACLEntry::ACL_USER:
-         case ACLEntry::ACL_GROUP:
+         case ACLEntry::ACL_GROUP: // fallthrough
             {
                // If the ACL has named user/group entries, it can't be represented using only
                // mode bits.

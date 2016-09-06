@@ -17,17 +17,23 @@
  * Called when an ACL Xattr is set. Responsible for setting the mode bits corresponding to the
  * ACL mask.
  */
-#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+#if defined(KERNEL_HAS_XATTR_HANDLERS_INODE_ARG)
+static int FhgfsXAttrSetACL(const struct xattr_handler* handler, struct dentry* dentry,
+   struct inode* inode, const char* name, const void* value, size_t size, int flags)
+{
+   int handler_flags = handler->flags;
+#elif defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
 static int FhgfsXAttrSetACL(const struct xattr_handler* handler, struct dentry* dentry,
    const char* name, const void* value, size_t size, int flags)
 {
    int handler_flags = handler->flags;
+   struct inode* inode = dentry->d_inode;
 #else
 static int FhgfsXAttrSetACL(struct dentry *dentry, const char *name, const void *value, size_t size,
       int flags, int handler_flags)
 {
-#endif
    struct inode* inode = dentry->d_inode;
+#endif
    char* attrName;
 
    FhgfsOpsHelper_logOpDebug(FhgfsOps_getApp(dentry->d_sb), dentry, NULL, __func__, "Called.");
@@ -105,7 +111,12 @@ static int FhgfsXAttrSetACL(struct dentry *dentry, const char *name, const void 
  * XATTR_NAME_POSIX_ACL_DEFAULT xattrs.
  * @param name has to be a pointer to an empty string ("").
  */
-#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+#if defined(KERNEL_HAS_XATTR_HANDLERS_INODE_ARG)
+static int FhgfsXAttrGetACL(const struct xattr_handler* handler, struct dentry* dentry,
+   struct inode* inode, const char* name, void* value, size_t size)
+{
+   int handler_flags = handler->flags;
+#elif defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
 static int FhgfsXAttrGetACL(const struct xattr_handler* handler, struct dentry* dentry,
    const char* name, void* value, size_t size)
 {
@@ -138,7 +149,10 @@ int FhgfsXAttrGetACL(struct dentry* dentry, const char* name, void* value, size_
 /**
  * The get-function which is used for all the user.* xattrs.
  */
-#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+#if defined(KERNEL_HAS_XATTR_HANDLERS_INODE_ARG)
+int FhgfsXAttr_getUser(const struct xattr_handler* handler, struct dentry* dentry,
+   struct inode* inode, const char* name, void* value, size_t size)
+#elif defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
 int FhgfsXAttr_getUser(const struct xattr_handler* handler, struct dentry* dentry,
    const char* name, void* value, size_t size)
 #elif defined(KERNEL_HAS_DENTRY_XATTR_HANDLER)
@@ -181,7 +195,10 @@ int FhgfsXAttr_getUser(struct inode* inode, const char* name, void* value, size_
 /**
  * The set-function which is used for all the user.* xattrs.
  */
-#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+#if defined(KERNEL_HAS_XATTR_HANDLERS_INODE_ARG)
+int FhgfsXAttr_setUser(const struct xattr_handler* handler, struct dentry* dentry,
+   struct inode* inode, const char* name, const void* value, size_t size, int flags)
+#elif defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
 int FhgfsXAttr_setUser(const struct xattr_handler* handler, struct dentry* dentry,
    const char* name, const void* value, size_t size, int flags)
 #elif defined(KERNEL_HAS_DENTRY_XATTR_HANDLER)
@@ -223,7 +240,10 @@ int FhgfsXAttr_setUser(struct inode* inode, const char* name, const void* value,
 /**
  * The get-function which is used for all the security.* xattrs.
  */
-#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+#if defined(KERNEL_HAS_XATTR_HANDLERS_INODE_ARG)
+int FhgfsXAttr_getSecurity(const struct xattr_handler* handler, struct dentry* dentry,
+   struct inode* inode, const char* name, void* value, size_t size)
+#elif defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
 int FhgfsXAttr_getSecurity(const struct xattr_handler* handler, struct dentry* dentry,
    const char* name, void* value, size_t size)
 #elif defined(KERNEL_HAS_DENTRY_XATTR_HANDLER)
@@ -266,7 +286,10 @@ int FhgfsXAttr_getSecurity(struct inode* inode, const char* name, void* value, s
 /**
  * The set-function which is used for all the security.* xattrs.
  */
-#if defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
+#if defined(KERNEL_HAS_XATTR_HANDLERS_INODE_ARG)
+int FhgfsXAttr_setSecurity(const struct xattr_handler* handler, struct dentry* dentry,
+   struct inode* inode, const char* name, const void* value, size_t size, int flags)
+#elif defined(KERNEL_HAS_XATTR_HANDLER_PTR_ARG)
 int FhgfsXAttr_setSecurity(const struct xattr_handler* handler, struct dentry* dentry,
    const char* name, const void* value, size_t size, int flags)
 #elif defined(KERNEL_HAS_DENTRY_XATTR_HANDLER)

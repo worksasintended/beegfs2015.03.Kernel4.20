@@ -18,15 +18,32 @@ enum LogLevel
       very often with LOG_DEBUG() */
 };
 
+enum LogTopic
+{
+   LogTopic_GENERAL=0,       // default log topic
+   LogTopic_STATESYNC=1,     // everything related to node reachability state sync
+
+   LogTopic_LAST            // not valid, just exists to define the logLevels vector size
+};
+
 class Logger
 {
+   private:
+      struct LogTopicElem
+      {
+         const char* name;
+         LogTopic logTopic;
+      };
+
+      static const LogTopicElem LogTopics[];
+
    public:
-      Logger(ICommonConfig* cfg) throw(InvalidConfigException);
+      Logger(ICommonConfig* cfg);
       ~Logger();
    
    private:
       // configurables
-      int logLevel;
+      IntVector logLevels;
       bool logErrsToStdlog;
       bool logNoDate;
       std::string logStdFile;
@@ -64,9 +81,9 @@ class Logger
        *
        * @param level Log_...
        */
-      void log(int level, const char* context, const char* msg)
+      void log(LogTopic logTopic, int level, const char* context, const char* msg)
       {
-         if(level > this->logLevel)
+         if(level > logLevels[logTopic])
             return;
             
          std::string threadName = PThread::getCurrentThreadName();
@@ -77,12 +94,22 @@ class Logger
       /**
        * Just a wrapper for the normal log() method which takes "const char*" arguments.
        */
-      void log(int level, const std::string context, const std::string msg)
+      void log(LogTopic logTopic, int level, const std::string context, const std::string msg)
       {
-         if(level > this->logLevel)
+         if(level > logLevels[logTopic])
             return;
 
-         log(level, context.c_str(), msg.c_str() );
+         log(logTopic, level, context.c_str(), msg.c_str() );
+      }
+
+      void log(int level, const char* context, const char* msg)
+      {
+         log(LogTopic_GENERAL, level, context, msg);
+      }
+
+      void log(int level, const std::string context, const std::string msg)
+      {
+         log(level, context.c_str(), msg.c_str());
       }
 
       /**
@@ -156,17 +183,64 @@ class Logger
       /**
        * Note: This method is not thread-safe.
        */
-      void setLogLevel(int logLevel)
+      void setLogLevel(int logLevel, LogTopic logTopic = LogTopic_GENERAL)
       {
-         this->logLevel = logLevel;
+         try
+         {
+            this->logLevels.at(logTopic) = logLevel;
+         }
+         catch (const std::out_of_range& e)
+         {
+         }
       }
       
       /**
        * Note: This method is not thread-safe.
        */
-      int getLogLevel()
+      int getLogLevel(LogTopic logTopic)
       {
-         return this->logLevel;
+         try
+         {
+            return logLevels.at(logTopic);
+         }
+         catch (const std::out_of_range& e)
+         {
+            return -1;
+         }
+      }
+
+      /**
+        * Note: This method is not thread-safe.
+        */
+      IntVector getLogLevels()
+      {
+         return logLevels;
+      }
+
+      static LogTopic logTopicFromName(std::string name)
+      {
+         for(int i=0; LogTopics[i].name != NULL; i++)
+         {
+            if (name == LogTopics[i].name)
+            {
+               return LogTopics[i].logTopic;
+            }
+         }
+
+         return LogTopic_LAST;
+      }
+
+      static std::string logTopicToName(LogTopic logTopic)
+      {
+         for(int i=0; LogTopics[i].logTopic != LogTopic_LAST; i++)
+         {
+            if (LogTopics[i].logTopic == logTopic)
+            {
+               return LogTopics[i].name;
+            }
+         }
+
+         return "unknown";
       }
 };
 

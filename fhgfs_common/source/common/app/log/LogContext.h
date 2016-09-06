@@ -51,19 +51,29 @@ class LogContext
          this->logger = app->getLogger();
       }
       
-      void log(int level, const char* msg)
+      void log(LogTopic logTopic, int level, const char* msg)
       {
          if(unlikely(!logger) )
             return;
             
-         logger->log(level, contextStr.c_str(), msg);
+         logger->log(logTopic, level, contextStr.c_str(), msg);
+      }
+
+      void log(LogTopic logTopic, int level, const std::string msg)
+      {
+         log(logTopic, level, msg.c_str() );
+      }
+      
+      void log(int level, const char* msg)
+      {
+         log(LogTopic_GENERAL, level, msg);
       }
 
       void log(int level, const std::string msg)
       {
-         log(level, msg.c_str() );
+         log(level, msg.c_str());
       }
-      
+
       void logErr(const char* msg)
       {
          if(unlikely(!logger) )

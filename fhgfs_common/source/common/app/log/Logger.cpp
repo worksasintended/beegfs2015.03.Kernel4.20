@@ -8,10 +8,22 @@
 #define LOGGER_ROTATED_FILE_SUFFIX  ".old-"
 #define LOGGER_TIMESTR_SIZE         32
 
-
-Logger::Logger(ICommonConfig* cfg) throw(InvalidConfigException)
+// Note: Keep in sync with enum LogTopic
+const Logger::LogTopicElem Logger::LogTopics[] =
 {
-   this->logLevel = cfg->getLogLevel();
+   {"general",           LogTopic_GENERAL},
+   {"state-sync",        LogTopic_STATESYNC},
+   {NULL,                LogTopic_LAST}
+};
+
+Logger::Logger(ICommonConfig* cfg)
+{
+   int defaultLogLevel = cfg->getLogLevel();
+
+   logLevels.reserve(LogTopic_LAST);
+   for (int i = 0; i < LogTopic_LAST; i++)
+      logLevels.push_back(defaultLogLevel);
+
    this->logErrsToStdlog = cfg->getLogErrsToStdlog();
    this->logNoDate = cfg->getLogNoDate();
    this->logStdFile = cfg->getLogStdFile();

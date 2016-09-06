@@ -98,8 +98,9 @@ void ModeCheckFS::printHelp()
       "MODE ARGUMENTS:\n"
       " Optional:\n"
       "  --readOnly             Check only, skip repairs.\n"
-      "  --runOnline            Run in online mode, which means user may access the\n"
-      "                         file system while the check is running.\n"
+      "  --runOffline           Run in offline mode, which disables the modification\n"
+      "                         logging. Use this only if you are sure there is no user\n"
+      "                         access to the file system while the check is running.\n"
       "  --automatic            Do not prompt for repair actions and automatically use\n"
       "                         reasonable default actions.\n"
       "  --noFetch              Do not build a new database from the servers and\n"
@@ -131,11 +132,11 @@ void ModeCheckFS::printHelp()
       " their configured network interfaces. All server components of the file\n"
       " system have to be running to start a check.\n"
       "\n"
-      " If the fsck is running without the \"--runonline\" argument, users may not\n"
+      " If the fsck is running with the \"--runoffline\" argument, users may not\n"
       " access the file system during a run (otherwise false errors might be reported).\n"
       "\n"
       " Example: Check for errors, but skip repairs\n"
-      "  $ beegfs-fsck --checkfs --runonline --readonly\n";
+      "  $ beegfs-fsck --checkfs --readonly\n";
 
    std::cout << std::flush;
 }
@@ -184,7 +185,7 @@ int ModeCheckFS::execute()
 
       boost::scoped_ptr<ModificationEventHandler> modificationEventHandler;
 
-      if ( cfg->getRunOnline() )
+      if (!cfg->getRunOffline())
       {
          modificationEventHandler.reset(
             new ModificationEventHandler(*this->database->getModificationEventsTable() ) );
@@ -226,7 +227,7 @@ int ModeCheckFS::execute()
 
       FhgfsOpsErr gatherDataRes = gatherData(cfg->getForceRestart());
 
-      if ( cfg->getRunOnline() )
+      if (!cfg->getRunOffline())
       {
          // stop modification logging
          bool eventLoggingOK = FsckTkEx::stopModificationLogging(app->getMetaNodes());
@@ -245,19 +246,20 @@ int ModeCheckFS::execute()
             FsckTkEx::fsckOutput("-----",
                OutputOptions_ADDLINEBREAKBEFORE | OutputOptions_FLUSH | OutputOptions_LINEBREAK);
             FsckTkEx::fsckOutput(
-               "WARNING: Fsck did not get all modification events from metadata servers. ",
+               "WARNING: Fsck did not get all modification events from metadata servers.",
                OutputOptions_FLUSH | OutputOptions_LINEBREAK);
             FsckTkEx::fsckOutput(
                "For instance, this might have happened due to network timeouts.",
                OutputOptions_FLUSH | OutputOptions_LINEBREAK);
             FsckTkEx::fsckOutput(
-               "This means the online run is not aware of all changes in the filesystem and it"
-               "is not safe to trigger repair actions. This might even result in data loss!",
+               "This means beegfs-fsck is not aware of all changes in the filesystem and it is "
+               "not safe to execute repair actions. "
+               "In the worst case executing repair actions can result in data loss.",
                OutputOptions_FLUSH | OutputOptions_DOUBLELINEBREAK);
             FsckTkEx::fsckOutput(
-               "Thus, beegfs-fsck automatically enabled read-only mode. However, you can still "
-               "force repair by running beegfs-fsck again on the existing database with the "
-               "--noFetch option.",
+               "Thus, read-only mode was automatically enabled. "
+               "You can still force repair by running beegfs-fsck again on the existing "
+               "database with the -noFetch option.",
                OutputOptions_FLUSH | OutputOptions_DOUBLELINEBREAK);
             FsckTkEx::fsckOutput("Please press any key to continue.",
                OutputOptions_FLUSH | OutputOptions_LINEBREAK);

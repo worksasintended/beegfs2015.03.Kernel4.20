@@ -76,20 +76,10 @@ class Config : public AbstractConfig
 
       bool        readOnly;
       bool        noFetch;
-
-      // automatic repair mode
       bool        automatic;
-
-      // runOnline?
-      bool        runOnline;
-
-      // forceRestart?
+      bool        runOffline;
       bool        forceRestart;
-
-      // enable quota support
       bool        quotaEnabled;
-
-      // ignore computed disk space recommendation for database
       bool        ignoreDBDiskSpace;
 
       // internals
@@ -217,9 +207,9 @@ class Config : public AbstractConfig
          return logOutFile;
       }
 
-      bool getRunOnline() const
+      bool getRunOffline() const
       {
-         return runOnline;
+         return runOffline;
       }
 
       bool getForceRestart() const

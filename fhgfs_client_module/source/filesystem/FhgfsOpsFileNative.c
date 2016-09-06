@@ -1573,7 +1573,12 @@ static ssize_t __beegfs_direct_IO(int rw, struct kiocb* iocb, struct iov_iter* i
    return -EINVAL;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+#if defined(KERNEL_HAS_IOV_DIO)
+static ssize_t beegfs_direct_IO(struct kiocb* iocb, struct iov_iter* iter)
+{
+   return __beegfs_direct_IO(iov_iter_rw(iter), iocb, iter, iocb->ki_pos);
+}
+#elif defined(KERNEL_HAS_LONG_IOV_DIO)
 static ssize_t beegfs_direct_IO(struct kiocb* iocb, struct iov_iter* iter, loff_t offset)
 {
    return __beegfs_direct_IO(iov_iter_rw(iter), iocb, iter, offset);

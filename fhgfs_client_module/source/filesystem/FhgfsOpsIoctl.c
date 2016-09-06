@@ -1,6 +1,7 @@
 #include <app/App.h>
 #include <app/config/Config.h>
 #include <common/nodes/Node.h>
+#include <common/nodes/MirrorBuddyGroupMapper.h>
 #include <common/toolkit/MathTk.h>
 #include <filesystem/helper/IoctlHelper.h>
 #include <filesystem/FhgfsOpsFile.h>
@@ -30,6 +31,7 @@ static long FhgfsOpsIoctl_createFile(struct file *file, void __user *argp);
 static long FhgfsOpsIoctl_getMountID(struct file *file, void __user *argp);
 static long FhgfsOpsIoctl_getStripeInfo(struct file *file, void __user *argp);
 static long FhgfsOpsIoctl_getStripeTarget(struct file *file, void __user *argp);
+static long FhgfsOpsIoctl_getStripeTargetV2(struct file *file, void __user *argp);
 static long FhgfsOpsIoctl_mkfileWithStripeHints(struct file *file, void __user *argp);
 
 
@@ -93,6 +95,9 @@ long FhgfsOpsIoctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
       { // get stripe info of a file
          return FhgfsOpsIoctl_getStripeTarget(file, (void __user *) arg);
       } break;
+
+      case BEEGFS_IOC_GET_STRIPETARGET_V2:
+         return FhgfsOpsIoctl_getStripeTargetV2(file, (void __user *) arg);
 
       case BEEGFS_IOC_MKFILE_STRIPEHINTS:
       { // create a file with stripe hints
@@ -348,10 +353,46 @@ static long FhgfsOpsIoctl_getStripeInfo(struct file *file, void __user *argp)
    return 0;
 }
 
-/**
- * Get stripe target of a file (index-based).
- */
-static long FhgfsOpsIoctl_getStripeTarget(struct file *file, void __user *argp)
+static long resolveNodeToString(NodeStoreEx* nodes, uint32_t nodeID,
+   char __user* nodeStrID, Logger* log)
+{
+   size_t nodeIDLen;
+   long retVal = 0;
+
+   Node* node = NodeStoreEx_referenceNode(nodes, nodeID);
+
+   if (!node)
+   {
+      // node not found in store: set empty string as result
+      if (copy_to_user(nodeStrID, "", 1))
+      {
+         LOG_DEBUG_FORMATTED(log, Log_DEBUG, __func__, "copy_to_user failed()");
+         return -EINVAL;
+      }
+
+      return 0;
+   }
+
+   nodeIDLen = strlen(node->id) + 1;
+   if (nodeIDLen > BEEGFS_IOCTL_NODESTRID_BUFLEN)
+   { // nodeID too large for buffer
+      retVal = -ENOBUFS;
+      goto out;
+   }
+
+   if (copy_to_user(nodeStrID, node->id, nodeIDLen))
+      retVal = -EFAULT;
+
+out:
+   NodeStoreEx_releaseNode(nodes, &node);
+
+   return retVal;
+}
+
+static long getStripePatternImpl(struct file* file, uint32_t targetIdx,
+   uint32_t* targetOrGroup, uint32_t* primaryTarget, uint32_t* secondaryTarget,
+   uint32_t* primaryNodeID, uint32_t* secondaryNodeID,
+   char __user* primaryNodeStrID, char __user* secondaryNodeStrID)
 {
    struct dentry* dentry = file->f_dentry;
    App* app = FhgfsOps_getApp(dentry->d_sb);
@@ -362,97 +403,137 @@ static long FhgfsOpsIoctl_getStripeTarget(struct file *file, void __user *argp)
 
    struct inode* inode = dentry->d_inode;
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
-
-   struct BeegfsIoctl_GetStripeTarget_Arg __user *getTargetArg =
-      (struct BeegfsIoctl_GetStripeTarget_Arg*)argp;
    StripePattern* pattern = FhgfsInode_getStripePattern(fhgfsInode);
 
    long retVal = 0;
 
-   uint16_t numTargets;
-   uint16_t wantedTargetIndex;
-   uint16_t targetID;
-   uint16_t nodeNumID;
-   Node* node;
-   int cpRes;
+   size_t numTargets;
 
-   if(S_ISDIR(inode->i_mode) )
-   { // directories have no patterns attached
+   // directories have no patterns attached
+   if (S_ISDIR(inode->i_mode))
       return -EISDIR;
-   }
 
-   if(!pattern)
+   if (!pattern)
    { // sanity check, should never happen (because file pattern is set during file open)
       Logger_logFormatted(log, Log_DEBUG, logContext,
          "Given file handle has no stripe pattern attached");
       return -EINVAL;
    }
 
-   // get wanted target index
-
-   cpRes = get_user(wantedTargetIndex, &getTargetArg->targetIndex);
-   if(cpRes)
-      return -EFAULT;
-
    // check if wanted target index is valid
-
-   numTargets = UInt16Vec_length(pattern->getStripeTargetIDs(pattern) );
-
-   if(wantedTargetIndex >= numTargets)
+   numTargets = UInt16Vec_length(pattern->getStripeTargetIDs(pattern));
+   if (targetIdx >= numTargets)
       return -EINVAL;
 
    // set targetID
+   *targetOrGroup = UInt16Vec_at(pattern->getStripeTargetIDs(pattern), targetIdx);
 
-   targetID = UInt16Vec_at(pattern->getStripeTargetIDs(pattern), wantedTargetIndex);
-
-   cpRes = put_user(targetID, &getTargetArg->outTargetNumID);
-   if(cpRes)
-      return -EFAULT;
-
-   // set nodeNumID
-
-   nodeNumID = TargetMapper_getNodeID(targetMapper, targetID);
-
-   cpRes = put_user(nodeNumID, &getTargetArg->outNodeNumID);
-   if(cpRes)
-      return -EFAULT;
-
-   // set nodeStrID
-
-   node = NodeStoreEx_referenceNode(storageNodes, nodeNumID);
-   if(!node)
-   { // node not found in store: set empty string as outNodeStrID
-      cpRes = copy_to_user(getTargetArg->outNodeStrID, "", strlen("") +1);
-      if(cpRes)
-      {
-         LOG_DEBUG_FORMATTED(log, Log_DEBUG, logContext, "copy_to_user failed()");
-         return -EINVAL;
-      }
+   // resolve buddy group if necessary
+   if (pattern->patternType == STRIPEPATTERN_BuddyMirror)
+   {
+      *primaryTarget = MirrorBuddyGroupMapper_getPrimaryTargetID(app->mirrorBuddyGroupMapper,
+            *targetOrGroup);
+      *secondaryTarget = MirrorBuddyGroupMapper_getSecondaryTargetID(app->mirrorBuddyGroupMapper,
+            *targetOrGroup);
    }
    else
    {
-      const char* nodeID = Node_getID(node);
-      size_t nodeIDLen = strlen(nodeID);
-
-      if( (nodeIDLen+1) > BEEGFS_IOCTL_NODESTRID_BUFLEN)
-      { // nodeID too large for buffer
-         retVal = -ENOBUFS;
-         goto err_cleanup;
-      }
-
-      cpRes = copy_to_user(getTargetArg->outNodeStrID, nodeID, nodeIDLen+1);
-      if(cpRes)
-      {
-         retVal = -EFAULT;
-         goto err_cleanup;
-      }
+      *primaryTarget = 0;
+      *secondaryTarget = 0;
    }
 
-err_cleanup:
-   if(node)
-      NodeStoreEx_releaseNode(storageNodes, &node);
+   // resolve targets to nodes
+   *primaryNodeID = TargetMapper_getNodeID(targetMapper,
+         *primaryTarget ? *primaryTarget : *targetOrGroup);
+   *secondaryNodeID = *secondaryTarget
+      ? TargetMapper_getNodeID(targetMapper, *secondaryTarget)
+      : 0;
 
+   // resolve node ID strings
+   retVal = resolveNodeToString(storageNodes, *primaryNodeID, primaryNodeStrID, log);
+   if (retVal)
+      goto out;
+
+   if (secondaryNodeStrID && *secondaryNodeID)
+      retVal = resolveNodeToString(storageNodes, *secondaryNodeID, secondaryNodeStrID, log);
+
+out:
    return retVal;
+}
+
+/**
+ * Get stripe target of a file (index-based).
+ */
+static long FhgfsOpsIoctl_getStripeTarget(struct file *file, void __user *argp)
+{
+   struct BeegfsIoctl_GetStripeTarget_Arg __user* arg = argp;
+
+   uint32_t targetOrGroup;
+   uint32_t primaryTarget;
+   uint32_t secondaryTarget;
+   uint32_t primaryNodeID;
+   uint32_t secondaryNodeID;
+
+   uint16_t wantedTargetIndex;
+
+   long retVal = 0;
+
+   if (get_user(wantedTargetIndex, &arg->targetIndex))
+      return -EFAULT;
+
+   retVal = getStripePatternImpl(file, wantedTargetIndex, &targetOrGroup, &primaryTarget,
+         &secondaryTarget, &primaryNodeID, &secondaryNodeID, arg->outNodeStrID, NULL);
+   if (retVal)
+      return retVal;
+
+   if (put_user(targetOrGroup, &arg->outTargetNumID))
+      return -EFAULT;
+
+   if (put_user(primaryNodeID, &arg->outNodeNumID))
+      return -EFAULT;
+
+   return 0;
+}
+
+static long FhgfsOpsIoctl_getStripeTargetV2(struct file *file, void __user *argp)
+{
+   struct BeegfsIoctl_GetStripeTargetV2_Arg __user* arg = argp;
+
+   uint32_t targetOrGroup;
+   uint32_t primaryTarget;
+   uint32_t secondaryTarget;
+   uint32_t primaryNodeID;
+   uint32_t secondaryNodeID;
+
+   uint32_t wantedTargetIndex;
+
+   long retVal = 0;
+
+   if (get_user(wantedTargetIndex, &arg->targetIndex))
+      return -EFAULT;
+
+   retVal = getStripePatternImpl(file, wantedTargetIndex, &targetOrGroup, &primaryTarget,
+         &secondaryTarget, &primaryNodeID, &secondaryNodeID, arg->primaryNodeStrID,
+         arg->secondaryNodeStrID);
+   if (retVal)
+      return retVal;
+
+   if (put_user(targetOrGroup, &arg->targetOrGroup))
+      return -EFAULT;
+
+   if (put_user(primaryTarget, &arg->primaryTarget))
+      return -EFAULT;
+
+   if (put_user(secondaryTarget, &arg->secondaryTarget))
+      return -EFAULT;
+
+   if (put_user(primaryNodeID, &arg->primaryNodeID))
+      return -EFAULT;
+
+   if (put_user(secondaryNodeID, &arg->secondaryNodeID))
+      return -EFAULT;
+
+   return 0;
 }
 
 /**

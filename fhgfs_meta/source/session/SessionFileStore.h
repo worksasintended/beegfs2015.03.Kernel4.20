@@ -16,9 +16,12 @@ typedef SessionFileMap::value_type SessionFileMapVal;
 typedef std::list<SessionFile*> SessionFileList;
 typedef SessionFileList::iterator SessionFileListIter;
 
+class SessionStore;
 
 class SessionFileStore
 {
+   friend class SessionStore;
+
    public:
       SessionFileStore()
       {

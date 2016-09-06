@@ -9,4 +9,12 @@ enum QuotaBlockDeviceFsType
    QuotaBlockDeviceFsType_ZFS=3
 };
 
+enum QuotaInodeSupport
+{
+   QuotaInodeSupport_UNKNOWN=0,
+   QuotaInodeSupport_ALL_BLOCKDEVICES=1,
+   QuotaInodeSupport_SOME_BLOCKDEVICES=2,
+   QuotaInodeSupport_NO_BLOCKDEVICES=3
+};
+
 #endif /* COMMON_STORAGE_QUOTA_QUOTA_H_ */

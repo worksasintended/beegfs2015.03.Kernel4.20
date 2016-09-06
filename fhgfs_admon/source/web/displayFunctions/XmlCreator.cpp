@@ -1053,9 +1053,10 @@ void XmlCreator::getRemoteLogFile(struct mg_connection *conn,
 
    try
    {
-      std::string nodeID = WebTk::getVar(conn, "nodeNumID", "", postBuf, postBufLen);
+      std::string nodeID = WebTk::getVar(conn, "node", "", postBuf, postBufLen);
       std::string service = WebTk::getVar(conn, "service", "", postBuf, postBufLen);
-      uint16_t nodeNumID = StringTk::strToUInt(nodeID);
+      uint16_t nodeNumID = StringTk::strToUInt(
+         WebTk::getVar(conn, "nodeNumID", "", postBuf, postBufLen) );
       uint lines = StringTk::strToUInt(WebTk::getVar(conn, "lines", "0", postBuf, postBufLen) );
 
       NodeType nodeType;

@@ -1,5 +1,6 @@
 #include <common/net/message/nodes/GenericDebugRespMsg.h>
 #include <common/net/msghelpers/MsgHelperGenericDebug.h>
+#include <common/storage/quota/Quota.h>
 #include <common/toolkit/MessagingTk.h>
 #include <program/Program.h>
 #include <session/ZfsSession.h>
@@ -295,7 +296,9 @@ std::string GenericDebugMsgEx::processOpUsedQuota(std::istringstream& commandStr
          QuotaDataList outQuotaDataList;
 
          QuotaBlockDeviceMap quotaBlockDevices;
-         app->getStorageTargets()->getQuotaBlockDevice(&quotaBlockDevices, *iter);
+         QuotaInodeSupport quotaInodeSupport;
+         app->getStorageTargets()->getQuotaBlockDevice(&quotaBlockDevices, *iter,
+            &quotaInodeSupport);
 
          QuotaTk::requestQuotaForRange(&quotaBlockDevices, rangeStart, rangeEnd, quotaDataType,
             &outQuotaDataList, &session);

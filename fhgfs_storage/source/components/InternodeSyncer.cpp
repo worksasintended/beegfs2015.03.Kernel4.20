@@ -178,6 +178,8 @@ unsigned InternodeSyncer::dropIdleConnsByStore(NodeStoreServersEx* nodes)
 void InternodeSyncer::updateTargetStatesAndBuddyGroups()
 {
    const char* logContext = "Update states and mirror groups";
+   LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG,
+         "Starting target state update.");
 
    App* app = Program::getApp();
    NodeStore* mgmtNodes = app->getMgmtNodes();
@@ -191,7 +193,7 @@ void InternodeSyncer::updateTargetStatesAndBuddyGroups()
    Node* mgmtNode = mgmtNodes->referenceFirstNode();
    if (unlikely(!mgmtNode))
    { // should never happen here, because mgmt is downloaded before InternodeSyncer startup
-      LogContext(logContext).logErr("Management node not defined.");
+      LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR, "Management node not defined.");
       return;
    }
 
@@ -209,7 +211,8 @@ void InternodeSyncer::updateTargetStatesAndBuddyGroups()
    // publishLocalTargetStateChanges, a state on the mgmtd is changed (e.g. because the primary
    // sets NEEDS_RESYNC for the secondary). In that case, we will retry.
 
-   LogContext(logContext).log(Log_DEBUG, "Beginning target state update...");
+   LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG,
+         "Beginning target state update...");
    bool publishSuccess = false;
 
    while (!publishSuccess && (numRetries--) )
@@ -231,7 +234,7 @@ void InternodeSyncer::updateTargetStatesAndBuddyGroups()
       {
          if(!downloadFailedLogged)
          {
-            LogContext(logContext).log(Log_WARNING,
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
                "Downloading target states from management node failed. "
                "Setting all targets to probably-offline.");
             downloadFailedLogged = true;
@@ -277,13 +280,13 @@ void InternodeSyncer::updateTargetStatesAndBuddyGroups()
    {
       if(!publishFailedLogged)
       {
-         log.log(Log_WARNING, "Pushing local target states to mgmt failed.");
+         log.log(LogTopic_STATESYNC, Log_WARNING,
+               "Pushing local target states to mgmt failed.");
          publishFailedLogged = true;
       }
    }
    else
       publishFailedLogged = false;
-
 
    mgmtNodes->releaseNode(&mgmtNode);
 }
@@ -294,12 +297,12 @@ void InternodeSyncer::publishTargetCapacities()
    NodeStore* mgmtNodes = app->getMgmtNodes();
    StorageTargets* storageTargets = app->getStorageTargets();
 
-   log.log(Log_DEBUG, "Publishing target capacity infos.");
+   log.log(LogTopic_STATESYNC, Log_DEBUG, "Publishing target capacity infos.");
 
    Node* mgmtNode = mgmtNodes->referenceFirstNode();
    if (!mgmtNode)
    {
-      log.logErr("Management node not defined.");
+      log.log(LogTopic_STATESYNC, Log_ERR, "Management node not defined.");
       return;
    }
 
@@ -324,7 +327,8 @@ void InternodeSyncer::publishTargetCapacities()
    if (!sendRes)
    {
       if (!failureLogged)
-         log.log(Log_CRITICAL, "Pushing target free space info to management node failed.");
+         log.log(LogTopic_STATESYNC, Log_CRITICAL,
+               "Pushing target free space info to management node failed.");
 
       failureLogged = true;
    }
@@ -334,7 +338,8 @@ void InternodeSyncer::publishTargetCapacities()
          static_cast<SetStorageTargetInfoRespMsg*>(rrArgs.outRespMsg);
 
       if ( (FhgfsOpsErr)respMsgCast->getValue() != FhgfsOpsErr_SUCCESS)
-         log.log(Log_CRITICAL, "Management did not accept target free space info message.");
+         log.log(LogTopic_STATESYNC, Log_CRITICAL,
+               "Management did not accept target free space info message.");
 
       failureLogged = false;
    }
@@ -478,7 +483,7 @@ void InternodeSyncer::requestBuddyTargetStates()
    UInt16List localStorageTargetIDs;
    StorageTargetInfoList storageTargetInfoList;
 
-   LogContext(logContext).log(Log_DEBUG, "Requesting buddy target states.");
+   LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG, "Requesting buddy target states.");
 
    storageTargets->getAllTargetIDs(&localStorageTargetIDs);
 
@@ -501,7 +506,7 @@ void InternodeSyncer::requestBuddyTargetStates()
       uint16_t nodeID = targetMapper->getNodeID(buddyTargetID);
       if(!nodeID)
       { // mapping to node not found
-         LogContext(logContext).logErr(
+         LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
             "Node-mapping for target ID " + StringTk::uintToStr(buddyTargetID) + " not found.");
          continue;
       }
@@ -509,7 +514,7 @@ void InternodeSyncer::requestBuddyTargetStates()
       Node* node = storageNodes->referenceNode(nodeID);
       if(!node)
       { // node not found
-         LogContext(logContext).logErr(
+         LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
             "Unknown storage node. nodeID: " + StringTk::uintToStr(nodeID) + "; targetID: "
                + StringTk::uintToStr(targetID));
          continue;
@@ -536,7 +541,7 @@ void InternodeSyncer::requestBuddyTargetStates()
          NETMSGTYPE_GetStorageTargetInfoResp, &respBuf, &respMsg);
          if(!commRes)
          { // communication failed
-            LogContext(logContext).log(Log_WARNING,
+            LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
                "Communication with buddy target failed. "
                   "nodeID: " + StringTk::uintToStr(nodeID) + "; buddy targetID: "
                   + StringTk::uintToStr(buddyTargetID));
@@ -603,6 +608,7 @@ bool InternodeSyncer::downloadAndSyncTargetStates(UInt16List& outTargetIDs,
 bool InternodeSyncer::downloadAndSyncNodes()
 {
    const char* logContext = "Nodes sync";
+   LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG, "Called.");
 
    App* app = Program::getApp();
    NodeStoreServers* mgmtNodes = app->getMgmtNodes();
@@ -660,7 +666,7 @@ bool InternodeSyncer::downloadAndSyncNodes()
 
       if(metaNodes->setRootNodeNumID(rootNodeID, false) )
       {
-         LogContext(logContext).log(Log_CRITICAL,
+         LogContext(logContext).log(LogTopic_STATESYNC, Log_CRITICAL,
             "Root NodeID (from sync results): " + StringTk::uintToStr(rootNodeID) );
       }
 
@@ -686,11 +692,9 @@ bool InternodeSyncer::downloadAndSyncNodes()
    }
    #endif
 
-
    mgmtNodes->releaseNode(&mgmtNode);
 
    return true;
-
 
 err_release_mgmt:
    mgmtNodes->releaseNode(&mgmtNode);
@@ -704,12 +708,14 @@ void InternodeSyncer::printSyncNodesResults(NodeType nodeType, UInt16List* added
    const char* logContext = "Sync results";
 
    if(addedNodes->size() )
-      LogContext(logContext).log(Log_WARNING, std::string("Nodes added: ") +
+      LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
+         std::string("Nodes added: ") +
          StringTk::uintToStr(addedNodes->size() ) +
          " (Type: " + Node::nodeTypeToStr(nodeType) + ")");
 
    if(removedNodes->size() )
-      LogContext(logContext).log(Log_WARNING, std::string("Nodes removed: ") +
+      LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
+         std::string("Nodes removed: ") +
          StringTk::uintToStr(removedNodes->size() ) +
          " (Type: " + Node::nodeTypeToStr(nodeType) + ")");
 }
@@ -719,6 +725,9 @@ void InternodeSyncer::printSyncNodesResults(NodeType nodeType, UInt16List* added
  */
 bool InternodeSyncer::downloadAndSyncTargetMappings()
 {
+   LogContext("Download target mappings").log(LogTopic_STATESYNC, Log_DEBUG,
+         "Syncing target mappings.");
+
    App* app = Program::getApp();
    NodeStoreServers* mgmtNodes = app->getMgmtNodes();
    TargetMapper* targetMapper = app->getTargetMapper();
@@ -748,6 +757,8 @@ bool InternodeSyncer::downloadAndSyncTargetMappings()
  */
 bool InternodeSyncer::downloadAndSyncMirrorBuddyGroups()
 {
+   LogContext("Downlod mirror groups").log(LogTopic_STATESYNC, Log_DEBUG,
+         "Syncing mirror groups.");
    App* app = Program::getApp();
    NodeStoreServers* mgmtNodes = app->getMgmtNodes();
    MirrorBuddyGroupMapper* buddyGroupMapper = app->getMirrorBuddyGroupMapper();
@@ -788,6 +799,7 @@ bool InternodeSyncer::downloadAndSyncMirrorBuddyGroups()
 void InternodeSyncer::syncClientSessions(NodeList* clientsList)
 {
    const char* logContext = "Client sessions sync";
+   LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG, "Client session sync started.");
 
    App* app = Program::getApp();
    NodeStoreServers* storageNodes = app->getStorageNodes();
@@ -804,12 +816,12 @@ void InternodeSyncer::syncClientSessions(NodeList* clientsList)
       std::ostringstream logMsgStream;
       logMsgStream << "Removing " << removedSessions.size() << " client sessions. ";
 
-      if(unremovableSessions.empty() )
-         LogContext(logContext).log(Log_DEBUG, logMsgStream.str() ); // no unremovable sessions
+      if(unremovableSessions.empty()) // no unremovable sessions
+         LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG, logMsgStream.str() );
       else
       { // unremovable sessions found => log warning
          logMsgStream << "(" << unremovableSessions.size() << " are unremovable)";
-         LogContext(logContext).log(Log_WARNING, logMsgStream.str() );
+         LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING, logMsgStream.str() );
       }
    }
 
@@ -833,7 +845,7 @@ void InternodeSyncer::syncClientSessions(NodeList* clientsList)
          std::ostringstream logMsgStream;
          logMsgStream << sessionID << ": Removing " << removedSessionFiles.size() <<
             " file sessions. " << "(" << referencedSessionFiles.size() << " are referenced)";
-         LogContext(logContext).log(Log_NOTICE, logMsgStream.str() );
+         LogContext(logContext).log(LogTopic_STATESYNC, Log_NOTICE, logMsgStream.str() );
       }
 
       SessionLocalFileListIter fileIter = removedSessionFiles.begin();

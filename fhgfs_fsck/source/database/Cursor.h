@@ -14,6 +14,8 @@ class Cursor
       class SourceBase
       {
          public:
+            virtual ~SourceBase() {}
+
             virtual bool step() = 0;
             virtual ElementType* get() = 0;
       };

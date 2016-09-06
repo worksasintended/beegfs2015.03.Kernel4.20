@@ -2566,33 +2566,12 @@ bool FileInode::incDecNumHardLinks(EntryInfo * entryInfo, int value)
    return retVal;
 }
 
-unsigned FileInode::serialize(char* buf)
+unsigned FileInode::serializeLockState(char* buf)
 {
    size_t bufPos = 0;
 
-   // inodeDiskData
-   bufPos += inodeDiskData.serialize(&buf[bufPos]);
-
-   // fileInfoVec
-   bufPos += ChunkFileInfo::serializeVec(&buf[bufPos], &fileInfoVec);
-
-   // exclusiveTID;
-   bufPos += Serialization::serializeUInt64(&buf[bufPos], exclusiveTID);
-
-   // numSessionsRead;
-   bufPos += Serialization::serializeUInt(&buf[bufPos], numSessionsRead);
-
-   // numSessionsWrite;
-   bufPos += Serialization::serializeUInt(&buf[bufPos], numSessionsWrite);
-
    // exclAppendLock
    bufPos += exclAppendLock.serialize(&buf[bufPos]);
-
-   // waitersExclAppendLock
-   bufPos += LockingTk::serializeEntryLockDetailsList(&buf[bufPos], &waitersExclAppendLock);
-
-   // waitersLockIDsAppendLock
-   bufPos += Serialization::serializeStringSet(&buf[bufPos], &waitersLockIDsAppendLock);
 
    // exclFLock
    bufPos += exclFLock.serialize(&buf[bufPos]);
@@ -2600,112 +2579,18 @@ unsigned FileInode::serialize(char* buf)
    // sharedFLocks
    bufPos += LockingTk::serializeEntryLockDetailsSet(&buf[bufPos], &sharedFLocks);
 
-   // waitersExclFLock
-   bufPos += LockingTk::serializeEntryLockDetailsList(&buf[bufPos], &waitersExclFLock);
-
-   // waitersSharedFLock
-   bufPos += LockingTk::serializeEntryLockDetailsList(&buf[bufPos], &waitersSharedFLock);
-
-   // waitersLockIDsFLock
-   bufPos += Serialization::serializeStringSet(&buf[bufPos], &waitersLockIDsFLock);
-
    // exclRangeFLocks
    bufPos += LockingTk::serializeRangeLockExclSet(&buf[bufPos], &exclRangeFLocks);
 
    // sharedRangeFLocks
    bufPos += LockingTk::serializeRangeLockSharedSet(&buf[bufPos], &sharedRangeFLocks);
 
-   // waitersExclRangeFLock
-   bufPos += LockingTk::serializeRangeLockDetailsList(&buf[bufPos], &waitersExclRangeFLock);
-
-   // waitersSharedRangeFLock
-   bufPos += LockingTk::serializeRangeLockDetailsList(&buf[bufPos], &waitersSharedRangeFLock);
-
-   // waitersLockIDsRangeFLock
-   bufPos += Serialization::serializeStringSet(&buf[bufPos], &waitersLockIDsRangeFLock);
-
-   // dentryCompatData
-   bufPos += FileInode::serializeDentryCompatData(&buf[bufPos], &dentryCompatData);
-
-   // numParentRefs
-   bufPos += Serialization::serializeInt64(&buf[bufPos], numParentRefs.read() );
-
-   // referenceParentID
-   bufPos += Serialization::serializeStrAlign4(&buf[bufPos], referenceParentID.size(),
-      referenceParentID.c_str() );
-
-   // isInlined
-   bufPos += Serialization::serializeBool(&buf[bufPos], isInlined);
-
    return bufPos;
 }
 
-bool FileInode::deserialize(const char* buf, size_t bufLen, unsigned* outLen)
+bool FileInode::deserializeLockState(const char* buf, size_t bufLen, unsigned* outLen)
 {
    size_t bufPos = 0;
-
-   {
-      // inodeDiskData
-      unsigned inodeDiskDataLen;
-
-      if (!inodeDiskData.deserialize(&buf[bufPos], bufLen-bufPos, &inodeDiskDataLen) )
-         return false;
-
-      bufPos += inodeDiskDataLen;
-   }
-
-   {
-      // fileInfoVec
-      unsigned fileInfoVecLen;
-      unsigned fileInfoVecElemNum;
-      const char* fileInfoVecStart = 0;
-
-      if (!ChunkFileInfo::deserializeVecPreprocess(&buf[bufPos], bufLen-bufPos, &fileInfoVecElemNum,
-         &fileInfoVecStart, &fileInfoVecLen) )
-         return false;
-
-      if (!ChunkFileInfo::deserializeVec(fileInfoVecLen, fileInfoVecElemNum, fileInfoVecStart,
-         &fileInfoVec) )
-         return false;
-
-      bufPos += fileInfoVecLen;
-   }
-
-   {
-      // exclusiveTID
-      unsigned exclusiveTIDLen;
-      uint64_t tmpTID;
-
-      if (!Serialization::deserializeUInt64(&buf[bufPos], bufLen-bufPos, &tmpTID,
-         &exclusiveTIDLen) )
-         return false;
-
-      bufPos += exclusiveTIDLen;
-
-      this->exclusiveTID = (uint64_t) tmpTID;
-   }
-
-   {
-      // numSessionsRead
-      unsigned numSessionsReadLen;
-
-      if (!Serialization::deserializeUInt(&buf[bufPos], bufLen-bufPos, &this->numSessionsRead,
-         &numSessionsReadLen) )
-         return false;
-
-      bufPos += numSessionsReadLen;
-   }
-
-   {
-      // numSessionsWrite
-      unsigned numSessionsWriteLen;
-
-      if (!Serialization::deserializeUInt(&buf[bufPos], bufLen-bufPos, &this->numSessionsWrite,
-         &numSessionsWriteLen) )
-         return false;
-
-      bufPos += numSessionsWriteLen;
-   }
 
    {
       // exclAppendLock
@@ -2715,42 +2600,6 @@ bool FileInode::deserialize(const char* buf, size_t bufLen, unsigned* outLen)
          return false;
 
       bufPos += exclAppendLockLen;
-   }
-
-   {
-      // waitersExclAppendLock
-      unsigned waitersExclAppendLockLen;
-      unsigned waitersExclAppendLockElemNum;
-      const char* waitersExclAppendLockStart = 0;
-
-      if (!LockingTk::deserializeEntryLockDetailsListPreprocess(&buf[bufPos], bufLen-bufPos,
-         &waitersExclAppendLockElemNum, &waitersExclAppendLockStart, &waitersExclAppendLockLen) )
-         return false;
-
-      if (!LockingTk::deserializeEntryLockDetailsList(waitersExclAppendLockLen,
-         waitersExclAppendLockElemNum, waitersExclAppendLockStart, &waitersExclAppendLock) )
-         return false;
-
-      bufPos += waitersExclAppendLockLen;
-   }
-
-   {
-      // waitersLockIDsAppendLock
-      unsigned waitersLockIDsAppendLockLen;
-      unsigned waitersLockIDsAppendLockElemNum;
-      const char* waitersLockIDsAppendLockStart = 0;
-
-      if (!Serialization::deserializeStringSetPreprocess(&buf[bufPos], bufLen-bufPos,
-         &waitersLockIDsAppendLockElemNum, &waitersLockIDsAppendLockStart,
-         &waitersLockIDsAppendLockLen) )
-         return false;
-
-      if (!Serialization::deserializeStringSet(waitersLockIDsAppendLockLen,
-         waitersLockIDsAppendLockElemNum, waitersLockIDsAppendLockStart,
-         &waitersLockIDsAppendLock) )
-         return false;
-
-      bufPos += waitersLockIDsAppendLockLen;
    }
 
    {
@@ -2778,57 +2627,6 @@ bool FileInode::deserialize(const char* buf, size_t bufLen, unsigned* outLen)
          return false;
 
       bufPos += sharedFLocksLen;
-   }
-
-   {
-      // waitersExclFLock
-      unsigned waitersExclFLockLen;
-      unsigned waitersExclFLockElemNum;
-      const char* waitersExclFLockStart = 0;
-
-      if (!LockingTk::deserializeEntryLockDetailsListPreprocess(&buf[bufPos], bufLen-bufPos,
-         &waitersExclFLockElemNum, &waitersExclFLockStart, &waitersExclFLockLen) )
-         return false;
-
-      if (!LockingTk::deserializeEntryLockDetailsList(waitersExclFLockLen, waitersExclFLockElemNum,
-         waitersExclFLockStart, &waitersExclFLock) )
-         return false;
-
-      bufPos += waitersExclFLockLen;
-   }
-
-   {
-      // waitersSharedFLock
-      unsigned waitersSharedFLockLen;
-      unsigned waitersSharedFLockElemNum;
-      const char* waitersSharedFLockStart = 0;
-
-      if (!LockingTk::deserializeEntryLockDetailsListPreprocess(&buf[bufPos], bufLen-bufPos,
-         &waitersSharedFLockElemNum, &waitersSharedFLockStart, &waitersSharedFLockLen) )
-         return false;
-
-      if (!LockingTk::deserializeEntryLockDetailsList(waitersSharedFLockLen,
-         waitersSharedFLockElemNum, waitersSharedFLockStart, &waitersSharedFLock) )
-         return false;
-
-      bufPos += waitersSharedFLockLen;
-   }
-
-   {
-      // waitersLockIDsFLock
-      unsigned waitersLockIDsFLockLen;
-      unsigned waitersLockIDsFLockElemNum;
-      const char* waitersLockIDsFLockStart = 0;
-
-      if (!Serialization::deserializeStringSetPreprocess(&buf[bufPos], bufLen-bufPos,
-         &waitersLockIDsFLockElemNum, &waitersLockIDsFLockStart, &waitersLockIDsFLockLen) )
-         return false;
-
-      if (!Serialization::deserializeStringSet(waitersLockIDsFLockLen, waitersLockIDsFLockElemNum,
-         waitersLockIDsFLockStart, &waitersLockIDsFLock) )
-         return false;
-
-      bufPos += waitersLockIDsFLockLen;
    }
 
    {
@@ -2865,138 +2663,17 @@ bool FileInode::deserialize(const char* buf, size_t bufLen, unsigned* outLen)
       bufPos += sharedRangeFLocksLen;
    }
 
-   {
-      // waitersExclRangeFLock
-      unsigned waitersExclRangeFLockLen;
-      unsigned waitersExclRangeFLockElemNum;
-      const char* waitersExclRangeFLockStart = 0;
-
-      if (!LockingTk::deserializeRangeLockDetailsListPreprocess(&buf[bufPos], bufLen-bufPos,
-         &waitersExclRangeFLockElemNum, &waitersExclRangeFLockStart, &waitersExclRangeFLockLen) )
-         return false;
-
-      if (!LockingTk::deserializeRangeLockDetailsList(waitersExclRangeFLockLen,
-         waitersExclRangeFLockElemNum, waitersExclRangeFLockStart, &waitersExclRangeFLock) )
-         return false;
-
-      bufPos += waitersExclRangeFLockLen;
-   }
-
-   {
-      // waitersSharedRangeFLock
-      unsigned waitersSharedRangeFLockLen;
-      unsigned waitersSharedRangeFLockElemNum;
-      const char* waitersSharedRangeFLockStart = 0;
-
-      if (!LockingTk::deserializeRangeLockDetailsListPreprocess(&buf[bufPos], bufLen-bufPos,
-         &waitersSharedRangeFLockElemNum, &waitersSharedRangeFLockStart,
-         &waitersSharedRangeFLockLen) )
-         return false;
-
-      if (!LockingTk::deserializeRangeLockDetailsList(waitersSharedRangeFLockLen,
-         waitersSharedRangeFLockElemNum, waitersSharedRangeFLockStart, &waitersSharedRangeFLock) )
-         return false;
-
-      bufPos += waitersSharedRangeFLockLen;
-   }
-
-   {
-      // waitersLockIDsRangeFLock
-      unsigned waitersLockIDsRangeFLockLen;
-      unsigned waitersLockIDsRangeFLockElemNum;
-      const char* waitersLockIDsRangeFLockStart = 0;
-
-      if (!Serialization::deserializeStringSetPreprocess(&buf[bufPos], bufLen-bufPos,
-         &waitersLockIDsRangeFLockElemNum, &waitersLockIDsRangeFLockStart,
-         &waitersLockIDsRangeFLockLen) )
-         return false;
-
-      if (!Serialization::deserializeStringSet(waitersLockIDsRangeFLockLen,
-         waitersLockIDsRangeFLockElemNum, waitersLockIDsRangeFLockStart,
-         &waitersLockIDsRangeFLock) )
-         return false;
-
-      bufPos += waitersLockIDsRangeFLockLen;
-   }
-
-   {
-      // dentryCompatData
-      unsigned dentryCompatDataLen;
-
-      if (!FileInode::deserializeDentryCompatData(&buf[bufPos], bufLen-bufPos, &dentryCompatDataLen,
-         &dentryCompatData) )
-         return false;
-
-      bufPos += dentryCompatDataLen;
-   }
-
-   {
-      // numParentRefs
-      unsigned numParentRefsLen;
-      int64_t value;
-
-      if (!Serialization::deserializeInt64(&buf[bufPos], bufLen-bufPos, &value, &numParentRefsLen) )
-         return false;
-
-      numParentRefs.set(value);
-
-      bufPos += numParentRefsLen;
-   }
-
-   {
-      // referenceParentID
-      unsigned referenceParentIDLen;
-
-      if (!Serialization::deserializeStrAlign4(&buf[bufPos], bufLen-bufPos,
-         &this->referenceParentID, &referenceParentIDLen) )
-         return false;
-
-      bufPos += referenceParentIDLen;
-   }
-
-   {
-      // isInlined
-      unsigned isInlinedLen;
-
-      if (!Serialization::deserializeBool(&buf[bufPos], bufLen-bufPos, &this->isInlined,
-         &isInlinedLen) )
-         return false;
-
-      bufPos += isInlinedLen;
-   }
-
    *outLen = bufPos;
 
    return true;
 }
 
-unsigned FileInode::serialLen() const
+unsigned FileInode::serialLenLockState() const
 {
    size_t bufPos = 0;
 
-   // inodeDiskData
-   bufPos += inodeDiskData.serialLen();
-
-   // fileInfoVec
-   bufPos += ChunkFileInfo::serialLenVec(&fileInfoVec);
-
-   // exclusiveTID;
-   bufPos += Serialization::serialLenUInt64();
-
-   // numSessionsRead;
-   bufPos += Serialization::serialLenUInt();
-
-   // numSessionsWrite;
-   bufPos += Serialization::serialLenUInt();
-
    // exclAppendLock
    bufPos += exclAppendLock.serialLen();
-
-   // waitersExclAppendLock
-   bufPos += LockingTk::serialLenEntryLockDetailsList(&waitersExclAppendLock);
-
-   // waitersLockIDsAppendLock
-   bufPos += Serialization::serialLenStringSet(&waitersLockIDsAppendLock);
 
    // exclFLock
    bufPos += exclFLock.serialLen();
@@ -3004,41 +2681,11 @@ unsigned FileInode::serialLen() const
    // sharedFLocks
    bufPos += LockingTk::serialLenEntryLockDetailsSet(&sharedFLocks);
 
-   // waitersExclFLock
-   bufPos += LockingTk::serialLenEntryLockDetailsList(&waitersExclFLock);
-
-   // waitersSharedFLock
-   bufPos += LockingTk::serialLenEntryLockDetailsList(&waitersSharedFLock);
-
-   // waitersLockIDsFLock
-   bufPos += Serialization::serialLenStringSet(&waitersLockIDsFLock);
-
    // exclRangeFLocks
    bufPos += LockingTk::serialLenRangeLockExclSet(&exclRangeFLocks);
 
    // sharedRangeFLocks
    bufPos += LockingTk::serialLenRangeLockSharedSet(&sharedRangeFLocks);
-
-   // waitersExclRangeFLock
-   bufPos += LockingTk::serialLenRangeLockDetailsList(&waitersExclRangeFLock);
-
-   // waitersSharedRangeFLock
-   bufPos += LockingTk::serialLenRangeLockDetailsList(&waitersSharedRangeFLock);
-
-   // waitersLockIDsRangeFLock
-   bufPos += Serialization::serialLenStringSet(&waitersLockIDsRangeFLock);
-
-   // dentryCompatData
-   bufPos += FileInode::serialLenDentryCompatData();
-
-   // numParentRefs
-   bufPos += Serialization::serialLenInt64();
-
-   // referenceParentID
-   bufPos += Serialization::serialLenStrAlign4(referenceParentID.size() );
-
-   // isInlined
-   bufPos += Serialization::serialLenBool();
 
    return bufPos;
 }

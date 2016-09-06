@@ -96,6 +96,9 @@ class StorageTargets
 
       AtomicInt16 buddyResyncCount;
 
+      QuotaInodeSupport supportForInodeQuota; // value for the level of inode quota support of the
+                                              // blockdevices
+
       void initTargetPathsList(Config* cfg) throw(InvalidConfigException);
 
       void prepareTargetPaths(Config* cfg) throw(InvalidConfigException);
@@ -113,6 +116,7 @@ class StorageTargets
 
       static void getStatInfo(std::string& targetPathStr, int64_t* outSizeTotal,
          int64_t* outSizeFree, int64_t* outInodesTotal, int64_t* outInodesFree);
+
 
    public:
       // getters & setters
@@ -459,7 +463,8 @@ class StorageTargets
       /**
        * Get the quota related information about the block device of the given storage target
        */
-      bool getQuotaBlockDevice(QuotaBlockDeviceMap* outQuotaBlockDeviceMap, uint16_t targetNumID)
+      bool getQuotaBlockDevice(QuotaBlockDeviceMap* outQuotaBlockDeviceMap, uint16_t targetNumID,
+         QuotaInodeSupport* quotaInodeSupport)
       {
          bool retVal = true;
          SafeRWLock safeLock(&rwlock, SafeRWLock_READ); // L O C K
@@ -470,6 +475,7 @@ class StorageTargets
             std::pair<uint16_t, QuotaBlockDevice> mapElem(iter->first,
                (iter->second).quotaBlockDevice);
             outQuotaBlockDeviceMap->insert(mapElem);
+            *quotaInodeSupport = (iter->second).quotaBlockDevice.quotaInodeSupportFromBlockDevice();
          }
          else
             retVal = false;
@@ -751,6 +757,12 @@ class StorageTargets
       TargetOfflineWait& getTargetOfflineWait()
       {
          return this->targetOfflineWait;
+      }
+
+
+      QuotaInodeSupport getSupportForInodeQuota()
+      {
+         return supportForInodeQuota;
       }
 
 
