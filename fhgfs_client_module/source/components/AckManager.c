@@ -143,7 +143,7 @@ void __AckManager_processAckQueue(AckManager* this)
          Logger_logFormatted(log, Log_DEBUG, logContext, "Metadata node no longer exists: %hu",
             currentAck->metaNodeID);
 
-         goto remove_and_proceed;
+         goto remove;
       }
 
       connPool = Node_getConnPool(node);
@@ -158,7 +158,7 @@ void __AckManager_processAckQueue(AckManager* this)
             "BUG(?): Unable to serialize ack msg for metadata node: %hu (ack: %s)",
             currentAck->metaNodeID, currentAck->ackID);
 
-         goto remove_and_proceed;
+         goto release;
       }
 
       for(currentRetryNum=0; currentRetryNum <= maxNumCommRetries; currentRetryNum++)
@@ -222,7 +222,10 @@ void __AckManager_processAckQueue(AckManager* this)
       }
 
 
-   remove_and_proceed:
+   release:
+      NodeStoreEx_releaseNode(metaNodes, &node);
+
+   remove:
       __AckManager_freeQueueEntry(this, currentAck);
 
       iter = PointerListIter_remove(&iter);

@@ -27,6 +27,11 @@ struct HighResolutionStats
       uint64_t netRecvBytes; // ususally updated by a socket
       unsigned workRequests; // finished work requests; usually updated by a worker
    } incVals;
+
+   HighResolutionStats()
+   {
+      memset(this, 0, sizeof(*this));
+   }
 };
 
 

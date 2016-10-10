@@ -171,7 +171,7 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw(InvalidC
          tuneUsePerTargetWorkers = StringTk::strToBool(iter->second);
       else
       if(iter->first == std::string("quotaEnableEnforcement") )
-         quotaEnableEnforcment = StringTk::strToBool(iter->second);
+         quotaEnableEnforcement = StringTk::strToBool(iter->second);
       else
       if(iter->first == std::string("quotaDisableZfsSupport") )
          quotaDisableZfsSupport = StringTk::strToBool(iter->second);

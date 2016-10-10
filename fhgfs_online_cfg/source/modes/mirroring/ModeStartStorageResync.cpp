@@ -362,7 +362,7 @@ int ModeStartStorageResync::requestResync(uint16_t syncToTargetID, bool isBuddyG
    if(restartResync)
    {
       std::cout << "Waiting for running resyncs to abort. " << std::endl;
-      TargetConsistencyState secondaryState;
+      TargetConsistencyState secondaryState = TargetConsistencyState_BAD; // silence warning
 
       // to avoid races we have to wait for the node to leave needs_resync state; this usually
       // happens, because resync will set secondary to state BAD if it gets aborted.

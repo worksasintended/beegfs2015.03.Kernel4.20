@@ -10,7 +10,7 @@ export BEEGFS_VERSION_PATH
 
 echo "Writing RPMs to $PACKAGEDIR"
 
-logfile="/tmp/build_log.$RANDOM" # SUSE does not have tempfile?
+logfile=${LOGFILE:-"/tmp/build_log.$RANDOM"} # SUSE does not have tempfile?
 # build rpms here
 for package in $packages; do
 	echo $package

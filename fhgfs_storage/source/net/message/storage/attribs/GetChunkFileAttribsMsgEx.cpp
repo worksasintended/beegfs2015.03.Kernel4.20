@@ -152,7 +152,7 @@ int GetChunkFileAttribsMsgEx::getTargetFD(struct sockaddr_in* fromAddr, Socket* 
    App* app = Program::getApp();
 
    bool isBuddyMirrorChunk = isMsgHeaderFeatureFlagSet(GETCHUNKFILEATTRSMSG_FLAG_BUDDYMIRROR);
-   TargetConsistencyState consistencyState;
+   TargetConsistencyState consistencyState = TargetConsistencyState_BAD; // silence warning
 
    *outResponseSent = false;
 

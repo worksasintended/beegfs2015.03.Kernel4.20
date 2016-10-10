@@ -89,7 +89,7 @@ bool Serialization::deserializeUIntList(unsigned listBufLen, unsigned elemNum,
 
    for(unsigned i=0; i < elemNum; i++)
    {
-      unsigned value;
+      unsigned value = 0;
       unsigned valueLen = 0;
 
       if(unlikely(!deserializeUInt(&listStart[bufPos], elemsBufLen-bufPos, &value, &valueLen) ) )

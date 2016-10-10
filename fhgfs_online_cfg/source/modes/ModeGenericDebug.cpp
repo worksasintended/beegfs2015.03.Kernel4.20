@@ -92,7 +92,7 @@ int ModeGenericDebug::execute()
 
    Node* mgmtNode = mgmtNodes->referenceFirstNode();
 
-   if(!NodesTk::downloadNodes(mgmtNode, nodeType, &nodes, NULL) )
+   if(!NodesTk::downloadNodes(mgmtNode, nodeType, &nodes, false) )
    {
       std::cerr << "Node download failed." << std::endl;
       retVal = APPCODE_RUNTIME_ERROR;

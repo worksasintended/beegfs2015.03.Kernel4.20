@@ -24,7 +24,7 @@ bool GetQuotaInfoMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
 
    QuotaDataList outQuotaDataList;
 
-   if(cfg->getQuotaEnableEnforcment() )
+   if(cfg->getQuotaEnableEnforcement() )
    {
       QuotaManager* quotaManager = app->getQuotaManager();
 

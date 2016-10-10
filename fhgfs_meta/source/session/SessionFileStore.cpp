@@ -459,7 +459,8 @@ unsigned SessionFileStore::serialLen() const
    return len;
 }
 
-bool sessionFileStoreEquals(const SessionFileStore& first, const SessionFileStore& second)
+bool sessionFileStoreEquals(const SessionFileStore& first, const SessionFileStore& second,
+   bool disableInodeCheck)
 {
    // lastSessionID;
    if(first.lastSessionID != second.lastSessionID)
@@ -479,7 +480,7 @@ bool sessionFileStoreEquals(const SessionFileStore& first, const SessionFileStor
          return false;
 
       if(!sessionFileEquals(iterFirst->second->getReferencedObject(),
-         iterSecond->second->getReferencedObject() ) )
+         iterSecond->second->getReferencedObject(), disableInodeCheck) )
          return false;
    }
 

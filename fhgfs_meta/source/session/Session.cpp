@@ -67,14 +67,17 @@ unsigned Session::serialLen()
    return len;
 }
 
-bool sessionMetaEquals(Session* first, Session* second)
+bool sessionMetaEquals(Session* first, Session* second, bool disableInodeCheck)
 {
+   if(!first || !second)
+      return false;
+
    // sessionID;
    if(first->sessionID != second->sessionID)
       return false;
 
    // files;
-   if(!sessionFileStoreEquals(first->files, second->files) )
+   if(!sessionFileStoreEquals(first->files, second->files, disableInodeCheck) )
       return false;
 
    return true;

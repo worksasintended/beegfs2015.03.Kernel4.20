@@ -22,7 +22,7 @@ bool UnmapTargetMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* soc
 
    bool targetExisted = targetMapper->unmapTarget(targetID);
 
-   if(app->getConfig()->getQuotaEnableEnforcment() )
+   if(app->getConfig()->getQuotaEnableEnforcement() )
       app->getQuotaManager()->removeTargetFromQuotaDataStores(targetID);
 
    if(targetExisted)

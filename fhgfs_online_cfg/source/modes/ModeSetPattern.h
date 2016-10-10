@@ -14,6 +14,7 @@ class ModeSetPattern : public Mode
          cfgUseBuddyMirrorPattern = false;
          cfgUseMountedPath = true;
          cfgReadFromStdin = false;
+         actorUID = 0;
       }
       
       virtual int execute();
@@ -27,6 +28,7 @@ class ModeSetPattern : public Mode
       bool cfgUseBuddyMirrorPattern; // true to use buddy mirror pattern instead of default RAID0
       bool cfgUseMountedPath; // false if user-given path is relative to FhGFS mountpoint
       bool cfgReadFromStdin; // true if paths should be read from stdin
+      uint32_t actorUID;
 
       bool setPattern(Node* ownerNode, EntryInfo* entryInfo, unsigned chunkSize,
          unsigned numTargets);

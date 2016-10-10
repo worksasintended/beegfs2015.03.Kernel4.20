@@ -70,8 +70,15 @@ FhgfsOpsErr SetDirPatternMsgEx::setDirPattern(EntryInfo* entryInfo, StripePatter
 
    App* app = Program::getApp();
    MetaStore* metaStore = app->getMetaStore();
-   
+
    FhgfsOpsErr retVal = FhgfsOpsErr_NOTADIR;
+
+   uint32_t actorUID = isMsgHeaderFeatureFlagSet(Flags::HAS_UID)
+      ? getUID()
+      : 0;
+
+   if (actorUID != 0 && !app->getConfig()->getSysAllowUserSetPattern())
+      return FhgfsOpsErr_PERM;
 
    // verify owner of root dir
    if( (entryInfo->getEntryID() == META_ROOTDIR_ID_STR) &&
@@ -84,16 +91,10 @@ FhgfsOpsErr SetDirPatternMsgEx::setDirPattern(EntryInfo* entryInfo, StripePatter
    DirInode* dir = metaStore->referenceDir(entryInfo->getEntryID(), true);
    if(dir)
    { // entry is a directory
-      bool setPatternRes = dir->setStripePattern(*pattern);
-      if(!setPatternRes)
-      {
+      retVal = dir->setStripePattern(*pattern, actorUID);
+      if (retVal != FhgfsOpsErr_SUCCESS)
          LogContext(logContext).logErr("Update of stripe pattern failed. "
             "DirID: " + entryInfo->getEntryID() );
-         
-         retVal = FhgfsOpsErr_INTERNAL;
-      }
-      else
-         retVal = FhgfsOpsErr_SUCCESS;
 
       metaStore->releaseDir(entryInfo->getEntryID() );
    }

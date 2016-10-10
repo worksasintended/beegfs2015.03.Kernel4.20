@@ -59,7 +59,7 @@ class SessionFileStore
 
 
       friend bool sessionFileStoreEquals(const SessionFileStore& first,
-         const SessionFileStore& second);
+         const SessionFileStore& second, bool disableInodeCheck);
 
 
    protected:

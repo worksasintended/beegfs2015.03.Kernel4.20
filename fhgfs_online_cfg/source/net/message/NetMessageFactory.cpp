@@ -12,6 +12,7 @@
 #include <common/net/message/nodes/GetTargetMappingsRespMsg.h>
 #include <common/net/message/nodes/GetTargetStatesRespMsg.h>
 #include <common/net/message/nodes/MapTargetsRespMsg.h>
+#include <common/net/message/nodes/RemoveBuddyGroupRespMsg.h>
 #include <common/net/message/nodes/RefresherControlRespMsg.h>
 #include <common/net/message/nodes/RemoveNodeRespMsg.h>
 #include <common/net/message/nodes/SetMirrorBuddyGroupRespMsg.h>
@@ -98,6 +99,7 @@ NetMessage* NetMessageFactory::createFromMsgType(unsigned short msgType)
       case NETMSGTYPE_HeartbeatRequest: { msg = new HeartbeatRequestMsgEx(); } break;
       case NETMSGTYPE_Heartbeat: { msg = new HeartbeatMsgEx(); } break;
       case NETMSGTYPE_MapTargetsResp: { msg = new MapTargetsRespMsg(); } break;
+      case NETMSGTYPE_RemoveBuddyGroupResp: { msg = new RemoveBuddyGroupRespMsg(); } break;
       case NETMSGTYPE_RefresherControlResp: { msg = new RefresherControlRespMsg(); } break;
       case NETMSGTYPE_RemoveNodeResp: { msg = new RemoveNodeRespMsg(); } break;
       case NETMSGTYPE_UnmapTargetResp: { msg = new UnmapTargetRespMsg(); } break;

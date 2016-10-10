@@ -3,6 +3,8 @@
 #include <common/net/message/nodes/ChangeTargetConsistencyStatesRespMsg.h>
 #include <common/net/message/storage/SetStorageTargetInfoMsg.h>
 #include <common/net/message/storage/SetStorageTargetInfoRespMsg.h>
+#include <common/net/message/storage/quota/RequestExceededQuotaMsg.h>
+#include <common/net/message/storage/quota/RequestExceededQuotaRespMsg.h>
 #include <common/toolkit/MessagingTk.h>
 #include <common/toolkit/NodesTk.h>
 #include <common/toolkit/Time.h>
@@ -432,4 +434,160 @@ void InternodeSyncer::getStatInfo(int64_t* outSizeTotal, int64_t* outSizeFree,
 
    // read and use value from manual free space override file (if it exists)
    StorageTk::statStoragePathOverride(targetPathStr, outSizeFree, outInodesFree);
+}
+
+/**
+ * @return false on error
+ */
+bool InternodeSyncer::downloadExceededQuotaList(QuotaDataType idType, QuotaLimitType exType,
+   UIntList* outIDList, FhgfsOpsErr& error)
+{
+   App* app = Program::getApp();
+   NodeStoreServers* mgmtNodes = app->getMgmtNodes();
+
+   bool retVal = false;
+
+   Node* mgmtNode = mgmtNodes->referenceFirstNode();
+   if(!mgmtNode)
+      return false;
+
+   RequestExceededQuotaMsg msg(idType, exType);
+
+   bool commRes;
+   char* respBuf = NULL;
+   NetMessage* respMsg = NULL;
+   RequestExceededQuotaRespMsg* respMsgCast = NULL;
+
+   // connect & communicate
+   commRes = MessagingTk::requestResponse(mgmtNode, &msg, NETMSGTYPE_RequestExceededQuotaResp,
+      &respBuf, &respMsg);
+   if(!commRes)
+      goto err_exit;
+
+   // handle result
+   respMsgCast = (RequestExceededQuotaRespMsg*)respMsg;
+
+   respMsgCast->getExceededQuotaIDs()->swap(*outIDList);
+   error = respMsgCast->getError();
+
+   retVal = true;
+
+   // cleanup
+   SAFE_DELETE(respMsg);
+   SAFE_FREE(respBuf);
+
+err_exit:
+   return retVal;
+}
+
+/**
+ * @return false on error
+ */
+bool InternodeSyncer::downloadAllExceededQuotaLists()
+{
+   const char* logContext = "Exceeded quota sync";
+
+   App* app = Program::getApp();
+   Config* cfg = app->getConfig();
+   ExceededQuotaStore* exceededQuotaStore = app->getExceededQuotaStore();
+
+   bool retVal = true;
+
+   UIntList tmpExceededUIDsSize;
+   UIntList tmpExceededGIDsSize;
+   UIntList tmpExceededUIDsInode;
+   UIntList tmpExceededGIDsInode;
+
+   FhgfsOpsErr error;
+
+   if(downloadExceededQuotaList(QuotaDataType_USER, QuotaLimitType_SIZE, &tmpExceededUIDsSize,
+      error) )
+   {
+      exceededQuotaStore->updateExceededQuota(&tmpExceededUIDsSize, QuotaDataType_USER,
+         QuotaLimitType_SIZE);
+   }
+   else
+   { // error
+      LogContext(logContext).logErr("Unable to download exceeded file size quota for users.");
+      retVal = false;
+   }
+
+   // check if mgmtd supports the feature of global configuration for quota enforcement
+   if(error != FhgfsOpsErr_NOTSUPP)
+   {
+      // enable or disable quota enforcement
+      if(error == FhgfsOpsErr_SUCCESS)
+      {
+         if(!cfg->getQuotaEnableEnforcement() )
+         {
+            LogContext(logContext).log(Log_WARNING,
+               "Quota enforcement is enabled on the management daemon, "
+               "but not in the configuration of this metadata server. "
+               "The configuration from the management daemon overrides the local setting.");
+         }
+         else
+         {
+            LogContext(logContext).log(Log_DEBUG,
+               "Quota enforcement enabled by management daemon.");
+         }
+
+         app->getConfig()->setQuotaEnableEnforcement(true);
+      }
+      else
+      {
+         if(cfg->getQuotaEnableEnforcement() )
+         {
+            LogContext(logContext).log(Log_WARNING,
+               "Quota enforcement is enabled in the configuration of this metadata server, "
+               "but not on the management daemon. "
+               "The configuration from the management daemon overrides the local setting.");
+         }
+         else
+         {
+            LogContext(logContext).log(Log_DEBUG,
+               "Quota enforcement disabled by management daemon.");
+         }
+
+         app->getConfig()->setQuotaEnableEnforcement(false);
+         return true;
+      }
+   }
+
+   if(downloadExceededQuotaList(QuotaDataType_GROUP, QuotaLimitType_SIZE, &tmpExceededGIDsSize,
+      error) )
+   {
+      exceededQuotaStore->updateExceededQuota(&tmpExceededGIDsSize, QuotaDataType_GROUP,
+         QuotaLimitType_SIZE);
+   }
+   else
+   { // error
+      LogContext(logContext).logErr("Unable to download exceeded file size quota for groups.");
+      retVal = false;
+   }
+
+   if(downloadExceededQuotaList(QuotaDataType_USER, QuotaLimitType_INODE, &tmpExceededUIDsInode,
+      error) )
+   {
+      exceededQuotaStore->updateExceededQuota(&tmpExceededUIDsInode, QuotaDataType_USER,
+         QuotaLimitType_INODE);
+   }
+   else
+   { // error
+      LogContext(logContext).logErr("Unable to download exceeded file number quota for users.");
+      retVal = false;
+   }
+
+   if(downloadExceededQuotaList(QuotaDataType_GROUP, QuotaLimitType_INODE, &tmpExceededGIDsInode,
+      error) )
+   {
+      exceededQuotaStore->updateExceededQuota(&tmpExceededGIDsInode, QuotaDataType_GROUP,
+         QuotaLimitType_INODE);
+   }
+   else
+   { // error
+      LogContext(logContext).logErr("Unable to download exceeded file number quota for groups.");
+      retVal = false;
+   }
+
+   return retVal;
 }

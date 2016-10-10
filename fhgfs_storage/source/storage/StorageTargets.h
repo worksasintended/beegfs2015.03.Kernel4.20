@@ -795,7 +795,7 @@ class StorageTargets
 
          path += "/" BUDDY_NEEDS_RESYNC_FILENAME;
 
-         int createErrno;
+         int createErrno = 0; // silence warning
          bool createRes = StorageTk::createFile(path, &createErrno, fileCreated);
 
          if(unlikely(!createRes) )

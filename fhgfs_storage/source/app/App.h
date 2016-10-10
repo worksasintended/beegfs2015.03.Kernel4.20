@@ -20,6 +20,7 @@
 #include <components/benchmarker/StorageBenchOperator.h>
 #include <components/buddyresyncer/BuddyResyncer.h>
 #include <components/chunkfetcher/ChunkFetcher.h>
+#include <components/BuddySyncer.h>
 #include <components/DatagramListener.h>
 #include <components/HeartbeatManager.h>
 #include <components/InternodeSyncer.h>
@@ -118,6 +119,7 @@ class App : public AbstractApp
       ConnAcceptor* connAcceptor;
       StatsCollector* statsCollector;
       InternodeSyncer* internodeSyncer;
+      BuddySyncer* buddySyncer;
 
       ChunkFetcher* chunkFetcher;
 

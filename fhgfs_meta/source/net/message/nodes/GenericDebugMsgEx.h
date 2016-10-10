@@ -32,6 +32,7 @@ class GenericDebugMsgEx : public GenericDebugMsg
       std::string processOpDumpDentry(std::istringstream& commandStream);
       std::string processOpDumpInode(std::istringstream& commandStream);
       std::string processOpDumpInlinedInode(std::istringstream& commandStream);
+      std::string processOpQuotaExceeded(std::istringstream& commandStream);
 
    #ifdef BEEGFS_DEBUG
       std::string processOpWriteDirDentry(std::istringstream& commandStream);

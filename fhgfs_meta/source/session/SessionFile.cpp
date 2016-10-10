@@ -88,8 +88,11 @@ unsigned SessionFile::serialLen()
    return len;
 }
 
-bool sessionFileEquals(const SessionFile* first, const SessionFile* second)
+bool sessionFileEquals(const SessionFile* first, const SessionFile* second, bool disableInodeCheck)
 {
+   if(!first || !second)
+      return false;
+
    // accessFlags;
    if(first->accessFlags != second->accessFlags)
       return false;
@@ -105,6 +108,13 @@ bool sessionFileEquals(const SessionFile* first, const SessionFile* second)
    // useAsyncCleanup;
    if(first->useAsyncCleanup != second->useAsyncCleanup)
       return false;
+
+   if(!disableInodeCheck)
+   {
+      // inode;
+      if(!fileInodeEquals(first->inode, second->inode) )
+         return false;
+   }
 
    return true;
 }

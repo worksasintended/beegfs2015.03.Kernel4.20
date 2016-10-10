@@ -79,7 +79,7 @@ int ModeRefreshAllEntries::execute()
 
    Node* mgmtNode = mgmtNodes->referenceFirstNode();
 
-   if(!NodesTk::downloadNodes(mgmtNode, NODETYPE_Meta, &nodes, NULL) )
+   if(!NodesTk::downloadNodes(mgmtNode, NODETYPE_Meta, &nodes, false) )
    {
       std::cerr << "Node download failed." << std::endl;
       retVal = APPCODE_RUNTIME_ERROR;

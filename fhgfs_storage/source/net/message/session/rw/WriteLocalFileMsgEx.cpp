@@ -106,7 +106,7 @@ bool WriteLocalFileMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* 
 
    // check if the size quota is exceeded for the user or group
    if(isMsgHeaderFeatureFlagSet(WRITELOCALFILEMSG_FLAG_USE_QUOTA) &&
-      app->getConfig()->getQuotaEnableEnforcment() )
+      app->getConfig()->getQuotaEnableEnforcement() )
    {
       quotaExceeded = app->getExceededQuotaStore()->isQuotaExceeded(this->getUserID(),
          this->getGroupID(), QuotaLimitType_SIZE);
@@ -438,13 +438,13 @@ FhgfsOpsErr WriteLocalFileMsgEx::openFile(SessionLocalFile* sessionLocalFile)
    const char* logContext = "WriteChunkFileMsg (write incremental)";
 
    bool useQuota = isMsgHeaderFeatureFlagSet(WRITELOCALFILEMSG_FLAG_USE_QUOTA);
-   bool enforceQuota = Program::getApp()->getConfig()->getQuotaEnableEnforcment();
+   bool enforceQuota = Program::getApp()->getConfig()->getQuotaEnableEnforcement();
 
    App* app = Program::getApp();
 
    int actualTargetID = sessionLocalFile->getTargetID();
    bool isBuddyMirrorChunk = sessionLocalFile->getIsMirrorSession();
-   TargetConsistencyState consistencyState;
+   TargetConsistencyState consistencyState = TargetConsistencyState_BAD; // silence warning
 
 
    if(sessionLocalFile->getFD() != -1)

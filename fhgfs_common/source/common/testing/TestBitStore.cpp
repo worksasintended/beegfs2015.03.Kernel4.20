@@ -126,7 +126,7 @@ void TestBitStore::testGetter()
    {
       // set a bit
       int blockIndexOfBit = store.getBitBlockIndex(index);
-      bitstore_store_type value = pow(2, (index % BITSTORE_BLOCK_BIT_COUNT));
+      bitstore_store_type value = bitstore_store_type(1) << (index % BITSTORE_BLOCK_BIT_COUNT);
 
       if(blockIndexOfBit == 0)
          store.lowerBits = value;
@@ -160,7 +160,7 @@ void TestBitStore::testSetter()
 
       // check if all bit blocks contains the correct value
       int blockIndexOfBit = store.getBitBlockIndex(index);
-      bitstore_store_type neededValue = pow(2, (index % BITSTORE_BLOCK_BIT_COUNT));
+      bitstore_store_type neededValue = bitstore_store_type(1) << (index % BITSTORE_BLOCK_BIT_COUNT);
 
       // check lower bit block
       if(blockIndexOfBit == 0)

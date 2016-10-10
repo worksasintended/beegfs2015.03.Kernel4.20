@@ -110,7 +110,7 @@ std::string GenericDebugMsgEx::processOpQuotaExceeded(std::istringstream& comman
 
    std::string returnString;
 
-   if(!app->getConfig()->getQuotaEnableEnforcment() )
+   if(!app->getConfig()->getQuotaEnableEnforcement() )
       return "No quota exceeded IDs on this management daemon because quota enforcement is"
          "disabled.";
 
@@ -125,7 +125,7 @@ std::string GenericDebugMsgEx::processOpUsedQuota(std::istringstream& commandStr
    App* app = Program::getApp();
    std::string returnString;
 
-   if(!app->getConfig()->getQuotaEnableEnforcment() )
+   if(!app->getConfig()->getQuotaEnableEnforcement() )
       return "No quota data on this management daemon because quota enforcement is disabled.";
 
    QuotaManager* quotaManager = app->getQuotaManager();

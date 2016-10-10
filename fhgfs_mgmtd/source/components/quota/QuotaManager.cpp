@@ -467,6 +467,8 @@ bool QuotaManager::pushExceededQuotaIDs()
 
    NodeList storageNodeList;
    app->getStorageNodes()->referenceAllNodes(&storageNodeList);
+   NodeList metadataNodeList;
+   app->getMetaNodes()->referenceAllNodes(&metadataNodeList);
 
    int numWorks = 0;
    SynchronizedCounter counter;
@@ -495,11 +497,10 @@ bool QuotaManager::pushExceededQuotaIDs()
 
    // use IntVector because it doesn't work with BoolVector. std::vector<bool> is not a container
    nodeResults = IntVector( (maxMsgCountUIDSize + maxMsgCountUIDInodes + maxMsgCountGIDSize +
-      maxMsgCountGIDInodes) * storageNodeList.size() );
+      maxMsgCountGIDInodes) * (storageNodeList.size() + metadataNodeList.size() ) );
 
-   //send the 4 ID list with exceeded quota to the storage servers
 
-   // upload all subranges (=> msg size limitation) for user size limits
+   // upload all subranges (=> msg size limitation) for user size limits to the storage servers
    for(int messageNumber = 0; messageNumber < maxMsgCountUIDSize; messageNumber++)
    {
       for (NodeListIter nodeIter = storageNodeList.begin();
@@ -513,21 +514,56 @@ bool QuotaManager::pushExceededQuotaIDs()
       }
    }
 
-   // upload all subranges (=> msg size limitation) for user inode limits
+   // upload all subranges (=> msg size limitation) for user size limits to the metadata servers
+   for(int messageNumber = 0; messageNumber < maxMsgCountUIDSize; messageNumber++)
+   {
+      for (NodeListIter nodeIter = metadataNodeList.begin(); nodeIter != metadataNodeList.end();
+         nodeIter++)
+      {
+         if( (*nodeIter)->hasFeature(META_FEATURE_QUOTA) )
+         {
+            Work* work = new SetExceededQuotaWork(QuotaDataType_USER, QuotaLimitType_SIZE,
+               *nodeIter, messageNumber, &exceededQuotaUIDSize, &counter, &nodeResults[numWorks]);
+            workQ->addDirectWork(work);
+
+            numWorks++;
+         }
+      }
+   }
+
+   // upload all subranges (=> msg size limitation) for user inode limits to the storage servers
    for(int messageNumber = 0; messageNumber < maxMsgCountUIDInodes; messageNumber++)
    {
       for (NodeListIter nodeIter = storageNodeList.begin();
             nodeIter != storageNodeList.end(); nodeIter++)
       {
          Work* work = new SetExceededQuotaWork(QuotaDataType_USER, QuotaLimitType_INODE,
-            *nodeIter, messageNumber, &exceededQuotaUIDInodes, &counter, &nodeResults[numWorks]);
+            *nodeIter, messageNumber, &exceededQuotaUIDInodes, &counter, &nodeResults[numWorks] );
          workQ->addDirectWork(work);
 
          numWorks++;
       }
    }
 
-   // upload all subranges (=> msg size limitation) for group size limits
+   // upload all subranges (=> msg size limitation) for user inode limits to the metadata servers
+   for(int messageNumber = 0; messageNumber < maxMsgCountUIDInodes; messageNumber++)
+   {
+      for (NodeListIter nodeIter = metadataNodeList.begin(); nodeIter != metadataNodeList.end();
+         nodeIter++)
+      {
+         if( (*nodeIter)->hasFeature(META_FEATURE_QUOTA) )
+         {
+            Work* work = new SetExceededQuotaWork(QuotaDataType_USER, QuotaLimitType_INODE,
+               *nodeIter, messageNumber, &exceededQuotaUIDInodes, &counter,
+               &nodeResults[numWorks] );
+            workQ->addDirectWork(work);
+
+            numWorks++;
+         }
+      }
+   }
+
+   // upload all subranges (=> msg size limitation) for group size limits to the storage servers
    for(int messageNumber = 0; messageNumber < maxMsgCountGIDSize; messageNumber++)
    {
       for (NodeListIter nodeIter = storageNodeList.begin();
@@ -541,17 +577,51 @@ bool QuotaManager::pushExceededQuotaIDs()
       }
    }
 
-   // upload all subranges (=> msg size limitation) for group inode limits
+   // upload all subranges (=> msg size limitation) for group size limits to the metadata servers
+   for(int messageNumber = 0; messageNumber < maxMsgCountGIDSize; messageNumber++)
+   {
+      for (NodeListIter nodeIter = metadataNodeList.begin(); nodeIter != metadataNodeList.end();
+         nodeIter++)
+      {
+         if( (*nodeIter)->hasFeature(META_FEATURE_QUOTA) )
+         {
+            Work* work = new SetExceededQuotaWork(QuotaDataType_GROUP, QuotaLimitType_SIZE,
+               *nodeIter, messageNumber, &exceededQuotaGIDSize, &counter, &nodeResults[numWorks] );
+            workQ->addDirectWork(work);
+
+            numWorks++;
+         }
+      }
+   }
+
+   // upload all subranges (=> msg size limitation) for group inode limits to the storage servers
    for(int messageNumber = 0; messageNumber < maxMsgCountGIDInodes; messageNumber++)
    {
-      for (NodeListIter nodeIter = storageNodeList.begin();
-            nodeIter != storageNodeList.end(); nodeIter++)
+      for (NodeListIter nodeIter = storageNodeList.begin(); nodeIter != storageNodeList.end();
+         nodeIter++)
       {
          Work* work = new SetExceededQuotaWork(QuotaDataType_GROUP, QuotaLimitType_INODE,
-            *nodeIter, messageNumber, &exceededQuotaGIDInodes, &counter, &nodeResults[numWorks]);
+            *nodeIter, messageNumber, &exceededQuotaGIDInodes, &counter, &nodeResults[numWorks] );
          workQ->addDirectWork(work);
 
          numWorks++;
+      }
+   }
+
+   // upload all subranges (=> msg size limitation) for group inode limits to the metadata servers
+   for(int messageNumber = 0; messageNumber < maxMsgCountGIDInodes; messageNumber++)
+   {
+      for (NodeListIter nodeIter = metadataNodeList.begin(); nodeIter != metadataNodeList.end();
+         nodeIter++)
+      {
+         if( (*nodeIter)->hasFeature(META_FEATURE_QUOTA) )
+         {
+            Work* work = new SetExceededQuotaWork(QuotaDataType_GROUP, QuotaLimitType_INODE,
+               *nodeIter, messageNumber, &exceededQuotaGIDInodes, &counter, &nodeResults[numWorks]);
+            workQ->addDirectWork(work);
+
+            numWorks++;
+         }
       }
    }
 

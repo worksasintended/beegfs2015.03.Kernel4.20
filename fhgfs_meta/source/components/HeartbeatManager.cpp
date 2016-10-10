@@ -4,11 +4,11 @@
 #include <common/toolkit/MessagingTk.h>
 #include <common/toolkit/NodesTk.h>
 #include <common/toolkit/Random.h>
-#include <common/toolkit/SessionTk.h>
 #include <common/toolkit/SocketTk.h>
-#include <net/msghelpers/MsgHelperClose.h>
+#include <components/ClientSyncer.h>
 #include <program/Program.h>
 #include <session/SessionStore.h>
+
 #include "HeartbeatManager.h"
 
 
@@ -23,7 +23,6 @@ HeartbeatManager::HeartbeatManager(DatagramListener* dgramLis) throw(ComponentIn
    this->mgmtNodes = Program::getApp()->getMgmtNodes();
    this->metaNodes = Program::getApp()->getMetaNodes();
    this->storageNodes = Program::getApp()->getStorageNodes();
-   this->clientNodes = Program::getApp()->getClientNodes();
 
    this->nodeRegistered = false;
    this->mgmtInitDone = false;
@@ -58,6 +57,9 @@ void HeartbeatManager::run()
 
 void HeartbeatManager::requestLoop()
 {
+   ClientSyncer* clientSyncer = Program::getApp()->getClientSyncer();
+   InternodeSyncer* internodeSyncer = Program::getApp()->getInternodeSyncer();
+
    const int sleepTimeMS = 5000;
    const unsigned registrationIntervalMS = 60000;
    const unsigned downloadNodesIntervalMS = 300000;
@@ -79,9 +81,10 @@ void HeartbeatManager::requestLoop()
             {
                forceMgmtdPoolsRefresh();
                downloadAndSyncNodes();
+               clientSyncer->forceDownload();
                downloadAndSyncTargetMappings();
                downloadAndSyncTargetStatesAndBuddyGroups();
-               Program::getApp()->getInternodeSyncer()->setForcePoolsUpdate();
+               internodeSyncer->setForcePoolsUpdate();
             }
 
             lastRegistrationT.setToNow();
@@ -122,6 +125,8 @@ void HeartbeatManager::requestLoop()
 
 void HeartbeatManager::mgmtInit()
 {
+   ClientSyncer* clientSyncer = Program::getApp()->getClientSyncer();
+
    log.log(Log_WARNING, "Waiting for management node...");
 
    if(!NodesTk::waitForMgmtHeartbeat(this, dgramLis, mgmtNodes,
@@ -131,6 +136,7 @@ void HeartbeatManager::mgmtInit()
    log.log(Log_NOTICE, "Management node found. Downloading node groups...");
 
    downloadAndSyncNodes();
+   clientSyncer->downloadAndSyncClients();
    downloadAndSyncTargetMappings();
    downloadAndSyncTargetStatesAndBuddyGroups();
 
@@ -140,6 +146,7 @@ void HeartbeatManager::mgmtInit()
    { // download nodes again now that we will receive notifications about add/remove (avoids race)
       forceMgmtdPoolsRefresh();
       downloadAndSyncNodes();
+      clientSyncer->downloadAndSyncClients();
       downloadAndSyncTargetMappings();
       downloadAndSyncTargetStatesAndBuddyGroups();
       Program::getApp()->getInternodeSyncer()->setForcePoolsUpdate();
@@ -193,26 +200,6 @@ void HeartbeatManager::downloadAndSyncNodes()
          localNode);
       printSyncResults(NODETYPE_Storage, &addedStorageNodes, &removedStorageNodes);
    }
-
-   // clients
-
-   NodeList clientNodesList;
-   StringList addedClientNodes;
-   StringList removedClientNodes;
-
-   if(NodesTk::downloadNodes(mgmtNode, NODETYPE_Client, &clientNodesList, true) )
-   {
-      /* copy the nodesList, because syncNodes() and syncClients() both will remove all elements
-         from their lists */
-      NodeList clientNodesListCopy;
-      NodesTk::copyListNodes(&clientNodesList, &clientNodesListCopy);
-
-      clientNodes->syncNodes(&clientNodesList, &addedClientNodes, &removedClientNodes, true,
-         localNode);
-
-      syncClients(&clientNodesListCopy, true); // sync client sessions
-   }
-
 
    mgmtNodes->releaseNode(&mgmtNode);
 }
@@ -361,123 +348,6 @@ bool HeartbeatManager::forceMgmtdPoolsRefresh()
    return ackReceived;
 }
 
-/**
- * Synchronize local client sessions with registered mgmtd clients to release orphaned sessions.
- *
- * @param clientsList must be ordered; contained nodes will be removed and may no longer be
- * accessed after calling this method.
- * @param allowRemoteComm usually true; setting this to false is only useful when called during
- * app shutdown to avoid communication; if false, unlocking of user locks, closing of storage server
- * files and disposal of unlinked files won't be performed
- */
-void HeartbeatManager::syncClients(NodeList* clientsList, bool allowRemoteComm)
-{
-   App* app = Program::getApp();
-   MetaStore* metaStore = Program::getApp()->getMetaStore();
-   SessionStore* sessions = app->getSessions();
-
-   SessionList removedSessions;
-   StringList unremovableSessions;
-
-   sessions->syncSessions(clientsList, &removedSessions, &unremovableSessions);
-
-   // print client session removal results (upfront)
-   if(!removedSessions.empty() || !unremovableSessions.empty() )
-   {
-      std::ostringstream logMsgStream;
-      logMsgStream << "Removing " << removedSessions.size() << " client sessions. ";
-
-      if(unremovableSessions.empty() )
-         log.log(Log_DEBUG, logMsgStream.str() ); // no unremovable sessions
-      else
-      { // unremovable sessions found => log warning
-         logMsgStream << "(" << unremovableSessions.size() << " are unremovable)";
-         log.log(Log_WARNING, logMsgStream.str() );
-      }
-   }
-
-
-   // walk over all removed sessions (to cleanup the contained files)
-
-   SessionListIter sessionIter = removedSessions.begin();
-   for( ; sessionIter != removedSessions.end(); sessionIter++)
-   { // walk over all client sessions: cleanup each session
-      Session* session = *sessionIter;
-      std::string sessionID = session->getSessionID();
-      SessionFileStore* sessionFiles = session->getFiles();
-
-      SessionFileList removedSessionFiles;
-      UIntList referencedSessionFiles;
-
-      sessionFiles->removeAllSessions(&removedSessionFiles, &referencedSessionFiles);
-
-      /* note: referencedSessionFiles should always be empty, because otherwise the reference holder
-         would also hold a reference to the client session (and we woudn't be here if the client
-         session had any references) */
-
-
-      // print session files results (upfront)
-
-      if(removedSessionFiles.size() || referencedSessionFiles.size() )
-      {
-         std::ostringstream logMsgStream;
-         logMsgStream << sessionID << ": Removing " << removedSessionFiles.size() <<
-            " file sessions. " << "(" << referencedSessionFiles.size() << " are unremovable)";
-         log.log(Log_NOTICE, logMsgStream.str() );
-      }
-
-
-      // walk over all files in the current session (to clean them up)
-
-      SessionFileListIter fileIter = removedSessionFiles.begin();
-
-      for( ; fileIter != removedSessionFiles.end(); fileIter++)
-      { // walk over all files: unlock user locks, close meta, close local, dispose unlinked
-         SessionFile* sessionFile = *fileIter;
-         unsigned ownerFD = sessionFile->getSessionID();
-         unsigned accessFlags = sessionFile->getAccessFlags();
-         unsigned numHardlinks;
-         unsigned numInodeRefs;
-
-         FileInode* inode = sessionFile->getInode();
-         std::string fileID = inode->getEntryID();
-
-         std::string fileHandleID = SessionTk::generateFileHandleID(ownerFD, fileID);
-
-         // save nodeIDs for later
-         StripePattern* pattern = inode->getStripePattern();
-         int maxUsedNodesIndex = pattern->getStripeTargetIDs()->size() - 1;
-
-         if(allowRemoteComm)
-         { // unlock all user locks
-            inode->flockAppendCancelByClientID(sessionID);
-            inode->flockEntryCancelByClientID(sessionID);
-            inode->flockRangeCancelByClientID(sessionID);
-         }
-
-         EntryInfo* entryInfo = sessionFile->getEntryInfo();
-
-         if(allowRemoteComm)
-            MsgHelperClose::closeChunkFile(sessionID.c_str(), fileHandleID.c_str(),
-               maxUsedNodesIndex, inode, entryInfo, NETMSG_DEFAULT_USERID);
-               
-         log.log(Log_NOTICE, std::string("closing file ") + "ParentID: " +
-            entryInfo->getParentEntryID() + " FileName: " + entryInfo->getFileName() );
-
-         metaStore->closeFile(entryInfo, inode, accessFlags, &numHardlinks, &numInodeRefs);
-
-         delete(sessionFile);
-
-         if(allowRemoteComm && !numHardlinks && !numInodeRefs)
-            MsgHelperClose::unlinkDisposableFile(fileID, NETMSG_DEFAULT_USERID);
-      } // end of files loop
-
-
-      delete(session);
-
-   } // end of client sessions loop
-}
-
 void HeartbeatManager::signalMgmtInitDone()
 {
    SafeMutexLock mutexLock(&mgmtInitDoneMutex);
@@ -496,5 +366,18 @@ void HeartbeatManager::waitForMmgtInit()
       mgmtInitDoneCond.wait(&mgmtInitDoneMutex);
 
    mutexLock.unlock();
+}
+
+bool HeartbeatManager::isMgmtInitDone()
+{
+   bool retVal;
+
+   SafeMutexLock mutexLock(&mgmtInitDoneMutex);
+
+   retVal = mgmtInitDone;
+
+   mutexLock.unlock();
+
+   return retVal;
 }
 

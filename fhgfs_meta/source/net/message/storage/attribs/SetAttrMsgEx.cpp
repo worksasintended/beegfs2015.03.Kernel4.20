@@ -13,9 +13,9 @@
 bool SetAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
    char* respBuf, size_t bufLen, HighResolutionStats* stats)
 {
-   #ifdef BEEGFS_DEBUG
-      const char* logContext = "SetAttrMsgEx incoming";
+   const char* logContext = "SetAttrMsgEx incoming";
 
+   #ifdef BEEGFS_DEBUG
       std::string peer = fromAddr ? Socket::ipaddrToStr(&fromAddr->sin_addr) : sock->getPeername();
       LOG_DEBUG(logContext, Log_DEBUG, std::string("Received a SetAttrMsg from: ") + peer);
    #endif // BEEGFS_DEBUG
@@ -32,7 +32,6 @@ bool SetAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
    // update operation counters (here on top because we have an early sock release in this msg)
    app->getNodeOpStats()->updateNodeOp(sock->getPeerIP(), MetaOpCounter_SETATTR,
       getMsgHeaderUserID() );
-
 
    if ( entryInfo->getParentEntryID().empty() )
    { // special case: setAttr for root directory
@@ -56,7 +55,7 @@ bool SetAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
          //    we first set the local attributes and then send the update to the storage server.
          //    if an early response optimization is set in this case we send the response between
          //    these two steps
-         // 3. no times update (i.e. chmod or chown) and quota is enabled => only update locally,
+         // 3. no times update (i.e. chmod or chown) and quota is disabled => only update locally,
          //    as we don't have a reason to waste time with contacting the storage servers
 
          bool timeUpdate =
@@ -73,6 +72,24 @@ bool SetAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
          }
          else if (isMsgHeaderFeatureFlagSet(SETATTRMSG_FLAG_USE_QUOTA))
          {
+            // check if exceeded quotas exists, before doing a more expensive and explicit check
+            if(app->getExceededQuotaStore()->someQuotaExceeded() )
+            {
+               QuotaExceededErrorType quotaExceeded = app->getExceededQuotaStore()->isQuotaExceeded(
+                  getAttribs()->userID, getAttribs()->groupID);
+
+               if(quotaExceeded != QuotaExceededErrorType_NOT_EXCEEDED)
+               {
+                  LogContext(logContext).log(Log_NOTICE,
+                     QuotaData::QuotaExceededErrorTypeToString(quotaExceeded) + " "
+                     "UID: " + StringTk::uintToStr(getAttribs()->userID) + "; "
+                     "GID: " + StringTk::uintToStr(getAttribs()->groupID) );
+
+                  setAttrRes = FhgfsOpsErr_DQUOT;
+                  goto finish;
+               }
+            }
+
             setAttrRes = metaStore->setAttr(entryInfo, getValidAttribs(), getAttribs());
 
             if (cfg->getQuotaEarlyChownResponse())
@@ -95,6 +112,7 @@ bool SetAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
             setAttrRes = metaStore->setAttr(entryInfo, getValidAttribs(), getAttribs());
          }
 
+finish:
          metaStore->releaseFile(entryInfo->getParentEntryID(), inode);
       }
       else

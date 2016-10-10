@@ -17,7 +17,7 @@ bool GetDefaultQuotaMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket*
 
    QuotaDefaultLimits limits;
 
-   if(app->getConfig()->getQuotaEnableEnforcment() )
+   if(app->getConfig()->getQuotaEnableEnforcement() )
    {
       QuotaManager* manager = app->getQuotaManager();
       limits = QuotaDefaultLimits(manager->getDefaultLimits() );

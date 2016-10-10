@@ -9,6 +9,9 @@ void SetDirPatternMsg::serializePayload(char* buf)
    
    // stripePattern
    bufPos += pattern->serialize(&buf[bufPos]);
+
+   if (isMsgHeaderFeatureFlagSet(Flags::HAS_UID))
+      bufPos += Serialization::serializeUInt(buf + bufPos, uid);
 }
 
 bool SetDirPatternMsg::deserializePayload(const char* buf, size_t bufLen)
@@ -33,6 +36,15 @@ bool SetDirPatternMsg::deserializePayload(const char* buf, size_t bufLen)
          return false;
 
       bufPos += patternBufLen;
+   }
+
+   if (isMsgHeaderFeatureFlagSet(Flags::HAS_UID))
+   {
+      unsigned uidBufLen;
+      if (!Serialization::deserializeUInt(&buf[bufPos], bufLen-bufPos, &uid, &uidBufLen))
+         return false;
+
+      bufPos += uidBufLen;
    }
 
    return true;

@@ -86,7 +86,7 @@ class DirInode
       FhgfsOpsErr setOwnerNodeID(std::string entryName, uint16_t ownerNode);
 
       StripePattern* getStripePatternClone();
-      bool setStripePattern(StripePattern& newPattern);
+      FhgfsOpsErr setStripePattern(StripePattern& newPattern, uint32_t actorUID = 0);
 
       FhgfsOpsErr getStatData(StatData& outStatData,
          uint16_t* outParentNodeID = NULL, std::string* outParentEntryID = NULL);

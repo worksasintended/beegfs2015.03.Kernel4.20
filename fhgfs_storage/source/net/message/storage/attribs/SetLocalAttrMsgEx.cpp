@@ -78,7 +78,7 @@ bool SetLocalAttrMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* so
 
    if(validAttribs & (SETATTR_CHANGE_MODIFICATIONTIME | SETATTR_CHANGE_LASTACCESSTIME) )
    { // we only handle access and modification time updates here
-      struct timespec times[2];
+      struct timespec times[2] = {};
 
       if (validAttribs & SETATTR_CHANGE_LASTACCESSTIME)
       {
@@ -242,7 +242,7 @@ int SetLocalAttrMsgEx::getTargetFD(struct sockaddr_in* fromAddr, Socket* sock,
    App* app = Program::getApp();
 
    bool isBuddyMirrorChunk = isMsgHeaderFeatureFlagSet(SETLOCALATTRMSG_FLAG_BUDDYMIRROR);
-   TargetConsistencyState consistencyState;
+   TargetConsistencyState consistencyState = TargetConsistencyState_BAD; // silence warning
 
    *outResponseSent = false;
 

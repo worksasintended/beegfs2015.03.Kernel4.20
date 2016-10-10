@@ -25,6 +25,11 @@ struct MetaNodeDataContent
    unsigned sessionCount;
    unsigned queuedRequests;
    unsigned workRequests;
+
+   MetaNodeDataContent()
+   {
+      memset(this, 0, sizeof(*this));
+   }
 };
 
 struct MetaNodeDataStore

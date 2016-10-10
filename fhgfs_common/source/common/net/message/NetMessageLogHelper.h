@@ -67,6 +67,8 @@ class NetMsgStrMapping : public DefineToStrMapping
          this->defineToStrMap[NETMSGTYPE_SetTargetConsistencyStatesResp] = "SetTargetConsistencyStatesResp";
          this->defineToStrMap[NETMSGTYPE_ChangeTargetConsistencyStates] = "ChangeTargetConsistencyStates";
          this->defineToStrMap[NETMSGTYPE_ChangeTargetConsistencyStatesResp] = "ChangeTargetConsistencyStatesResp";
+         this->defineToStrMap[NETMSGTYPE_RemoveBuddyGroup] = "RemoveBuddyGroup";
+         this->defineToStrMap[NETMSGTYPE_RemoveBuddyGroupResp] = "RemoveBuddyGroupResp";
          this->defineToStrMap[NETMSGTYPE_MkDir] = "MkDir";
          this->defineToStrMap[NETMSGTYPE_MkDirResp] = "MkDirResp";
          this->defineToStrMap[NETMSGTYPE_RmDir] = "RmDir";

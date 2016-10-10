@@ -21,7 +21,7 @@ class Session
       bool deserialize(const char* buf, size_t bufLen, unsigned* outLen);
       unsigned serialLen();
 
-      friend bool sessionMetaEquals(Session* first, Session* second);
+      friend bool sessionMetaEquals(Session* first, Session* second, bool disableInodeCheck);
 
 
    private:

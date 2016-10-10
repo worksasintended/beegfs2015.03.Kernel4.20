@@ -138,7 +138,7 @@ int UnlinkLocalFileMsgEx::getTargetFD(struct sockaddr_in* fromAddr, Socket* sock
    App* app = Program::getApp();
 
    bool isBuddyMirrorChunk = isMsgHeaderFeatureFlagSet(UNLINKLOCALFILEMSG_FLAG_BUDDYMIRROR);
-   TargetConsistencyState consistencyState;
+   TargetConsistencyState consistencyState = TargetConsistencyState_BAD; // silence warning
 
    *outResponseSent = false;
 

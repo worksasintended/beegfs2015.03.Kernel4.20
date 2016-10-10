@@ -166,7 +166,7 @@ bool BitStore::deserializePreprocess(const char* buf, size_t bufLen, const char*
 {
    size_t bufPos = 0;
 
-   unsigned tmpSize;
+   unsigned tmpSize = 0;
 
    *outBitStoreStart = buf;
 

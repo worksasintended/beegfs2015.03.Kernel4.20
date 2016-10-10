@@ -27,6 +27,7 @@ unsigned const APP_FEATURES[] =
 {
    MGMT_FEATURE_DUMMY,
    MGMT_FEATURE_DEFAULT_QUOTA,
+   MGMT_FEATURE_REMOVEBUDDYGROUP,
 };
 
 
@@ -626,7 +627,7 @@ void App::initComponents() throw(ComponentInitException)
    this->internodeSyncer = new InternodeSyncer();
 
    // init the quota related stuff if required
-   if (cfg->getQuotaEnableEnforcment() )
+   if (cfg->getQuotaEnableEnforcement() )
       this->quotaManager = new QuotaManager();
 
    workersInit();
@@ -651,7 +652,7 @@ void App::startComponents()
    this->internodeSyncer->start();
 
    // start the quota related stuff if required
-   if (cfg->getQuotaEnableEnforcment() )
+   if (cfg->getQuotaEnableEnforcement() )
       this->quotaManager->start();
 
    workersStart();

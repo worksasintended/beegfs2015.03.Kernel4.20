@@ -167,7 +167,7 @@ int TruncLocalFileMsgEx::getTargetFD(struct sockaddr_in* fromAddr, Socket* sock,
    App* app = Program::getApp();
 
    bool isBuddyMirrorChunk = isMsgHeaderFeatureFlagSet(TRUNCLOCALFILEMSG_FLAG_BUDDYMIRROR);
-   TargetConsistencyState consistencyState;
+   TargetConsistencyState consistencyState = TargetConsistencyState_BAD; // silence warning
 
    *outResponseSent = false;
 
@@ -254,7 +254,7 @@ FhgfsOpsErr TruncLocalFileMsgEx::truncFile(int targetFD, PathVec* chunkDirPath,
    // create the file and re-size it
 
    bool useQuota = isMsgHeaderFeatureFlagSet(TRUNCLOCALFILEMSG_FLAG_USE_QUOTA);
-   bool enforceQuota = app->getConfig()->getQuotaEnableEnforcment();
+   bool enforceQuota = app->getConfig()->getQuotaEnableEnforcement();
    SessionQuotaInfo quotaInfo(useQuota, enforceQuota, getUserID(), getGroupID());
 
    ChunkStore* chunkDirStore = app->getChunkDirStore();

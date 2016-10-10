@@ -22,7 +22,7 @@ CXXFLAGS = -D_FILE_OFFSET_BITS=64 -I../source -I../include \
 	-fPIC -Wextra -Wno-unused-parameter -pthread -ggdb3 $(SYSTEM_FEATURE_DETECTION) \
 	$(USER_CXXFLAGS)
 CXXFLAGS_RELEASE = -O3 -Wuninitialized
-CXXFLAGS_DEBUG = -O0 -ggdb3 -D_FORTIFY_SOURCE=2 \
+CXXFLAGS_DEBUG = -O1 -ggdb3 -D_FORTIFY_SOURCE=2 \
 	-DBEEGFS_DEBUG -DBEEGFS_OPENTK_LOG_CONN_ERRORS
 LDFLAGS = -shared -pthread -rdynamic $(USER_LDFLAGS)
 LDFLAGS_RELASE = -O3

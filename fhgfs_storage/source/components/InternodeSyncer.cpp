@@ -9,8 +9,6 @@
 #include <common/net/message/nodes/RefreshCapacityPoolsMsg.h>
 #include <common/net/message/nodes/SetTargetConsistencyStatesMsg.h>
 #include <common/net/message/nodes/SetTargetConsistencyStatesRespMsg.h>
-#include <common/net/message/storage/GetStorageTargetInfoMsg.h>
-#include <common/net/message/storage/GetStorageTargetInfoRespMsg.h>
 #include <common/net/message/storage/SetStorageTargetInfoMsg.h>
 #include <common/net/message/storage/SetStorageTargetInfoRespMsg.h>
 #include <common/net/message/storage/quota/RequestExceededQuotaMsg.h>
@@ -65,13 +63,13 @@ void InternodeSyncer::syncLoop()
       streamlis idle disconnect interval to avoid cases where streamlis disconnects first) */
    const unsigned downloadNodesIntervalMS = 600000; // 10min
 
-   const unsigned updateBuddyAndCapacitiesMS = cfg->getSysUpdateTargetStatesSecs() * 2000;
+   const unsigned updateCapacitiesMS = cfg->getSysUpdateTargetStatesSecs() * 2000;
    const unsigned updateTargetStatesMS = cfg->getSysUpdateTargetStatesSecs() * 1000;
 
    Time lastCacheSweepT;
    Time lastIdleDisconnectT;
    Time lastDownloadNodesT;
-   Time lastBuddyAndCapacityUpdateT;
+   Time lastCapacityUpdateT;
    Time lastTargetStatesUpdateT;
 
    unsigned currentCacheSweepMS = sweepNormalMS; // (adapted inside the loop below)
@@ -115,13 +113,11 @@ void InternodeSyncer::syncLoop()
       }
 
       if( targetStatesUpdateForced ||
-          (lastBuddyAndCapacityUpdateT.elapsedMS() > updateBuddyAndCapacitiesMS) )
+          (lastCapacityUpdateT.elapsedMS() > updateCapacitiesMS) )
       {
-         requestBuddyTargetStates();
-
          publishTargetCapacities();
 
-         lastBuddyAndCapacityUpdateT.setToNow();
+         lastCapacityUpdateT.setToNow();
       }
    }
 }
@@ -471,108 +467,6 @@ bool InternodeSyncer::publishTargetStateChanges(UInt16List& targetIDs, UInt8List
    return res;
 }
 
-void InternodeSyncer::requestBuddyTargetStates()
-{
-   const char* logContext = "Request buddy target states";
-
-   TargetMapper* targetMapper = Program::getApp()->getTargetMapper();
-   MirrorBuddyGroupMapper* buddyGroupMapper = Program::getApp()->getMirrorBuddyGroupMapper();
-   StorageTargets* storageTargets = Program::getApp()->getStorageTargets();
-   NodeStore* storageNodes = Program::getApp()->getStorageNodes();
-   TargetStateStore* targetStateStore = Program::getApp()->getTargetStateStore();
-   UInt16List localStorageTargetIDs;
-   StorageTargetInfoList storageTargetInfoList;
-
-   LogContext(logContext).log(LogTopic_STATESYNC, Log_DEBUG, "Requesting buddy target states.");
-
-   storageTargets->getAllTargetIDs(&localStorageTargetIDs);
-
-   // loop over all local targets
-   for(UInt16ListIter iter = localStorageTargetIDs.begin();
-       iter != localStorageTargetIDs.end();
-       iter++)
-   {
-      uint16_t targetID = *iter;
-      TargetConsistencyState buddyTargetConsistencyState;
-      bool buddyNeedsResync;
-
-      // check if target is part of a buddy group
-      uint16_t buddyTargetID = buddyGroupMapper->getBuddyTargetID(targetID);
-      if(!buddyTargetID)
-         continue;
-
-      // this target is part of a buddy group
-
-      uint16_t nodeID = targetMapper->getNodeID(buddyTargetID);
-      if(!nodeID)
-      { // mapping to node not found
-         LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
-            "Node-mapping for target ID " + StringTk::uintToStr(buddyTargetID) + " not found.");
-         continue;
-      }
-
-      Node* node = storageNodes->referenceNode(nodeID);
-      if(!node)
-      { // node not found
-         LogContext(logContext).log(LogTopic_STATESYNC, Log_ERR,
-            "Unknown storage node. nodeID: " + StringTk::uintToStr(nodeID) + "; targetID: "
-               + StringTk::uintToStr(targetID));
-         continue;
-      }
-
-      // get reachability state of buddy target ID
-      CombinedTargetState currentState;
-      targetStateStore->getState(buddyTargetID, currentState);
-
-      bool commRes;
-      char* respBuf = NULL;
-      NetMessage* respMsg = NULL;
-      GetStorageTargetInfoRespMsg* respMsgCast;
-
-      if(currentState.reachabilityState == TargetReachabilityState_ONLINE)
-      {
-         // communicate
-         UInt16List queryTargetIDs;
-         queryTargetIDs.push_back(buddyTargetID);
-         GetStorageTargetInfoMsg msg(&queryTargetIDs);
-
-         // connect & communicate
-         commRes = MessagingTk::requestResponse(node, &msg,
-         NETMSGTYPE_GetStorageTargetInfoResp, &respBuf, &respMsg);
-         if(!commRes)
-         { // communication failed
-            LogContext(logContext).log(LogTopic_STATESYNC, Log_WARNING,
-               "Communication with buddy target failed. "
-                  "nodeID: " + StringTk::uintToStr(nodeID) + "; buddy targetID: "
-                  + StringTk::uintToStr(buddyTargetID));
-
-            goto cleanup;
-         }
-
-         // handle response
-         respMsgCast = (GetStorageTargetInfoRespMsg*) respMsg;
-         respMsgCast->parseStorageTargetInfos(&storageTargetInfoList);
-
-         // get received target information
-         // (note: we only requested a single target info, so the first one must be the
-         // requested one)
-         buddyTargetConsistencyState =
-            storageTargetInfoList.empty() ? TargetConsistencyState_BAD :
-               storageTargetInfoList.front().getState();
-
-         // set last comm timestamp, but ignore it if we think buddy needs a resync
-         buddyNeedsResync = storageTargets->getBuddyNeedsResync(targetID);
-         if((buddyTargetConsistencyState == TargetConsistencyState_GOOD) && !buddyNeedsResync)
-            storageTargets->writeLastBuddyCommTimestamp(targetID);
-      }
-
-      cleanup:
-      storageNodes->releaseNode(&node);
-      SAFE_DELETE(respMsg);
-      SAFE_FREE(respBuf);
-   }
-}
-
 /**
  * @param outTargetIDs
  * @param outReachabilityStates
@@ -894,7 +788,7 @@ void InternodeSyncer::syncClientSessions(NodeList* clientsList)
  * @return false on error
  */
 bool InternodeSyncer::downloadExceededQuotaList(QuotaDataType idType, QuotaLimitType exType,
-   UIntList* outIDList)
+   UIntList* outIDList, FhgfsOpsErr& error)
 {
    App* app = Program::getApp();
    NodeStoreServers* mgmtNodes = app->getMgmtNodes();
@@ -922,6 +816,7 @@ bool InternodeSyncer::downloadExceededQuotaList(QuotaDataType idType, QuotaLimit
    respMsgCast = (RequestExceededQuotaRespMsg*)respMsg;
 
    respMsgCast->parseIDList(outIDList);
+   error = respMsgCast->getError();
 
    retVal = true;
 
@@ -943,6 +838,7 @@ bool InternodeSyncer::downloadAllExceededQuotaLists()
    const char* logContext = "Exceeded quota sync";
 
    App* app = Program::getApp();
+   Config* cfg = app->getConfig();
    ExceededQuotaStore* exceededQuotaStore = app->getExceededQuotaStore();
 
    bool retVal = true;
@@ -952,8 +848,10 @@ bool InternodeSyncer::downloadAllExceededQuotaLists()
    UIntList tmpExceededUIDsInode;
    UIntList tmpExceededGIDsInode;
 
+   FhgfsOpsErr error;
 
-   if(downloadExceededQuotaList(QuotaDataType_USER, QuotaLimitType_SIZE, &tmpExceededUIDsSize) )
+   if(downloadExceededQuotaList(QuotaDataType_USER, QuotaLimitType_SIZE, &tmpExceededUIDsSize,
+      error) )
    {
       exceededQuotaStore->updateExceededQuota(&tmpExceededUIDsSize, QuotaDataType_USER,
          QuotaLimitType_SIZE);
@@ -964,7 +862,49 @@ bool InternodeSyncer::downloadAllExceededQuotaLists()
       retVal = false;
    }
 
-   if(downloadExceededQuotaList(QuotaDataType_GROUP, QuotaLimitType_SIZE, &tmpExceededGIDsSize) )
+   // check if mgmtd supports the feature of global configuration for quota enforcement
+   if(error != FhgfsOpsErr_NOTSUPP)
+   {
+      // enable or disable quota enforcement
+      if(error == FhgfsOpsErr_SUCCESS)
+      {
+         if(!cfg->getQuotaEnableEnforcement() )
+         {
+            LogContext(logContext).log(Log_WARNING,
+               "Quota enforcement is enabled on the management daemon, "
+               "but not in the configuration of this storage server. "
+               "The configuration from the management daemon overrides the local setting.");
+         }
+         else
+         {
+            LogContext(logContext).log(Log_DEBUG,
+               "Quota enforcement enabled by management daemon.");
+         }
+
+         cfg->setQuotaEnableEnforcement(true);
+      }
+      else
+      {
+         if(cfg->getQuotaEnableEnforcement() )
+         {
+            LogContext(logContext).log(Log_WARNING,
+               "Quota enforcement is enabled in the configuration of this storage server, "
+               "but not on the management daemon. "
+               "The configuration from the management daemon overrides the local setting.");
+         }
+         else
+         {
+            LogContext(logContext).log(Log_DEBUG,
+               "Quota enforcement disabled by management daemon.");
+         }
+
+         cfg->setQuotaEnableEnforcement(false);
+         return true;
+      }
+   }
+
+   if(downloadExceededQuotaList(QuotaDataType_GROUP, QuotaLimitType_SIZE, &tmpExceededGIDsSize,
+      error) )
    {
       exceededQuotaStore->updateExceededQuota(&tmpExceededGIDsSize, QuotaDataType_GROUP,
          QuotaLimitType_SIZE);
@@ -975,7 +915,8 @@ bool InternodeSyncer::downloadAllExceededQuotaLists()
       retVal = false;
    }
 
-   if(downloadExceededQuotaList(QuotaDataType_USER, QuotaLimitType_INODE, &tmpExceededUIDsInode) )
+   if(downloadExceededQuotaList(QuotaDataType_USER, QuotaLimitType_INODE, &tmpExceededUIDsInode,
+      error) )
    {
       exceededQuotaStore->updateExceededQuota(&tmpExceededUIDsInode, QuotaDataType_USER,
          QuotaLimitType_INODE);
@@ -986,7 +927,8 @@ bool InternodeSyncer::downloadAllExceededQuotaLists()
       retVal = false;
    }
 
-   if(downloadExceededQuotaList(QuotaDataType_USER, QuotaLimitType_INODE, &tmpExceededGIDsInode) )
+   if(downloadExceededQuotaList(QuotaDataType_GROUP, QuotaLimitType_INODE, &tmpExceededGIDsInode,
+      error) )
    {
       exceededQuotaStore->updateExceededQuota(&tmpExceededGIDsInode, QuotaDataType_GROUP,
          QuotaLimitType_INODE);

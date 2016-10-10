@@ -21,7 +21,7 @@ class InternodeSyncer : public PThread
 
       static bool downloadAllExceededQuotaLists();
       static bool downloadExceededQuotaList(QuotaDataType idType, QuotaLimitType exType,
-         UIntList* outIDList);
+         UIntList* outIDList, FhgfsOpsErr& error);
 
       static void syncClientSessions(NodeList* clientsList);
 
@@ -42,7 +42,6 @@ class InternodeSyncer : public PThread
       void dropIdleConns();
       unsigned dropIdleConnsByStore(NodeStoreServersEx* nodes);
 
-      void requestBuddyTargetStates();
       void updateTargetStatesAndBuddyGroups();
       void publishTargetCapacities();
 

@@ -13,15 +13,15 @@ const Logger::LogTopicElem Logger::LogTopics[] =
 {
    {"general",           LogTopic_GENERAL},
    {"state-sync",        LogTopic_STATESYNC},
-   {NULL,                LogTopic_LAST}
+   {"unknown",           LogTopic_INVALID}
 };
 
 Logger::Logger(ICommonConfig* cfg)
 {
    int defaultLogLevel = cfg->getLogLevel();
 
-   logLevels.reserve(LogTopic_LAST);
-   for (int i = 0; i < LogTopic_LAST; i++)
+   logLevels.reserve(LogTopic_INVALID);
+   for (int i = 0; i < LogTopic_INVALID; i++)
       logLevels.push_back(defaultLogLevel);
 
    this->logErrsToStdlog = cfg->getLogErrsToStdlog();

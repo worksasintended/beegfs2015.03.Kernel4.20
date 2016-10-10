@@ -23,6 +23,8 @@ class HeartbeatManager : public PThread
       
       void waitForMmgtInit();
       void syncClients(NodeList* clientsList, bool allowRemoteComm);
+
+      bool isMgmtInitDone();
    
       
    protected:
@@ -42,8 +44,7 @@ class HeartbeatManager : public PThread
       NodeStoreServersEx* mgmtNodes;
       NodeStoreServersEx* metaNodes;
       NodeStoreServersEx* storageNodes;
-      NodeStoreClientsEx* clientNodes;
-      
+
       bool nodeRegistered; // true if the mgmt host ack'ed our heartbeat
    
       

@@ -25,7 +25,7 @@ class SessionStore
       
       Session* referenceSession(std::string sessionID, bool addIfNotExists=true);
       void releaseSession(Session* session);
-      void syncSessions(NodeList* masterList, SessionList* outRemovedSessions,
+      void syncSessions(NodeList* masterList, bool doRemove, SessionList* outRemovedSessions,
          StringList* outUnremovableSesssions);
       
       size_t getAllSessionIDs(StringList* outSessionIDs);
@@ -38,7 +38,8 @@ class SessionStore
       bool loadFromFile(const std::string& filePath);
       bool saveToFile(const std::string& filePath);
 
-      friend bool sessionStoreMetaEquals(SessionStore& first, SessionStore& second);
+      friend bool sessionStoreMetaEquals(SessionStore& first, SessionStore& second,
+         bool disableInodeCheck);
       bool relinkInodes(MetaStore& store)
       {
          bool result = true;

@@ -448,6 +448,12 @@ int App::executeMode(RunMode runMode)
             return mode.execute();
          } break;
 
+         case RunMode_REMOVEBUDDYGROUP:
+         {
+            ModeRemoveBuddyGroup mode;
+            return mode.execute();
+         }
+
          default:
          {
             ModeHelp mode;

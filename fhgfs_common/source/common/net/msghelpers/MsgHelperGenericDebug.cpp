@@ -45,15 +45,6 @@ std::string MsgHelperGenericDebug::processOpGetLogLevel(std::istringstream& comm
    std::ostringstream responseStream;
    std::string logTopicStr;
 
-   // get logTopic from command string
- /*  std::getline(commandStream, logTopicStr, ' ');
-
-   int logTopic;
-   if (logTopicStr.empty())
-      logTopic = LogTopic_GENERAL;
-   else
-      logTopic = StringTk::strToInt(logTopicStr); */
-
    const IntVector logLevels = log->getLogLevels();
 
    for (size_t i = 0; i < logLevels.size(); i++)
@@ -64,7 +55,7 @@ std::string MsgHelperGenericDebug::processOpGetLogLevel(std::istringstream& comm
 
 std::string MsgHelperGenericDebug::processOpSetLogLevel(std::istringstream& commandStream)
 {
-   // procotol: new log level as only argument
+   // procotol: "newLogLevel logTopicName"
 
    Logger* log = PThread::getCurrentThreadApp()->getLogger();
    std::ostringstream responseStream;
@@ -84,17 +75,35 @@ std::string MsgHelperGenericDebug::processOpSetLogLevel(std::istringstream& comm
    std::getline(commandStream, logTopicStr, ' ');
 
    LogTopic logTopic;
-   if (logTopicStr.empty())
-      logTopic = LogTopic_GENERAL;
-   else
+
+   if (!logTopicStr.empty())
+   {
       logTopic = Logger::logTopicFromName(logTopicStr);
 
-   responseStream << "Old level: " << log->getLogLevel(logTopic) << std::endl;
+      if (logTopic == LogTopic_INVALID)
+         return "Log topic " + logTopicStr + " doesn't exist.";
 
-   log->setLogLevel(logLevel, logTopic);
+      responseStream << "Log topic: " << logTopicStr << ";"
+                     << " Old level: " << log->getLogLevel(logTopic) << ";";
 
-   responseStream << "New level: " << log->getLogLevel(logTopic);
+      log->setLogLevel(logLevel, logTopic);
 
+      responseStream << " New level: " << log->getLogLevel(logTopic) << std::endl;
+   }
+   else
+   { // no log topic given => set log level for all topics
+      const IntVector logLevels = log->getLogLevels();
+
+      for (size_t i = 0; i < logLevels.size(); i++)
+      {
+         responseStream << "Log topic: " << Logger::logTopicToName((LogTopic)i) << ";"
+                        << " Old level: " << log->getLogLevel((LogTopic)i) << ";";
+
+         log->setLogLevel(logLevel, (LogTopic)i);
+
+         responseStream << " New level: " << log->getLogLevel((LogTopic)i) << std::endl;
+      }
+   }
    return responseStream.str();
 }
 

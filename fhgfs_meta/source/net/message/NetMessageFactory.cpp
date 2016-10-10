@@ -43,6 +43,7 @@
 #include <common/net/message/storage/moving/MovingDirInsertRespMsg.h>
 #include <common/net/message/storage/moving/MovingFileInsertRespMsg.h>
 #include <common/net/message/storage/moving/RenameRespMsg.h>
+#include <common/net/message/storage/quota/RequestExceededQuotaRespMsg.h>
 #include <common/net/message/storage/attribs/SetAttrRespMsg.h>
 #include <common/net/message/storage/attribs/SetLocalAttrRespMsg.h>
 #include <common/net/message/storage/attribs/StatRespMsg.h>
@@ -71,6 +72,7 @@
 #include <net/message/storage/moving/MovingDirInsertMsgEx.h>
 #include <net/message/storage/moving/MovingFileInsertMsgEx.h>
 #include <net/message/storage/moving/RenameV2MsgEx.h>
+#include <net/message/storage/quota/SetExceededQuotaMsgEx.h>
 #include <net/message/storage/attribs/GetEntryInfoMsgEx.h>
 #include <net/message/storage/lookup/LookupIntentMsgEx.h>
 #include <net/message/storage/attribs/GetXAttrMsgEx.h>
@@ -186,6 +188,8 @@ NetMessage* NetMessageFactory::createFromMsgType(unsigned short msgType)
       case NETMSGTYPE_GetEntryInfo: { msg = new GetEntryInfoMsgEx(); } break;
       case NETMSGTYPE_GetEntryInfoResp: { msg = new GetEntryInfoRespMsg(); } break;
       case NETMSGTYPE_GetHighResStats: { msg = new GetHighResStatsMsgEx(); } break;
+      case NETMSGTYPE_RequestExceededQuotaResp: {msg = new RequestExceededQuotaRespMsg(); } break;
+      case NETMSGTYPE_SetExceededQuota: {msg = new SetExceededQuotaMsgEx(); } break;
       case NETMSGTYPE_GetXAttr: { msg = new GetXAttrMsgEx(); } break;
       case NETMSGTYPE_Hardlink: { msg = new HardlinkMsgEx(); } break;
       case NETMSGTYPE_HardlinkResp: { msg = new HardlinkRespMsg(); } break;

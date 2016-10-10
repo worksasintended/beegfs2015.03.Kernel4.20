@@ -10,6 +10,11 @@
 class SetDirPatternMsg : public NetMessage
 {
    public:
+      struct Flags
+      {
+         static const uint32_t HAS_UID = 1;
+      };
+
       /**
        * @param path just a reference, so do not free it as long as you use this object!
        * @param pattern just a reference, so do not free it as long as you use this object!
@@ -38,10 +43,19 @@ class SetDirPatternMsg : public NetMessage
       {
          return NETMSG_HEADER_LENGTH +
             entryInfoPtr->serialLen() +
-            pattern->getSerialPatternLength();
+            pattern->getSerialPatternLength() +
+            (isMsgHeaderFeatureFlagSet(Flags::HAS_UID)
+               ? Serialization::serialLenUInt()
+               : 0);
+      }
+
+      unsigned getSupportedHeaderFeatureFlagsMask() const
+      {
+         return Flags::HAS_UID;
       }
       
    private:
+      uint32_t uid;
 
       // for serialization
       EntryInfo* entryInfoPtr;
@@ -64,11 +78,18 @@ class SetDirPatternMsg : public NetMessage
          return StripePattern::createFromBuf(patternStart, patternHeader);
       }
 
-      EntryInfo* getEntryInfo(void)
+      EntryInfo* getEntryInfo()
       {
          return &this->entryInfo;
       }
 
+      uint32_t getUID() const { return uid; }
+
+      void setUID(uint32_t uid)
+      {
+         setMsgHeaderFeatureFlags(Flags::HAS_UID);
+         this->uid = uid;
+      }
 };
 
 

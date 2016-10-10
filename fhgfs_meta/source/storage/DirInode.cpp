@@ -182,28 +182,44 @@ StripePattern* DirInode::getStripePatternClone()
 /**
  * @param newPattern will be cloned
  */
-bool DirInode::setStripePattern(StripePattern& newPattern)
+FhgfsOpsErr DirInode::setStripePattern(StripePattern& newPattern, uint32_t actorUID)
 {
-   bool success = true;
-
    SafeRWLock safeLock(&rwlock, SafeRWLock_WRITE);
 
    bool loadSuccess = loadIfNotLoadedUnlocked();
    if (!loadSuccess)
    {
       safeLock.unlock();
-      return loadSuccess;
+      return FhgfsOpsErr_INTERNAL;
    }
 
-   StripePattern* oldPattern = this->stripePattern;
-   this->stripePattern = newPattern.clone();
+   if (actorUID != 0 && statData.getUserID() != actorUID)
+   {
+      safeLock.unlock();
+      return FhgfsOpsErr_PERM;
+   }
+
+   StripePattern* oldPattern;
+
+   if (actorUID != 0)
+   {
+      oldPattern = stripePattern->clone();
+      stripePattern->setDefaultNumTargets(newPattern.getDefaultNumTargets());
+      stripePattern->setChunkSize(newPattern.getChunkSize());
+   }
+   else
+   {
+      oldPattern = this->stripePattern;
+      this->stripePattern = newPattern.clone();
+   }
 
    if(!storeUpdatedMetaDataUnlocked() )
    { // failed to update metadata => restore old value
       delete(this->stripePattern); // delete newPattern-clone
       this->stripePattern = oldPattern;
 
-      success = false;
+      safeLock.unlock();
+      return FhgfsOpsErr_INTERNAL;
    }
    else
    { // sucess
@@ -212,7 +228,7 @@ bool DirInode::setStripePattern(StripePattern& newPattern)
 
    safeLock.unlock();
 
-   return success;
+   return FhgfsOpsErr_SUCCESS;
 }
 
 /**

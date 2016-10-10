@@ -269,7 +269,7 @@ void Display::diskPerfRead(uint16_t nodeID, uint timespanM, UInt64List *outListT
          {
             outListTime->push_back(content.rawVals.statsTimeMS);
             double diskReadMiB = UnitTk::byteToMebibyte(content.incVals.diskReadBytes);
-            outListReadPerSec->push_back(diskReadMiB);
+            outListReadPerSec->push_back(uint64_t(diskReadMiB));
          }
       }
    }
@@ -322,7 +322,7 @@ void Display::diskPerfWrite(uint16_t nodeID, uint timespanM, UInt64List *outList
          {
             outListTime->push_back(content.rawVals.statsTimeMS);
             double diskWriteMiB = UnitTk::byteToMebibyte(content.incVals.diskWriteBytes);
-            outListWritePerSec->push_back(diskWriteMiB);
+            outListWritePerSec->push_back(uint64_t(diskWriteMiB));
          }
       }
    }
@@ -429,7 +429,7 @@ std::string Display::diskRead(uint16_t nodeID, uint timespanM, std::string *outU
       }
    }
 
-   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(sum, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(int64_t(sum), outUnit));
 }
 
 std::string Display::diskWrite(uint16_t nodeID, uint timespanM, std::string *outUnit)
@@ -474,7 +474,7 @@ std::string Display::diskWrite(uint16_t nodeID, uint timespanM, std::string *out
       }
    }
 
-   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(sum, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(int64_t(sum), outUnit));
 }
 
 std::string Display::diskReadSum(uint timespanM, std::string *outUnit)
@@ -529,7 +529,7 @@ std::string Display::diskReadSum(uint timespanM, std::string *outUnit)
       }
    }
 
-   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(sum, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(int64_t(sum), outUnit));
 }
 
 std::string Display::diskWriteSum(uint timespanM, std::string *outUnit)
@@ -584,7 +584,7 @@ std::string Display::diskWriteSum(uint timespanM, std::string *outUnit)
       }
    }
 
-   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(sum, outUnit));
+   return StringTk::doubleToStr(UnitTk::mebibyteToXbyte(int64_t(sum), outUnit));
 }
 
 void Display::diskPerfWriteSum(uint timespanM, UInt64List *outListTime,
@@ -697,7 +697,7 @@ void Display::diskPerfWriteSum(uint timespanM, UInt64List *outListTime,
             }
             // add the sum to the out lists (with timestamp of the master list)
             outListTime->push_back(masterTime);
-            outListWritePerSec->push_back(sum);
+            outListWritePerSec->push_back(uint64_t(sum));
          }
       }
       // the master list was empty => pop it => next loop step will take the
@@ -826,7 +826,7 @@ void Display::diskPerfReadSum(uint timespanM, UInt64List *outListTime,
             }
             // add the sum to the out lists (with timestamp of the master list)
             outListTime->push_back(masterTime);
-            outListReadPerSec->push_back(sum);
+            outListReadPerSec->push_back(uint64_t(sum));
          }
       }
       // the master list was empty => pop it => next loop step will take the

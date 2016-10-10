@@ -49,7 +49,7 @@ bool RemoveNodeMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock
          if(delRes)
             nodeRemoved = true;
 
-         if(app->getConfig()->getQuotaEnableEnforcment() )
+         if(app->getConfig()->getQuotaEnableEnforcement() )
          {
             for(UInt16ListIter iter = targetIDs.begin(); iter != targetIDs.end(); iter++)
                app->getQuotaManager()->removeTargetFromQuotaDataStores(*iter);

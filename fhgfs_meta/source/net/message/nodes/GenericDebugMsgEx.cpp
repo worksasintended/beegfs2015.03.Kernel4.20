@@ -1,5 +1,6 @@
 #include <common/net/message/nodes/GenericDebugRespMsg.h>
 #include <common/net/msghelpers/MsgHelperGenericDebug.h>
+#include <common/storage/quota/Quota.h>
 #include <common/toolkit/MessagingTk.h>
 #include <program/Program.h>
 #include <session/SessionStore.h>
@@ -141,6 +142,9 @@ std::string GenericDebugMsgEx::processCommand()
    else
    if(operation == GENDBGMSG_OP_DUMPINLINEDINODE)
       responseStr = processOpDumpInlinedInode(commandStream);
+   else
+   if(operation == GENDBGMSG_OP_QUOTAEXCEEDED)
+      responseStr = processOpQuotaExceeded(commandStream);
 #ifdef BEEGFS_DEBUG
    else
    if(operation == GENDBGMSG_OP_WRITEDIRDENTRY)
@@ -696,6 +700,22 @@ std::string GenericDebugMsgEx::processOpDumpInlinedInode(std::istringstream& com
    metaStore->releaseDir(parentEntryID);
 
    return responseStream.str();
+}
+
+std::string GenericDebugMsgEx::processOpQuotaExceeded(std::istringstream& commandStream)
+{
+   App* app = Program::getApp();
+
+   std::string returnString;
+
+   if(!app->getConfig()->getQuotaEnableEnforcement() )
+      return "No quota exceeded IDs on this storage daemon because quota enforcement is"
+         "disabled.";
+
+   returnString = MsgHelperGenericDebug::processOpQuotaExceeded(commandStream,
+      app->getExceededQuotaStore() );
+
+   return returnString;
 }
 
 #ifdef BEEGFS_DEBUG

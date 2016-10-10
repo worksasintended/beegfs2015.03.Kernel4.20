@@ -17,7 +17,7 @@ bool SetExceededQuotaMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket
    bool retVal = true;
    FhgfsOpsErr errorCode = FhgfsOpsErr_SUCCESS;
 
-   if(Program::getApp()->getConfig()->getQuotaEnableEnforcment() )
+   if(Program::getApp()->getConfig()->getQuotaEnableEnforcement() )
    {
       // update exceeded quota
       UIntList tmpIDList;

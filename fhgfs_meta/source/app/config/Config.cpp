@@ -82,8 +82,10 @@ void Config::loadDefaults(bool addDashes)
    configMapRedefine("tuneUsePerUserMsgQueues",    "false");
    configMapRedefine("tuneUseAggressiveStreamPoll","false");
 
-   configMapRedefine("quotaEarlyChownResponse",     "true");
+   configMapRedefine("quotaEarlyChownResponse",    "true");
+   configMapRedefine("quotaEnableEnforcement",     "false");
 
+   configMapRedefine("sysAllowUserSetPattern",     "false");
    configMapRedefine("runDaemonized",              "false");
 
    configMapRedefine("pidFile",                  "");
@@ -209,6 +211,12 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw(InvalidC
       else
       if(iter->first == std::string("quotaEarlyChownResponse") )
          quotaEarlyChownResponse = StringTk::strToBool(iter->second);
+      else
+      if(iter->first == std::string("quotaEnableEnforcement") )
+         quotaEnableEnforcement = StringTk::strToBool(iter->second);
+      else
+      if(iter->first == std::string("sysAllowUserSetPattern") )
+         sysAllowUserSetPattern = StringTk::strToBool(iter->second.c_str() );
       else
       if(iter->first == std::string("tuneUsePerUserMsgQueues") )
          tuneUsePerUserMsgQueues = StringTk::strToBool(iter->second);

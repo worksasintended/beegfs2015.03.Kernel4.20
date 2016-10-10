@@ -2750,6 +2750,9 @@ unsigned FileInode::serialLenDentryCompatData()
 
 bool fileInodeEquals(FileInode* first, FileInode* second)
 {
+   if(!first || !second)
+      return false;
+
    // inodeDiskData
    if(!fileInodeStoreDataEquals(first->inodeDiskData, second->inodeDiskData) )
       return false;

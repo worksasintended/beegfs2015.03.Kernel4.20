@@ -8,6 +8,7 @@
 #include <common/net/message/nodes/ChangeTargetConsistencyStatesRespMsg.h>
 #include <common/net/message/nodes/GetNodeCapacityPoolsRespMsg.h>
 #include <common/net/message/nodes/GetNodesRespMsg.h>
+#include <common/net/message/nodes/RemoveBuddyGroupRespMsg.h>
 #include <common/net/message/nodes/RemoveNodeRespMsg.h>
 #include <common/net/message/nodes/SetTargetConsistencyStatesRespMsg.h>
 #include <net/message/nodes/ChangeTargetConsistencyStatesMsgEx.h>
@@ -24,6 +25,7 @@
 #include <net/message/nodes/RefreshCapacityPoolsMsgEx.h>
 #include <net/message/nodes/RegisterNodeMsgEx.h>
 #include <net/message/nodes/RegisterTargetMsgEx.h>
+#include <net/message/nodes/RemoveBuddyGroupMsgEx.h>
 #include <net/message/nodes/RemoveNodeMsgEx.h>
 #include <net/message/nodes/SetMirrorBuddyGroupMsgEx.h>
 #include <net/message/nodes/SetTargetConsistencyStatesMsgEx.h>
@@ -86,6 +88,8 @@ NetMessage* NetMessageFactory::createFromMsgType(unsigned short msgType)
       case NETMSGTYPE_RefreshCapacityPools: { msg = new RefreshCapacityPoolsMsgEx(); } break;
       case NETMSGTYPE_RegisterNode: { msg = new RegisterNodeMsgEx(); } break;
       case NETMSGTYPE_RegisterTarget: { msg = new RegisterTargetMsgEx(); } break;
+      case NETMSGTYPE_RemoveBuddyGroup: { msg = new RemoveBuddyGroupMsgEx(); } break;
+      case NETMSGTYPE_RemoveBuddyGroupResp: { msg = new RemoveBuddyGroupRespMsg(); } break;
       case NETMSGTYPE_RemoveNode: { msg = new RemoveNodeMsgEx(); } break;
       case NETMSGTYPE_RemoveNodeResp: { msg = new RemoveNodeRespMsg(); } break;
       case NETMSGTYPE_SetMirrorBuddyGroup: { msg = new SetMirrorBuddyGroupMsgEx(); } break;

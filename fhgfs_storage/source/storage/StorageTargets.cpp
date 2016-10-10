@@ -370,7 +370,7 @@ void StorageTargets::checkBuddyNeedsResync()
       const uint16_t targetID = buddyGroupIter->first;
       const uint16_t buddyTargetID = buddyGroupIter->second;
 
-      TargetConsistencyState targetConsistencyState;
+      TargetConsistencyState targetConsistencyState = TargetConsistencyState_BAD; // silence warn
       if (!getState(targetID, targetConsistencyState) )
       {
          LOG_DEBUG(logContext, Log_DEBUG, "Target state invalid for target ID "

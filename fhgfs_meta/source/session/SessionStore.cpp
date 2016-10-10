@@ -136,12 +136,14 @@ Session* SessionStore::removeSessionUnlocked(std::string sessionID)
 /**
  * @param masterList must be ordered; contained nodes will be removed and may no longer be
  * accessed after calling this method.
+ * @param doRemove remove sessions which are not needed anymore, default usage should be true,
+ *        but during the first init it should be false
  * @param outRemovedSessions contained sessions must be cleaned up by the caller
  * @param outUnremovableSesssions contains sessions that would have been removed but are currently
  * referenced
  */
-void SessionStore::syncSessions(NodeList* masterList, SessionList* outRemovedSessions,
-   StringList* outUnremovableSesssions)
+void SessionStore::syncSessions(NodeList* masterList, bool doRemove,
+   SessionList* outRemovedSessions, StringList* outUnremovableSesssions)
 {
    SafeMutexLock mutexLock(&mutex);
    
@@ -162,8 +164,8 @@ void SessionStore::syncSessions(NodeList* masterList, SessionList* outRemovedSes
          masterIter = masterList->begin();
       }
       else
-      if(currentSession < currentMaster)
-      { // session is removed
+      if( (currentSession < currentMaster) && doRemove)
+      { // session is removed, if doRemove=false handle the session as unchanged
          sessionIter++; // (removal invalidates iterator)
 
          Session* session = removeSessionUnlocked(currentSession);
@@ -194,16 +196,19 @@ void SessionStore::syncSessions(NodeList* masterList, SessionList* outRemovedSes
    }
 
    // remaining sessions are removed
-   while(sessionIter != sessions.end() )
+   if(doRemove)
    {
-      std::string currentSession(sessionIter->first);
-      sessionIter++; // (removal invalidates iterator)
+      while(sessionIter != sessions.end() )
+      {
+         std::string currentSession(sessionIter->first);
+         sessionIter++; // (removal invalidates iterator)
 
-      Session* session = removeSessionUnlocked(currentSession);
-      if(session)
-         outRemovedSessions->push_back(session);
-      else
-         outUnremovableSesssions->push_back(currentSession); // session was referenced
+         Session* session = removeSessionUnlocked(currentSession);
+         if(session)
+            outRemovedSessions->push_back(session);
+         else
+            outUnremovableSesssions->push_back(currentSession); // session was referenced
+      }
    }
    
    
@@ -393,6 +398,8 @@ bool SessionStore::deserializeLockStates(const char* buf, unsigned& bufPos, size
          break;
       }
 
+      bufPos += fieldLen;
+
       metaStore->releaseFile(info.getParentEntryID(), inode);
 
       states--;
@@ -507,7 +514,7 @@ bool SessionStore::loadFromFile(const std::string& filePath)
 
    // lock state may not be present; older releases did not have it
    if (retVal && (ssize_t) outLen < readRes)
-      retVal = !deserializeLockStates(buf, outLen, readRes);
+      retVal = deserializeLockStates(buf, outLen, readRes);
 
    if (!retVal)
       log.logErr("Could not deserialize SessionStore from file: " + filePath);
@@ -582,10 +589,13 @@ err_unlock:
    return retVal;
 }
 
-bool sessionStoreMetaEquals(SessionStore& first, SessionStore& second)
+bool sessionStoreMetaEquals(SessionStore& first, SessionStore& second, bool disableInodeCheck)
 {
    SessionMapIter firstIter = first.sessions.begin();
    SessionMapIter secondIter = second.sessions.begin();
+
+   if(first.getSize() != second.getSize() )
+      return false;
 
    for( ; (firstIter != first.sessions.end() ) && (secondIter != second.sessions.end() );
       firstIter++, secondIter++ )
@@ -594,7 +604,7 @@ bool sessionStoreMetaEquals(SessionStore& first, SessionStore& second)
          return false;
 
       if(!sessionMetaEquals( (*firstIter).second->getReferencedObject(),
-         (*secondIter).second->getReferencedObject() ) )
+         (*secondIter).second->getReferencedObject(), disableInodeCheck) )
          return false;
    }
 

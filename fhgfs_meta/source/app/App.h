@@ -15,10 +15,12 @@
 #include <common/nodes/TargetCapacityPools.h>
 #include <common/nodes/TargetMapper.h>
 #include <common/nodes/TargetStateStore.h>
+#include <common/storage/quota/ExceededQuotaStore.h>
 #include <common/toolkit/AcknowledgmentStore.h>
 #include <common/toolkit/NetFilter.h>
 #include <components/fullrefresher/FullRefresher.h>
 #include <components/metadatamirrorer/MetadataMirrorer.h>
+#include <components/ClientSyncer.h>
 #include <components/DatagramListener.h>
 #include <components/HeartbeatManager.h>
 #include <components/InternodeSyncer.h>
@@ -127,6 +129,7 @@ class App : public AbstractApp
       HeartbeatManager* heartbeatMgr;
       ConnAcceptor* connAcceptor;
       StatsCollector* statsCollector;
+      ClientSyncer* clientSyncer;
       InternodeSyncer* internodeSyncer;
       FullRefresher* fullRefresher;
       ModificationEventFlusher* modificationEventFlusher;
@@ -137,6 +140,8 @@ class App : public AbstractApp
 
       WorkerList workerList;
       WorkerList commSlaveList; // used by workers for parallel comm tasks
+
+      ExceededQuotaStore* exceededQuotaStore; // contains the UIDs and GIDs with exceeded quota
 
       TestRunner *testRunner;
 
@@ -436,6 +441,11 @@ class App : public AbstractApp
          return statsCollector;
       }
 
+      ClientSyncer* getClientSyncer() const
+      {
+         return clientSyncer;
+      }
+
       InternodeSyncer* getInternodeSyncer() const
       {
          return internodeSyncer;
@@ -464,6 +474,11 @@ class App : public AbstractApp
       int getAppResult() const
       {
          return appResult;
+      }
+
+      ExceededQuotaStore* getExceededQuotaStore() const
+      {
+         return exceededQuotaStore;
       }
 };
 

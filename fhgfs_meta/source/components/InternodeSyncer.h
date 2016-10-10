@@ -4,8 +4,10 @@
 #include <common/app/log/LogContext.h>
 #include <common/components/ComponentInitException.h>
 #include <common/net/message/nodes/GetNodeCapacityPoolsMsg.h>
+#include <common/storage/quota/QuotaData.h>
 #include <common/threading/PThread.h>
 #include <common/Common.h>
+#include <nodes/NodeStoreServersEx.h>
 
 
 class InternodeSyncer : public PThread
@@ -14,6 +16,9 @@ class InternodeSyncer : public PThread
       InternodeSyncer() throw(ComponentInitException);
       virtual ~InternodeSyncer();
 
+      static bool downloadAllExceededQuotaLists();
+      static bool downloadExceededQuotaList(QuotaDataType idType, QuotaLimitType exType,
+         UIntList* outIDList, FhgfsOpsErr& error);
 
    private:
       LogContext log;

@@ -1,7 +1,7 @@
 #include "SetExceededQuotaMsg.h"
 
 
-void SetExceededQuotaMsg::serializePayload(char* buf)
+void SetExceededQuotaMsg::serializeContent(char* buf, size_t *outBufPos)
 {
    size_t bufPos = 0;
 
@@ -14,9 +14,10 @@ void SetExceededQuotaMsg::serializePayload(char* buf)
    //idList
    bufPos += Serialization::serializeUIntList(&buf[bufPos], &this->exceededQuotaIDs);
 
+   *outBufPos = bufPos;
 }
 
-bool SetExceededQuotaMsg::deserializePayload(const char* buf, size_t bufLen)
+bool SetExceededQuotaMsg::deserializeContent(const char* buf, size_t bufLen, size_t *outBufPos)
 {
    size_t bufPos = 0;
 
@@ -50,5 +51,19 @@ bool SetExceededQuotaMsg::deserializePayload(const char* buf, size_t bufLen)
 
    bufPos += this->idListBufLen;
 
+   *outBufPos = bufPos;
+
    return true;
+}
+
+void SetExceededQuotaMsg::serializePayload(char* buf)
+{
+   size_t bufPos = 0;
+   serializeContent(buf, &bufPos);
+}
+
+bool SetExceededQuotaMsg::deserializePayload(const char* buf, size_t bufLen)
+{
+   size_t bufPos = 0;
+   return deserializeContent(buf, bufLen, &bufPos);
 }

@@ -38,9 +38,7 @@ int ModeSetPattern::execute()
    uint16_t rootNodeID;
    StringMapIter iter;
 
-   // check privileges
-   if(!ModeHelper::checkRootPrivileges() )
-      return APPCODE_RUNTIME_ERROR;
+   actorUID = geteuid();
 
    // check arguments
 
@@ -110,6 +108,12 @@ int ModeSetPattern::execute()
    if ( (cfgUseRaid10Pattern) && (cfgUseBuddyMirrorPattern) )
    {
       std::cerr << "Only one stripe pattern can be set." << std::endl;
+      return APPCODE_RUNTIME_ERROR;
+   }
+
+   if (actorUID != 0 && (cfgUseRaid10Pattern || cfgUseBuddyMirrorPattern))
+   {
+      std::cerr << "Only root may change the stripe pattern type." << std::endl;
       return APPCODE_RUNTIME_ERROR;
    }
 
@@ -307,6 +311,17 @@ bool ModeSetPattern::setPattern(Node* ownerNode, EntryInfo* entryInfo, unsigned 
    // todo: switch to ioctl, so that users can set patterns without root privileges
 
    SetDirPatternMsg setPatternMsg(entryInfo, pattern);
+
+   if (actorUID != 0)
+   {
+      if (!ownerNode->getNodeFeatures()->getBitNonAtomic(META_FEATURE_SETPATTERN))
+      {
+         std::cerr << "Target does not support --setpattern for non-root users." << std::endl;
+         goto err_cleanup;
+      }
+
+      setPatternMsg.setUID(actorUID);
+   }
 
    // request/response
    commRes = MessagingTk::requestResponse(

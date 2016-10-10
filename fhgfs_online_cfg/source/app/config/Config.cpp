@@ -43,6 +43,7 @@ RunModesElem const __RunModes[] =
    {"--listmirrorgroups", RunMode_LISTMIRRORBUDDYGROUPS},
    {"--resyncstorage", RunMode_STARTSTORAGERESYNC},
    {"--resyncstoragestats", RunMode_STORAGERESYNCSTATS},
+   {"--removemirrorgroup", RunMode_REMOVEBUDDYGROUP},
 
    {NULL, RunMode_INVALID}
 };

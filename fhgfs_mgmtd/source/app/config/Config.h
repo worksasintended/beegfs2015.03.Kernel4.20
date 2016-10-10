@@ -100,7 +100,7 @@ class Config : public AbstractConfig
 
       std::string pidFile;
 
-      bool                 quotaEnableEnforcment;
+      bool                 quotaEnableEnforcement;
       std::string          quotaNofificationMethod;
       unsigned             quotaNotfificationIntervalMin;
       std::string          quotaAdminEmailAddress;
@@ -350,9 +350,9 @@ class Config : public AbstractConfig
          return pidFile;
       }
 
-      bool getQuotaEnableEnforcment() const
+      bool getQuotaEnableEnforcement() const
       {
-         return quotaEnableEnforcment;
+         return quotaEnableEnforcement;
       }
 
       std::string getQuotaNofificationMethod() const

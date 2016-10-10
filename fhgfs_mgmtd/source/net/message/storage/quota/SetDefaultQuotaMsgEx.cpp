@@ -18,7 +18,7 @@ bool SetDefaultQuotaMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket*
 
    bool respVal = false;
 
-   if(app->getConfig()->getQuotaEnableEnforcment() )
+   if(app->getConfig()->getQuotaEnableEnforcement() )
    {
       QuotaManager* manager = app->getQuotaManager();
 

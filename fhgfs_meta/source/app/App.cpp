@@ -38,6 +38,8 @@ unsigned const APP_FEATURES[] =
 {
    META_FEATURE_DUMMY,
    META_FEATURE_UMASK,
+   META_FEATURE_SETPATTERN,
+   META_FEATURE_QUOTA,
 };
 
 
@@ -84,10 +86,13 @@ App::App(int argc, char** argv)
    this->heartbeatMgr = NULL;
    this->connAcceptor = NULL;
    this->statsCollector = NULL;
+   this->clientSyncer = NULL;
    this->internodeSyncer = NULL;
    this->fullRefresher = NULL;
    this->modificationEventFlusher = NULL;
    this->metadataMirrorer = NULL;
+
+   this->exceededQuotaStore = NULL;
 
    this->testRunner = NULL;
 
@@ -106,6 +111,7 @@ App::~App()
    SAFE_DELETE(this->modificationEventFlusher);
    SAFE_DELETE(this->fullRefresher);
    SAFE_DELETE(this->internodeSyncer);
+   SAFE_DELETE(this->clientSyncer);
    SAFE_DELETE(this->statsCollector);
    SAFE_DELETE(this->connAcceptor);
 
@@ -142,6 +148,8 @@ App::~App()
    SAFE_DELETE(this->logger);
    SAFE_DELETE(this->tcpOnlyFilter);
    SAFE_DELETE(this->netFilter);
+
+   SAFE_DELETE(this->exceededQuotaStore);
 
    SAFE_DELETE(this->testRunner);
 
@@ -289,7 +297,6 @@ void App::runNormal()
    initLocalNode();
    initLocalNodeNumIDFile();
 
-
    // init components
 
    try
@@ -338,7 +345,7 @@ void App::runNormal()
    // close all client sessions
 
    NodeList emptyClientsList;
-   heartbeatMgr->syncClients(&emptyClientsList, false);
+   clientSyncer->syncClients(&emptyClientsList, false);
 
 
    log->log(Log_CRITICAL, "All components stopped. Exiting now!");
@@ -497,6 +504,8 @@ void App::initDataObjects() throw(InvalidConfigException)
    this->sessions = new SessionStore();
 
    this->nodeOperationStats = new MetaNodeOpStats();
+
+   this->exceededQuotaStore = new ExceededQuotaStore();
 }
 
 /**
@@ -787,6 +796,8 @@ void App::initComponents() throw(ComponentInitException)
    this->statsCollector = new StatsCollector(workQueue, STATSCOLLECTOR_COLLECT_INTERVAL_MS,
       STATSCOLLECTOR_HISTORY_LENGTH);
 
+   this->clientSyncer = new ClientSyncer();
+
    this->internodeSyncer = new InternodeSyncer();
 
    this->fullRefresher = new FullRefresher();
@@ -819,11 +830,17 @@ void App::startComponents()
 
    PThread::blockInterruptSignals(); // reblock signals for next child threads
 
+   // download lists of exceeded quota from mgmtd, this requires a initialized mgmtd but the meta
+   // should not accept requests before the lists are downloaded
+   InternodeSyncer::downloadAllExceededQuotaLists();
+
    streamListenersStart();
 
    this->connAcceptor->start();
 
    this->statsCollector->start();
+
+   this->clientSyncer->start();
 
    this->internodeSyncer->start();
 
@@ -859,6 +876,9 @@ void App::stopComponents()
 
    if(internodeSyncer)
       internodeSyncer->selfTerminate();
+
+   if (clientSyncer)
+      clientSyncer->selfTerminate();
 
    if(statsCollector)
       statsCollector->selfTerminate();
@@ -923,6 +943,8 @@ void App::joinComponents()
    streamListenersJoin();
 
    waitForComponentTermination(internodeSyncer);
+
+   waitForComponentTermination(clientSyncer);
 
    commSlavesStop(); // placed here because otherwise it would keep workers from terminating
    commSlavesJoin();
@@ -1391,7 +1413,6 @@ bool App::preregisterNode()
    }
 
    mgmtNodes->releaseNode(&mgmtNode);
-
 
    return (localNodeNumID != 0);
 }

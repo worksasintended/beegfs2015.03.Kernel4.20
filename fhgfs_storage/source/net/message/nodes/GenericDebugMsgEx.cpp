@@ -223,7 +223,7 @@ std::string GenericDebugMsgEx::processOpQuotaExceeded(std::istringstream& comman
 
    std::string returnString;
 
-   if(!app->getConfig()->getQuotaEnableEnforcment() )
+   if(!app->getConfig()->getQuotaEnableEnforcement() )
       return "No quota exceeded IDs on this storage daemon because quota enforcement is"
          "disabled.";
 

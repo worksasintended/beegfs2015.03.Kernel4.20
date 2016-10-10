@@ -43,6 +43,7 @@
 unsigned const APP_FEATURES[] =
 {
    STORAGE_FEATURE_DUMMY,
+   STORAGE_FEATURE_REMOVEBUDDYGROUP,
 };
 
 
@@ -85,6 +86,7 @@ App::App(int argc, char** argv)
    this->connAcceptor = NULL;
    this->statsCollector = NULL;
    this->internodeSyncer = NULL;
+   this->buddySyncer = NULL;
 
    this->testRunner = NULL;
 
@@ -107,6 +109,7 @@ App::~App()
 
    workersDelete();
 
+   SAFE_DELETE(this->buddySyncer);
    SAFE_DELETE(this->internodeSyncer);
    SAFE_DELETE(this->statsCollector);
    SAFE_DELETE(this->connAcceptor);
@@ -481,8 +484,7 @@ void App::initDataObjects() throw(InvalidConfigException)
 
    this->chunkDirStore = new ChunkStore();
 
-   if(this->cfg->getQuotaEnableEnforcment() )
-      this->exceededQuotaStore = new ExceededQuotaStore();
+   this->exceededQuotaStore = new ExceededQuotaStore();
 
    this->chunkLockStore = new ChunkLockStore();
 }
@@ -703,6 +705,8 @@ void App::initComponents() throw(ComponentInitException)
 
    this->internodeSyncer = new InternodeSyncer();
 
+   this->buddySyncer = new BuddySyncer();
+
    this->storageBenchOperator = new StorageBenchOperator();
 
    this->chunkFetcher = new ChunkFetcher();
@@ -732,6 +736,8 @@ void App::startComponents()
 
    this->internodeSyncer->start();
 
+   this->buddySyncer->start();
+
    workersStart();
 
    PThread::unblockInterruptSignals(); // main app thread may receive SIGINT/SIGTERM
@@ -754,6 +760,9 @@ void App::stopComponents()
 
    if(internodeSyncer)
       internodeSyncer->selfTerminate();
+
+   if (buddySyncer)
+      buddySyncer->selfTerminate();
 
    if(statsCollector)
       statsCollector->selfTerminate();
@@ -823,6 +832,7 @@ void App::joinComponents()
    streamListenersJoin();
 
    waitForComponentTermination(internodeSyncer);
+   waitForComponentTermination(buddySyncer);
 
    // (the StorageBenchOperator is not a normal component, so it gets special treatment here)
    if(storageBenchOperator)
@@ -1473,8 +1483,7 @@ bool App::registerAndDownloadMgmtInfo()
       // If a local primary target needs a resync, wait for poffline timeout.
       storageTargets->addStartupTimeout();
 
-      if(cfg->getQuotaEnableEnforcment() &&
-         !InternodeSyncer::downloadAllExceededQuotaLists() )
+      if(!InternodeSyncer::downloadAllExceededQuotaLists() )
          continue;
 
       // all done

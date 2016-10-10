@@ -22,8 +22,7 @@ enum LogTopic
 {
    LogTopic_GENERAL=0,       // default log topic
    LogTopic_STATESYNC=1,     // everything related to node reachability state sync
-
-   LogTopic_LAST            // not valid, just exists to define the logLevels vector size
+   LogTopic_INVALID          // not valid
 };
 
 class Logger
@@ -227,12 +226,12 @@ class Logger
             }
          }
 
-         return LogTopic_LAST;
+         return LogTopic_INVALID;
       }
 
       static std::string logTopicToName(LogTopic logTopic)
       {
-         for(int i=0; LogTopics[i].logTopic != LogTopic_LAST; i++)
+         for(int i=0; LogTopics[i].logTopic != LogTopic_INVALID; i++)
          {
             if (LogTopics[i].logTopic == logTopic)
             {

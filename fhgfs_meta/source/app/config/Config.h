@@ -70,6 +70,9 @@ class Config : public AbstractConfig
       bool              tuneUseAggressiveStreamPoll; // true to not sleep on epoll in streamlisv2
 
       bool              quotaEarlyChownResponse; // true to send response before chunk files chown
+      bool              quotaEnableEnforcement;
+
+      bool              sysAllowUserSetPattern;
 
       bool              runDaemonized;
 
@@ -266,6 +269,16 @@ class Config : public AbstractConfig
          return quotaEarlyChownResponse;
       }
 
+      bool getQuotaEnableEnforcement() const
+      {
+         return quotaEnableEnforcement;
+      }
+
+      void setQuotaEnableEnforcement(bool doQuotaEnforcement)
+      {
+         quotaEnableEnforcement = doQuotaEnforcement;
+      }
+
 
       bool getRunDaemonized() const
       {
@@ -276,6 +289,8 @@ class Config : public AbstractConfig
       {
          return pidFile;
       }
+
+      bool getSysAllowUserSetPattern() const { return sysAllowUserSetPattern; }
 };
 
 #endif /*CONFIG_H_*/

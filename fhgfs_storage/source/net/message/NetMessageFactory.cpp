@@ -22,6 +22,7 @@
 #include <net/message/nodes/HeartbeatRequestMsgEx.h>
 #include <net/message/nodes/MapTargetsMsgEx.h>
 #include <net/message/nodes/RefreshTargetStatesMsgEx.h>
+#include <net/message/nodes/RemoveBuddyGroupMsgEx.h>
 #include <net/message/nodes/RemoveNodeMsgEx.h>
 #include <net/message/nodes/SetMirrorBuddyGroupMsgEx.h>
 #include <net/message/nodes/SetTargetConsistencyStatesMsgEx.h>
@@ -122,6 +123,7 @@ NetMessage* NetMessageFactory::createFromMsgType(unsigned short msgType)
       case NETMSGTYPE_RefreshTargetStates: { msg = new RefreshTargetStatesMsgEx(); } break;
       case NETMSGTYPE_RegisterNodeResp: { msg = new RegisterNodeRespMsg(); } break;
       case NETMSGTYPE_RegisterTargetResp: { msg = new RegisterTargetRespMsg(); } break;
+      case NETMSGTYPE_RemoveBuddyGroup: { msg = new RemoveBuddyGroupMsgEx(); } break;
       case NETMSGTYPE_RemoveNode: { msg = new RemoveNodeMsgEx(); } break;
       case NETMSGTYPE_RemoveNodeResp: { msg = new RemoveNodeRespMsg(); } break;
       case NETMSGTYPE_SetMirrorBuddyGroup: { msg = new SetMirrorBuddyGroupMsgEx(); } break;

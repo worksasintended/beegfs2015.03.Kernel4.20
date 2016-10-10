@@ -330,15 +330,15 @@ int ModeCheckFS::initDatabase()
       FsckTkEx::fsckOutput("If you continue now any existing database files in that path will be "
          "deleted.");
 
-      char input = '\0';
+      std::string input;
 
-      while ( (input != 'N') && (input != 'n') && (input != 'Y') && (input != 'y') )
+      while (input.size() != 1 || !strchr("YyNn", input[0]))
       {
          FsckTkEx::fsckOutput("Do you want to continue? (Y/N)");
-         std::cin >> input;
+         std::getline(std::cin, input);
       }
 
-      switch(input)
+      switch (input[0])
       {
          case 'Y':
          case 'y':

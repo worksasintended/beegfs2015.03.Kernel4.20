@@ -416,7 +416,7 @@ FhgfsOpsErr ReadLocalFileV2MsgEx::openFile(SessionLocalFile* sessionLocalFile)
 
    int actualTargetID = sessionLocalFile->getTargetID();
    bool isBuddyMirrorChunk = sessionLocalFile->getIsMirrorSession();
-   TargetConsistencyState consistencyState;
+   TargetConsistencyState consistencyState = TargetConsistencyState_BAD; // silence warning
 
 
    if(sessionLocalFile->getFD() != -1)

@@ -112,14 +112,19 @@ premake:
 		cd $(BUILD_PATH);                                \
 	fi
 
+	# work around a missing dependency in premake makefiles that can cause the build to fail
+	mkdir -p $(PREMAKE_VER_PATH)/build/gmake.unix/obj/Release \
+		$(PREMAKE_VER_PATH)/bin/release
 	$(MAKE) -C $(PREMAKE_VER_PATH)/build/gmake.unix
 
 ticpp: premake
 	# we run make clean first here, to be sure to remove old object files
+	# like premake, ticpp makefiles don't declare some vital dependencies
 	if [ ! -f $(TICPP_LIB_IN) ]; then                     \
 		cd $(TICPP_PATH)                           && \
 		${PREMAKE} --unicode gmake                 && \
 		$(MAKE) clean config=release               && \
+		mkdir -p obj/Release                       && \
 		$(MAKE) config=release                     && \
 		cd $(BUILD_PATH);                             \
 	fi

@@ -6,6 +6,7 @@
 #include <modes/migrate/ModeMigrate.h>
 #include <modes/mirroring/ModeAddMirrorBuddyGroup.h>
 #include <modes/mirroring/ModeListMirrorBuddyGroups.h>
+#include <modes/mirroring/ModeRemoveBuddyGroup.h>
 #include <modes/mirroring/ModeSetMetadataMirroring.h>
 #include <modes/mirroring/ModeStartStorageResync.h>
 #include <modes/mirroring/ModeStorageResyncStats.h>

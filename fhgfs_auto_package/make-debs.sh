@@ -7,7 +7,7 @@ source ${dir}/make-packages-common.sh
 
 echo "Writing DEBs to $PACKAGEDIR"
 
-logfile=`mktemp`
+logfile=${LOGFILE:-`mktemp`}
 # build debs here
 for package in $packages; do
 	echo $package

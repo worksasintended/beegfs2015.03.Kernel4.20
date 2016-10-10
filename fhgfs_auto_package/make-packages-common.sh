@@ -39,6 +39,7 @@ print_usage()
 	echo "  -D     Disable beegfs-admon package build."
 	echo "  -C     Build client packages only."
 	echo "  -x     Build with BEEGFS_DEBUG."
+   echo "  -l F   log to specific file"
 	echo
 	echo "EXAMPLE:"
 	echo "  $ `basename $0` -j 4 -p /tmp/my_beegfs_packages"
@@ -64,8 +65,9 @@ run_cmd()
 DRY_RUN=0
 CLEAN_ONLY=0
 CLIENT_ONLY=0
+LOGFILE=
 
-while getopts "hcds:v:DCxj:p:" opt; do
+while getopts "hcds:v:DCxj:p:l:" opt; do
 	case $opt in
 	h)
 		print_usage
@@ -97,6 +99,13 @@ while getopts "hcds:v:DCxj:p:" opt; do
 		export CONCURRENCY="$OPTARG"
 		export MAKE_CONCURRENCY="$OPTARG"
 		;;
+   l)
+      if [[ "$OPTARG" == /* ]]; then
+         LOGFILE="$OPTARG"
+      else
+         LOGFILE="$PWD/$OPTARG"
+      fi
+      ;;
 	p)
 		PACKAGEDIR="$OPTARG"
 		;;
@@ -110,7 +119,7 @@ while getopts "hcds:v:DCxj:p:" opt; do
                 print_usage
                 exit 1
                 ;;
-        esac
+   esac
 done
 
 
@@ -158,9 +167,8 @@ make_dep_lib()
 
 	echo ${lib}
 	pwd
-	run_cmd "make -C ${lib}/${EXTRA_DIR}/build clean --silent >/dev/null"
-	run_cmd "make -C ${lib}/${EXTRA_DIR}/build -j $make_concurrency --silent >/dev/null"
-
+	run_cmd "make -C ${lib}/${EXTRA_DIR}/build clean >${LOGFILE:-/dev/null} 2>&1"
+	run_cmd "make -C ${lib}/${EXTRA_DIR}/build -j $make_concurrency >${LOGFILE:-/dev/null} 2>&1"
 }
 
 # clean packages up here first, do not do it below, as we need

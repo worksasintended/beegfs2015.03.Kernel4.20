@@ -59,7 +59,7 @@ class Config : public AbstractConfig
       bool        tuneUseAggressiveStreamPoll; // true to not sleep on epoll in streamlisv2
       bool        tuneUsePerTargetWorkers; // true to have tuneNumWorkers separate for each target
 
-      bool        quotaEnableEnforcment;
+      bool        quotaEnableEnforcement;
       bool        quotaDisableZfsSupport;
 
       int64_t     sysResyncSafetyThresholdMins; // minutes to add to last buddy comm timestamp
@@ -213,9 +213,14 @@ class Config : public AbstractConfig
          return this->tuneEarlyStat;
       }
 
-      bool getQuotaEnableEnforcment() const
+      bool getQuotaEnableEnforcement() const
       {
-         return quotaEnableEnforcment;
+         return quotaEnableEnforcement;
+      }
+
+      void setQuotaEnableEnforcement(bool doQuotaEnforcement)
+      {
+         quotaEnableEnforcement = doQuotaEnforcement;
       }
 
       bool getQuotaDisableZfsSupport() const

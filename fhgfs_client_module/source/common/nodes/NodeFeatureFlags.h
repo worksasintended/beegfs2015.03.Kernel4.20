@@ -21,17 +21,21 @@
 
 #define MGMT_FEATURE_DUMMY          0
 #define MGMT_FEATURE_DEFAULT_QUOTA  1
+#define MGMT_FEATURE_REMOVEBUDDYGROUP 2
 
 
 // meta feature flags
 
 #define META_FEATURE_DUMMY          0
 #define META_FEATURE_UMASK          1
+#define META_FEATURE_SETPATTERN     2
+#define META_FEATURE_QUOTA          4
 
 
 // storage feature flags
 
 #define STORAGE_FEATURE_DUMMY       0
+#define STORAGE_FEATURE_REMOVEBUDDYGROUP 1
 
 
 // client feature flags

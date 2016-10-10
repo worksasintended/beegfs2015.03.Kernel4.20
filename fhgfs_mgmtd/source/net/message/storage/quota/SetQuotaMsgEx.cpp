@@ -37,7 +37,7 @@ bool SetQuotaMsgEx::processQuotaLimits()
 
    App* app = Program::getApp();
 
-   if(app->getConfig()->getQuotaEnableEnforcment() )
+   if(app->getConfig()->getQuotaEnableEnforcement() )
    {
       QuotaDataList limitList;
       this->parseQuotaDataList(&limitList);

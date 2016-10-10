@@ -46,6 +46,7 @@ enum RunMode
    RunMode_LISTMIRRORBUDDYGROUPS,
    RunMode_STARTSTORAGERESYNC,
    RunMode_STORAGERESYNCSTATS,
+   RunMode_REMOVEBUDDYGROUP,
    RunMode_INVALID   /* not valid as index in RunModes array */
 };
 

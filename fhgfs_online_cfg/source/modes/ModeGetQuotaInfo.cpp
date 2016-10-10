@@ -50,7 +50,7 @@ int ModeGetQuotaInfo::execute()
    Node* mgmtNode = mgmtNodes->referenceFirstNode();
 
    //download the list of storage servers from the management node
-   if(!NodesTk::downloadNodes(mgmtNode, NODETYPE_Storage, &storageNodesList, NULL) )
+   if(!NodesTk::downloadNodes(mgmtNode, NODETYPE_Storage, &storageNodesList, false) )
    {
       std::cerr << "Node download failed." << std::endl;
       mgmtNodes->releaseNode(&mgmtNode);

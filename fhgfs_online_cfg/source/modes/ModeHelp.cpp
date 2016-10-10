@@ -176,6 +176,10 @@ void ModeHelp::printSpecificHelp(RunMode runMode)
       case RunMode_STORAGERESYNCSTATS:
       { ModeStorageResyncStats::printHelp(); } break;
 
+      case RunMode_REMOVEBUDDYGROUP:
+         ModeRemoveBuddyGroup::printHelp();
+         break;
+
       default:
       {
          std::cerr << "Error: Unhandled mode specified. Mode number: " << runMode << std::endl;

@@ -79,7 +79,7 @@ int ModeClientStats::addNodesToNodeStore(App* app, NodeStoreServers* mgmtNodes, 
    *outMgmtNode = mgmtNode;
 
    NodeList nodes;
-   if(!NodesTk::downloadNodes(mgmtNode, this->cfgOptions.nodeType, &nodes, NULL) )
+   if(!NodesTk::downloadNodes(mgmtNode, this->cfgOptions.nodeType, &nodes, false) )
    {
       std::cerr << "Node download failed." << std::endl;
       return APPCODE_RUNTIME_ERROR;

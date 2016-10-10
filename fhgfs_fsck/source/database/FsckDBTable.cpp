@@ -1,6 +1,7 @@
 #include "FsckDBTable.h"
 
 #include <database/FsckDBException.h>
+#include <toolkit/FsckException.h>
 #include <toolkit/FsckTkEx.h>
 
 #include <boost/make_shared.hpp>
@@ -325,18 +326,34 @@ std::pair<bool, FsckDirInode> FsckDBDirInodesTable::get(std::string id)
 
 static db::Chunk fsckChunkToDbChunk(FsckChunk& chunk)
 {
-   db::Chunk result = {
-      db::EntryID::fromStr(chunk.getID() ),
-      chunk.getTargetID(), chunk.getBuddyGroupID(),
-      {},
-      chunk.getFileSize(), chunk.getUsedBlocks(),
-      chunk.getUserID(), chunk.getGroupID(),
-   };
+   try
+   {
+      db::Chunk result = {
+            db::EntryID::fromStr(chunk.getID()),
+            chunk.getTargetID(),
+            chunk.getBuddyGroupID(),
+            {},
+            chunk.getFileSize(),
+            chunk.getUsedBlocks(),
+            chunk.getUserID(),
+            chunk.getGroupID() };
 
-   strncpy(result.savedPath, chunk.getSavedPath()->getPathAsStr().c_str(),
-      sizeof(result.savedPath) - 1);
+      strncpy(result.savedPath, chunk.getSavedPath()->getPathAsStr().c_str(),
+            sizeof(result.savedPath) - 1);
 
-   return result;
+      return result;
+   }
+   catch (...)
+   {
+      LogContext log("db::Chunk::fsckChunkToDbChunk");
+      log.logErr("Could not create database information from chunk. "
+                 "entryId: " + chunk.getID() + "; "
+                 "targetId: " + StringTk::uintToStr(chunk.getTargetID()) + "; "
+                 "buddyGroupID: " + StringTk::uintToStr(chunk.getBuddyGroupID()) + "; "
+                 "savedPath: " + chunk.getSavedPath()->getPathAsStr() + ".");
+
+      throw FsckException("Error while creating chunk information for database.");
+   }
 }
 
 void FsckDBChunksTable::insert(FsckChunkList& chunks, const BulkHandle* handle)

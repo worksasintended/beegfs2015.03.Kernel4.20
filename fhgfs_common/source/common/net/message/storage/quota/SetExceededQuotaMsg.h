@@ -55,6 +55,9 @@ class SetExceededQuotaMsg: public NetMessage
 
 
    protected:
+      void serializeContent(char* buf, size_t *outBufPos);
+      bool deserializeContent(const char* buf, size_t bufLen, size_t *outBufPos);
+
       virtual void serializePayload(char* buf);
       virtual bool deserializePayload(const char* buf, size_t bufLen);
 

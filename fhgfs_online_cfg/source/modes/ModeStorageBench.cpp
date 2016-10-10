@@ -511,8 +511,8 @@ void ModeStorageBench::printShortResults(StorageBenchResponseInfoList* responses
    std::string fastestNodeIDStr;
    std::string slowestNodeIDStr;
 
-   uint16_t fastestTargetID;
-   uint16_t slowestTargetID;
+   uint16_t fastestTargetID = 0;
+   uint16_t slowestTargetID = 0;
 
    int64_t maxPerformance = 0;
    int64_t storageTargetCount = 0;

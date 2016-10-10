@@ -42,7 +42,8 @@ class SessionFile
 
       bool relinkInode(MetaStore& store);
 
-      friend bool sessionFileEquals(const SessionFile* first, const SessionFile* second);
+      friend bool sessionFileEquals(const SessionFile* first, const SessionFile* second,
+         bool disableInodeCheck);
 
 
    private:

@@ -247,7 +247,7 @@ void Config::applyConfigMap(bool enableException, bool addDashes) throw(InvalidC
          pidFile = iter->second;
       else
       if(iter->first == std::string("quotaEnableEnforcement") )
-         quotaEnableEnforcment = StringTk::strToBool(iter->second);
+         quotaEnableEnforcement = StringTk::strToBool(iter->second);
       else
       if(iter->first == std::string("quotaNofificationMethod") )
          quotaNofificationMethod = iter->second;

@@ -201,7 +201,16 @@ void TestSerialization::testSessionSerialization()
       CPPUNIT_FAIL("Deserialization failed!");
    }
 
-   if(!sessionStoreMetaEquals(sessionStore, sessionStoreClone) )
+   // Can be enabled when the MetaStore is provided in the test. The we can enable the inode check
+   // in sessionStoreMetaEquals(...) method
+   //if(!sessionStoreClone.deserializeLockStates(buf, filesLen, bufLen) )
+   //{
+   //   SAFE_FREE(buf);
+   //   CPPUNIT_FAIL("Deserialization of lock states failed!");
+   //}
+   //
+
+   if(!sessionStoreMetaEquals(sessionStore, sessionStoreClone, true) )
    {
       SAFE_FREE(buf);
       CPPUNIT_FAIL("Sessions is not equal after serialization and deserialization!");
@@ -459,8 +468,8 @@ void TestSerialization::initSessionStoreForTests(SessionStore& testSessionStore)
       DENTRY_FEATURE_IS_FILEINODE);
    inode30->setIsInlinedUnlocked(true);
    inode30->initLocksRandomForSerializationTests();
-   EntryInfo* entryInfo30 = new EntryInfo(std::numeric_limits<uint16_t>::max(), *origParentEntryID30, *entryID30,
-      "testfile30", DirEntryType_REGULARFILE, INT_MAX);
+   EntryInfo* entryInfo30 = new EntryInfo(std::numeric_limits<uint16_t>::max(),
+      *origParentEntryID30, *entryID30, "testfile30", DirEntryType_REGULARFILE, INT_MAX);
 
 
 
