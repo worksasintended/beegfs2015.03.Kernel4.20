@@ -11,12 +11,13 @@
 #include <set>
 
 RetrieveDirEntriesWork::RetrieveDirEntriesWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
-   unsigned hashDirStart, unsigned hashDirEnd, AtomicUInt64* numDentriesFound,
+   AtomicUInt64& errors, unsigned hashDirStart, unsigned hashDirEnd, AtomicUInt64* numDentriesFound,
    AtomicUInt64* numFileInodesFound, std::set<FsckTargetID>& usedTargets)
     : Work(),
       log("RetrieveDirEntriesWork"),
       node(node),
       counter(counter),
+      errors(&errors),
       numDentriesFound(numDentriesFound),
       numFileInodesFound(numFileInodesFound),
       usedTargets(&usedTargets),
@@ -103,6 +104,27 @@ void RetrieveDirEntriesWork::doWork()
 
                   resultCount = dirEntries.size();
 
+                  // check dentry entry IDs
+                  for (FsckDirEntryListIter it = dirEntries.begin(); it != dirEntries.end(); )
+                  {
+                     if (db::EntryID::tryFromStr(it->getID()).first
+                           && db::EntryID::tryFromStr(it->getParentDirID()).first)
+                     {
+                        ++it;
+                        continue;
+                     }
+
+                     LogContext(__func__).logErr("Found dentry with invalid entry IDs."
+                           " node: " + StringTk::uintToStr(it->getSaveNodeID()) +
+                           ", entryID: " + it->getID() +
+                           ", parentEntryID: " + it->getParentDirID());
+
+                     FsckDirEntryListIter tmp = it;
+                     ++it;
+                     errors->increase();
+                     dirEntries.erase(tmp);
+                  }
+
                   this->dentries->insert(dirEntries, this->dentriesHandle);
 
                   numDentriesFound->increase(resultCount);
@@ -110,6 +132,32 @@ void RetrieveDirEntriesWork::doWork()
                   // parse inlined file inodes
                   FsckFileInodeList inlinedFileInodes;
                   retrieveDirEntriesRespMsg->parseInlinedFileInodes(&inlinedFileInodes);
+
+                  // check inode entry IDs
+                  for (FsckFileInodeListIter it = inlinedFileInodes.begin();
+                        it != inlinedFileInodes.end(); )
+                  {
+                     if (db::EntryID::tryFromStr(it->getID()).first
+                           && db::EntryID::tryFromStr(it->getParentDirID()).first
+                           && (!it->getPathInfo()->hasOrigFeature()
+                                 || db::EntryID::tryFromStr(
+                                       it->getPathInfo()->getOrigParentEntryID()).first))
+                     {
+                        ++it;
+                        continue;
+                     }
+
+                     LogContext(__func__).logErr("Found inode with invalid entry IDs."
+                           " node: " + StringTk::uintToStr(it->getSaveNodeID()) +
+                           ", entryID: " + it->getID() +
+                           ", parentEntryID: " + it->getParentDirID() +
+                           ", origParent: " + it->getPathInfo()->getOrigParentEntryID());
+
+                     FsckFileInodeListIter tmp = it;
+                     ++it;
+                     errors->increase();
+                     inlinedFileInodes.erase(tmp);
+                  }
 
                   struct ops
                   {
@@ -186,6 +234,25 @@ void RetrieveDirEntriesWork::doWork()
                   // parse all new cont. directories
                   FsckContDirList contDirs;
                   retrieveDirEntriesRespMsg->parseContDirs(&contDirs);
+
+                  // check entry IDs
+                  for (FsckContDirListIter it = contDirs.begin(); it != contDirs.end(); )
+                  {
+                     if (db::EntryID::tryFromStr(it->getID()).first)
+                     {
+                        ++it;
+                        continue;
+                     }
+
+                     LogContext(__func__).logErr("Found content directory with invalid entry ID."
+                           " node: " + StringTk::uintToStr(it->getSaveNodeID()) +
+                           ", entryID: " + it->getID());
+
+                     FsckContDirListIter tmp = it;
+                     ++it;
+                     errors->increase();
+                     contDirs.erase(tmp);
+                  }
 
                   this->contDirs->insert(contDirs, this->contDirsHandle);
 

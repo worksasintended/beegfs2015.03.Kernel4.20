@@ -26,8 +26,8 @@ class RetrieveFsIDsWork : public Work
        * @param hashDirStart the first top-level hashDir to open
        * @param hashDirEnd the last top-level hashDir to open
        */
-      RetrieveFsIDsWork(FsckDB* db, Node* node, SynchronizedCounter* counter, unsigned hashDirStart,
-         unsigned hashDirEnd);
+      RetrieveFsIDsWork(FsckDB* db, Node* node, SynchronizedCounter* counter, AtomicUInt64& errors,
+         unsigned hashDirStart, unsigned hashDirEnd);
       virtual ~RetrieveFsIDsWork();
       void process(char* bufIn, unsigned bufInLen, char* bufOut, unsigned bufOutLen);
 
@@ -35,6 +35,7 @@ class RetrieveFsIDsWork : public Work
       LogContext log;
       Node* node;
       SynchronizedCounter* counter;
+      AtomicUInt64* errors;
 
       unsigned hashDirStart;
       unsigned hashDirEnd;

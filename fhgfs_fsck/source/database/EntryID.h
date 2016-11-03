@@ -78,14 +78,23 @@ struct EntryID {
 
    static EntryID fromStr(const std::string& str)
    {
+      std::pair<bool, EntryID> pair = tryFromStr(str);
+      if (!pair.first)
+         throw std::exception();
+
+      return pair.second;
+   }
+
+   static std::pair<bool, EntryID> tryFromStr(const std::string& str)
+   {
       if(str.empty() )
-         return anchor();
+         return std::make_pair(true, anchor());
 
       if(str == META_ROOTDIR_ID_STR)
-         return root();
+         return std::make_pair(true, root());
 
       if(str == META_DISPOSALDIR_ID_STR)
-         return disposal();
+         return std::make_pair(true, disposal());
 
       std::string::size_type sep1;
       std::string::size_type sep2;
@@ -94,7 +103,7 @@ struct EntryID {
       sep2 = str.find('-', sep1 + 1);
 
       if(sep1 == str.npos || sep2 == str.npos)
-         throw std::exception();
+         return std::make_pair(false, EntryID());
 
       std::string seqStr = str.substr(0, sep1);
       std::string tsStr = str.substr(sep1 + 1, sep2 - (sep1 + 1));
@@ -102,7 +111,7 @@ struct EntryID {
 
       if(seqStr.empty() || tsStr.empty() || nodeStr.empty() ||
             seqStr.size() > 8 || tsStr.size() > 8 || nodeStr.size() > 8)
-         throw std::exception();
+         return std::make_pair(false, EntryID());
 
       struct {
          static bool notHex(char c)
@@ -117,7 +126,7 @@ struct EntryID {
       } onlyHex;
 
       if(!onlyHex(seqStr) || !onlyHex(tsStr) || !onlyHex(nodeStr) )
-         throw std::exception();
+         return std::make_pair(false, EntryID());
 
       unsigned seq;
       unsigned ts;
@@ -127,7 +136,7 @@ struct EntryID {
       std::sscanf(tsStr.c_str(), "%x", &ts);
       std::sscanf(nodeStr.c_str(), "%x", &node);
 
-      return EntryID(seq, ts, node);
+      return std::make_pair(true, EntryID(seq, ts, node));
    }
 };
 

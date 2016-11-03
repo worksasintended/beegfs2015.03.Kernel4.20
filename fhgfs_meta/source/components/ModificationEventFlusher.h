@@ -5,6 +5,7 @@
 #include <common/components/worker/Worker.h>
 #include <common/components/worker/DecAtomicWork.h>
 #include <common/components/worker/IncAtomicWork.h>
+#include <common/components/worker/IncSyncedCounterWork.h>
 #include <components/worker/BarrierWork.h>
 #include <common/threading/Condition.h>
 #include <common/threading/Barrier.h>
@@ -79,31 +80,43 @@ class ModificationEventFlusher: public PThread
             return false;
          }
 
-         if (forceRestart)
-         {
-            const bool listEmpty = disableLoggingUnlocked();
-            if (!listEmpty)
-               eventTypeBufferList.clear();
-         }
-
+         eventTypeBufferList.clear();
+         entryIDBufferList.clear();
          this->loggingEnabled.set(1);
 
          // set fsckParameters
          setFsckParametersUnlocked(fsckPortUDP, fsckNicList);
 
-         this->numLoggingWorkers.set(workers->size());
-         stallAllWorkers();
-
          mutexLock.unlock();
+
+         stallAllWorkers();
+         this->numLoggingWorkers.set(workers->size());
 
          return true;
       }
 
+      /*
+       * Note: if logging is already disabled, this function basically does nothing, but returns
+       * if the buffer is empty or not
+       * Caller must hold mutex lock.
+       *
+       * @return true if buffer is empty, false otherwise
+       */
       bool disableLogging()
       {
+         if ( this->loggingEnabled.read() != 0 )
+            this->loggingEnabled.setZero();
+
+         stallAllWorkers();
+         this->numLoggingWorkers.setZero();
+
          SafeMutexLock mutexLock(&mutex);
-         const bool res = disableLoggingUnlocked();
+
+         // make sure list is empty and no worker is logging anymore
+         bool res = this->eventTypeBufferList.empty();
+
          mutexLock.unlock();
+
          return res;
       }
 
@@ -136,48 +149,25 @@ class ModificationEventFlusher: public PThread
          this->fsckNode->updateInterfaces(portUDP, 0, nicList);
       }
 
-      /*
-       * Note: if logging is already disabled, this function basically does nothing, but returns
-       * if the buffer is empty or not
-       * Caller must hold mutex lock.
-       *
-       * @return true if buffer is empty, false otherwise
-       *
-       */
-      bool disableLoggingUnlocked()
-      {
-         if ( this->loggingEnabled.read() != 0 )
-            this->loggingEnabled.setZero();
-
-         this->numLoggingWorkers.setZero();
-         stallAllWorkers();
-
-         // make sure list is empty and no worker is logging anymore
-         bool listEmpty = this->eventTypeBufferList.empty();
-
-         return listEmpty;
-      }
-
       void stallAllWorkers()
       {
          App* app = Program::getApp();
-         WorkerList* workers = app->getWorkers();
          MultiWorkQueue* workQueue = app->getWorkQueue();
          pthread_t threadID = PThread::getCurrentThreadID();
 
-         Barrier workerBarrier(workers->size());
+         SynchronizedCounter notified;
+
          for (WorkerListIter workerIt = workerList->begin(); workerIt != workerList->end();
               ++workerIt)
          {
             if (!PThread::threadIDEquals((*workerIt)->getID(), threadID))
             {
                PersonalWorkQueue* personalQ = (*workerIt)->getPersonalWorkQueue();
-               workQueue->addPersonalWork(new BarrierWork(&workerBarrier), personalQ);
+               workQueue->addPersonalWork(new IncSyncedCounterWork(&notified), personalQ);
             }
          }
 
-         workerBarrier.wait();
-         workerBarrier.wait();
+         notified.waitForCount(workerList->size() - 1);
       }
 };
 

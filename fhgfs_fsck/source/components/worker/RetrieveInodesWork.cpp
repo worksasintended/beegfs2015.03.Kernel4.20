@@ -11,12 +11,14 @@
 #include <set>
 
 RetrieveInodesWork::RetrieveInodesWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
-   unsigned hashDirStart, unsigned hashDirEnd, AtomicUInt64* numFileInodesFound,
-   AtomicUInt64* numDirInodesFound, std::set<FsckTargetID>& usedTargets)
+   AtomicUInt64& errors, unsigned hashDirStart, unsigned hashDirEnd,
+   AtomicUInt64* numFileInodesFound, AtomicUInt64* numDirInodesFound,
+   std::set<FsckTargetID>& usedTargets)
     : Work(),
       log("RetrieveInodesWork"),
       node(node),
       counter(counter),
+      errors(&errors),
       usedTargets(&usedTargets),
       hashDirStart(hashDirStart),
       hashDirEnd(hashDirEnd),
@@ -93,6 +95,31 @@ void RetrieveInodesWork::doWork()
                   FsckFileInodeList fileInodes;
                   retrieveInodesRespMsg->parseFileInodes(&fileInodes);
 
+                  // check inode entry IDs
+                  for (FsckFileInodeListIter it = fileInodes.begin(); it != fileInodes.end(); )
+                  {
+                     if (db::EntryID::tryFromStr(it->getID()).first
+                           && db::EntryID::tryFromStr(it->getParentDirID()).first
+                           && (!it->getPathInfo()->hasOrigFeature()
+                                 || db::EntryID::tryFromStr(
+                                       it->getPathInfo()->getOrigParentEntryID()).first))
+                     {
+                        ++it;
+                        continue;
+                     }
+
+                     LogContext(__func__).logErr("Found inode with invalid entry IDs."
+                           " node: " + StringTk::uintToStr(it->getSaveNodeID()) +
+                           ", entryID: " + it->getID() +
+                           ", parentEntryID: " + it->getParentDirID() +
+                           ", origParent: " + it->getPathInfo()->getOrigParentEntryID());
+
+                     FsckFileInodeListIter tmp = it;
+                     ++it;
+                     errors->increase();
+                     fileInodes.erase(tmp);
+                  }
+
                   // add targetIDs
                   // TODO: think about gathering targetIDs on the server side and sending them over as
                   // seperate list/set to avoid iterating here
@@ -116,6 +143,27 @@ void RetrieveInodesWork::doWork()
                   // parse all directory inodes
                   FsckDirInodeList dirInodes;
                   retrieveInodesRespMsg->parseDirInodes(&dirInodes);
+
+                  // check inode entry IDs
+                  for (FsckDirInodeListIter it = dirInodes.begin(); it != dirInodes.end(); )
+                  {
+                     if (db::EntryID::tryFromStr(it->getID()).first
+                           && db::EntryID::tryFromStr(it->getParentDirID()).first)
+                     {
+                        ++it;
+                        continue;
+                     }
+
+                     LogContext(__func__).logErr("Found inode with invalid entry IDs."
+                           " node: " + StringTk::uintToStr(it->getSaveNodeID()) +
+                           ", entryID: " + it->getID() +
+                           ", parentEntryID: " + it->getParentDirID());
+
+                     FsckDirInodeListIter tmp = it;
+                     ++it;
+                     errors->increase();
+                     dirInodes.erase(tmp);
+                  }
 
                   fileInodeCount = fileInodes.size();
                   dirInodeCount = dirInodes.size();

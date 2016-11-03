@@ -27,6 +27,7 @@ class DataFetcher
 
    private:
       SynchronizedCounter finishedPackages;
+      AtomicUInt64 fatalErrorsFound;
       unsigned generatedPackages;
       bool forceRestart;
 

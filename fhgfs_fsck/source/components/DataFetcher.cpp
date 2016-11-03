@@ -54,6 +54,9 @@ FhgfsOpsErr DataFetcher::execute()
       }
    }
 
+   if (retVal == FhgfsOpsErr_SUCCESS && fatalErrorsFound.read() > 0)
+      retVal = FhgfsOpsErr_INTERNAL;
+
    if(retVal == FhgfsOpsErr_SUCCESS)
    {
       std::set<FsckTargetID> allUsedTargets;
@@ -103,7 +106,8 @@ void DataFetcher::retrieveDirEntries(NodeList* nodeList)
 
          this->workQueue->addIndirectWork(
             new RetrieveDirEntriesWork(this->database, node, &(this->finishedPackages),
-               hashDirStart, BEEGFS_MIN(hashDirEnd, META_DENTRIES_LEVEL1_SUBDIR_NUM - 1),
+               fatalErrorsFound, hashDirStart,
+               BEEGFS_MIN(hashDirEnd, META_DENTRIES_LEVEL1_SUBDIR_NUM - 1),
                &numDentriesFound, &numFileInodesFound, this->usedTargets.back()));
 
          // fetch fsIDs
@@ -112,8 +116,8 @@ void DataFetcher::retrieveDirEntries(NodeList* nodeList)
          this->generatedPackages++;
 
          this->workQueue->addIndirectWork(
-            new RetrieveFsIDsWork(this->database, node, &(this->finishedPackages), hashDirStart,
-               BEEGFS_MIN(hashDirEnd, META_DENTRIES_LEVEL1_SUBDIR_NUM - 1)) );
+            new RetrieveFsIDsWork(this->database, node, &(this->finishedPackages), fatalErrorsFound,
+               hashDirStart, BEEGFS_MIN(hashDirEnd, META_DENTRIES_LEVEL1_SUBDIR_NUM - 1)));
 
          hashDirStart = hashDirEnd + 1;
       }  while (hashDirEnd < META_DENTRIES_LEVEL1_SUBDIR_NUM);
@@ -142,9 +146,10 @@ void DataFetcher::retrieveInodes(NodeList* nodeList)
          hashDirEnd = hashDirStart + hashDirsPerRequest;
 
          this->workQueue->addIndirectWork(
-            new RetrieveInodesWork(this->database, node, &(this->finishedPackages), hashDirStart,
-               BEEGFS_MIN(hashDirEnd, META_INODES_LEVEL1_SUBDIR_NUM - 1), &numFileInodesFound,
-               &numDirInodesFound, this->usedTargets.back()));
+            new RetrieveInodesWork(this->database, node, &(this->finishedPackages),
+               fatalErrorsFound, hashDirStart,
+               BEEGFS_MIN(hashDirEnd, META_INODES_LEVEL1_SUBDIR_NUM - 1),
+               &numFileInodesFound, &numDirInodesFound, this->usedTargets.back()));
 
          hashDirStart = hashDirEnd + 1;
       } while (hashDirEnd < META_INODES_LEVEL1_SUBDIR_NUM);
@@ -169,7 +174,7 @@ bool DataFetcher::retrieveChunks()
 
       // node will be released inside of work package
       RetrieveChunksWork* retrieveWork = new RetrieveChunksWork(this->database, node,
-            &(this->finishedPackages), &numChunksFound, forceRestart);
+            &(this->finishedPackages), fatalErrorsFound, &numChunksFound, forceRestart);
       this->workQueue->addIndirectWork(retrieveWork);
 
       bool started;

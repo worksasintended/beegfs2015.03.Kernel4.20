@@ -410,21 +410,18 @@ void StatData::updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePat
    // note: only use max(MDS, first chunk) if we don't have information from all chunks, because
    // if we have information from all chunks and the info on the MDS differs, info on the MDS must
    // be wrong and therefore should be overwritten
-   int64_t oldModificationTimeSecs;
    int64_t newModificationTimeSecs;
    int64_t newLastAccessTimeSecs;
    if (numValidDynAttribs == numStripeTargets)
    {
-      oldModificationTimeSecs = fileInfoVec[0].getModificationTimeSecs();
-      newModificationTimeSecs = oldModificationTimeSecs; // initialize with the old value
+      newModificationTimeSecs = fileInfoVec[0].getModificationTimeSecs();
 
       newLastAccessTimeSecs = fileInfoVec[0].getLastAccessTimeSecs();
    }
    else
    {
-      oldModificationTimeSecs = std::max(fileInfoVec[0].getModificationTimeSecs(),
+      newModificationTimeSecs = std::max(fileInfoVec[0].getModificationTimeSecs(),
          settableFileAttribs.modificationTimeSecs);
-      newModificationTimeSecs = oldModificationTimeSecs; // initialize with the old value
 
       newLastAccessTimeSecs = std::max(fileInfoVec[0].getLastAccessTimeSecs(),
          settableFileAttribs.lastAccessTimeSecs);
@@ -500,14 +497,13 @@ void StatData::updateDynamicFileAttribs(ChunkFileInfoVec& fileInfoVec, StripePat
    // now update class values
 
    setLastAccessTimeSecs(newLastAccessTimeSecs);
-   setModificationTimeSecs(newModificationTimeSecs);
-
-   int64_t oldFileSize = getFileSize();
 
    // mtime or fileSize updated, so also ctime needs to be updated
-   if (newModificationTimeSecs != oldModificationTimeSecs || oldFileSize != newFileSize)
+   if (newModificationTimeSecs != getModificationTimeSecs() ||
+         newFileSize != getFileSize())
       setAttribChangeTimeSecs(TimeAbs().getTimeval()->tv_sec);
 
+   setModificationTimeSecs(newModificationTimeSecs);
    setFileSize(newFileSize);
 }
 

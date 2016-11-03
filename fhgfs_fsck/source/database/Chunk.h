@@ -10,6 +10,8 @@
 namespace db {
 
 struct Chunk {
+   static const unsigned SAVED_PATH_SIZE = 43;
+
    EntryID id;             /* 12 */
    uint32_t targetID;      /* 16 */
    uint32_t buddyGroupID;  /* 20 */
@@ -24,7 +26,7 @@ struct Chunk {
     *   - 9 + 1 + 4 + 1 + 1 + 1 + 26
     * add a terminating NUL to each, the maximum path length becomes 44 bytes,
     * which is also conveniently aligned for uint_64t followers */
-   char savedPath[44];     /* 64 */
+   char savedPath[SAVED_PATH_SIZE + 1]; /* 64 */
 
    int64_t fileSize;       /* 72 */
    int64_t usedBlocks;     /* 80 */

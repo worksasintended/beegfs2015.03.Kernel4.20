@@ -29,8 +29,9 @@ class RetrieveDirEntriesWork : public Work
        * @param numFileInodesFound
        */
       RetrieveDirEntriesWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
-         unsigned hashDirStart, unsigned hashDirEnd, AtomicUInt64* numDentriesFound,
-         AtomicUInt64* numFileInodesFound, std::set<FsckTargetID>& usedTargets);
+         AtomicUInt64& errors, unsigned hashDirStart, unsigned hashDirEnd,
+         AtomicUInt64* numDentriesFound, AtomicUInt64* numFileInodesFound,
+         std::set<FsckTargetID>& usedTargets);
 
       void process(char* bufIn, unsigned bufInLen, char* bufOut, unsigned bufOutLen);
 
@@ -38,6 +39,7 @@ class RetrieveDirEntriesWork : public Work
       LogContext log;
       Node* node;
       SynchronizedCounter* counter;
+      AtomicUInt64* errors;
       AtomicUInt64* numDentriesFound;
       AtomicUInt64* numFileInodesFound;
       std::set<FsckTargetID>* usedTargets;

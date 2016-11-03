@@ -27,8 +27,9 @@ class RetrieveInodesWork : public Work
        * @param hashDirEnd the last top-level hashDir to open
        */
       RetrieveInodesWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
-         unsigned hashDirStart, unsigned hashDirEnd, AtomicUInt64* numFileInodesFound,
-         AtomicUInt64* numDirInodesFound, std::set<FsckTargetID>& usedTargets);
+         AtomicUInt64& errors, unsigned hashDirStart, unsigned hashDirEnd,
+         AtomicUInt64* numFileInodesFound, AtomicUInt64* numDirInodesFound,
+         std::set<FsckTargetID>& usedTargets);
 
       void process(char* bufIn, unsigned bufInLen, char* bufOut, unsigned bufOutLen);
 
@@ -36,6 +37,7 @@ class RetrieveInodesWork : public Work
       LogContext log;
       Node* node;
       SynchronizedCounter* counter;
+      AtomicUInt64* errors;
       std::set<FsckTargetID>* usedTargets;
 
       unsigned hashDirStart;

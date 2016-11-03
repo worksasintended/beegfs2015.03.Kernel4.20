@@ -10,11 +10,12 @@
 
 
 RetrieveFsIDsWork::RetrieveFsIDsWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
-   unsigned hashDirStart, unsigned hashDirEnd)
+   AtomicUInt64& errors, unsigned hashDirStart, unsigned hashDirEnd)
     : Work(),
       log("RetrieveFsIDsWork"),
       node(node),
       counter(counter),
+      errors(&errors),
       hashDirStart(hashDirStart),
       hashDirEnd(hashDirEnd),
       table(db->getFsIDsTable() ),
@@ -99,6 +100,27 @@ void RetrieveFsIDsWork::doWork()
                   // this is the actual result count we are interested in, because if no fsIDs
                   // were read, there is nothing left on the server
                   resultCount = fsIDs.size();
+
+                  // check entry IDs
+                  for (FsckFsIDListIter it = fsIDs.begin(); it != fsIDs.end(); )
+                  {
+                     if (db::EntryID::tryFromStr(it->getID()).first
+                           && db::EntryID::tryFromStr(it->getParentDirID()).first)
+                     {
+                        ++it;
+                        continue;
+                     }
+
+                     LogContext(__func__).logErr("Found fsid file with invalid entry IDs."
+                           " node: " + StringTk::uintToStr(it->getSaveNodeID()) +
+                           ", entryID: " + it->getID() +
+                           ", parentEntryID: " + it->getParentDirID());
+
+                     FsckFsIDListIter tmp = it;
+                     ++it;
+                     errors->increase();
+                     fsIDs.erase(tmp);
+                  }
 
                   this->table->insert(fsIDs, this->bulkHandle);
 
