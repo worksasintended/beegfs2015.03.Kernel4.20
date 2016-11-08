@@ -34,6 +34,21 @@
 
 #define INITIAL_FIND_PAGES (256) // search initially for this number of pages
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+static ssize_t FhgfsOps_buffered_aio_write(struct kiocb *iocb, const char __user *buf, size_t count,
+      loff_t pos);
+static ssize_t FhgfsOps_buffered_aio_read(struct kiocb *iocb, char __user *buf, size_t count,
+      loff_t pos);
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+static ssize_t FhgfsOps_buffered_aio_write(struct kiocb *iocb, const struct iovec *iov,
+      unsigned long nr_segs, loff_t pos);
+static ssize_t FhgfsOps_buffered_aio_read(struct kiocb *iocb, const struct iovec *iov,
+      unsigned long nr_segs, loff_t pos);
+#else
+static ssize_t FhgfsOps_buffered_write_iter(struct kiocb *iocb, struct iov_iter *from);
+static ssize_t FhgfsOps_buffered_read_iter(struct kiocb *iocb, struct iov_iter *to);
+#endif // LINUX_VERSION_CODE
+
 /**
  * Operations for files with cache type "buffered" and "none".
  */
@@ -60,6 +75,14 @@ struct file_operations fhgfs_file_buffered_ops =
 #else
    .splice_read  = generic_file_splice_read,
    .splice_write = generic_file_splice_write,
+#endif // LINUX_VERSION_CODE
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
+   .read_iter           = FhgfsOps_buffered_read_iter,
+   .write_iter          = FhgfsOps_buffered_write_iter, // replacement for aio_write
+#else
+   .aio_read            = FhgfsOps_buffered_aio_read,
+   .aio_write           = FhgfsOps_buffered_aio_write,
 #endif // LINUX_VERSION_CODE
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,22)
@@ -1072,6 +1095,138 @@ ssize_t FhgfsOps_read_iter(struct kiocb *iocb, struct iov_iter *to)
    return retVal;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+static ssize_t FhgfsOps_buffered_aio_read(struct kiocb *iocb, char __user *buf, size_t count,
+      loff_t pos)
+{
+   App* app = FhgfsOps_getApp(iocb->ki_filp->f_mapping->host->i_sb);
+
+   (void) app;
+   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+         __func__, "(offset: %lld; count: %lld)", (long long)pos, (long long)count);
+
+   return FhgfsOps_read(iocb->ki_filp, buf, count, &pos);
+}
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+static ssize_t FhgfsOps_buffered_aio_read(struct kiocb *iocb, const struct iovec *iov,
+      unsigned long nr_segs, loff_t pos)
+{
+   App* app = FhgfsOps_getApp(iocb->ki_filp->f_mapping->host->i_sb);
+   size_t totalReadRes = 0;
+   unsigned long curSeg;
+
+   (void) app;
+   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+         __func__, "(offset: %lld; nr_segs: %lld)", (long long)pos, (long long)nr_segs);
+
+   for (curSeg = 0; curSeg < nr_segs; curSeg++)
+   {
+      void* base = iov[curSeg].iov_base;
+      size_t len = iov[curSeg].iov_len;
+      ssize_t readRes;
+
+      if (totalReadRes + len >= (2<<30) || totalReadRes + len < totalReadRes)
+         len = (2<<30) - totalReadRes;
+
+      readRes = FhgfsOps_read(iocb->ki_filp, base, len, &pos);
+      if (readRes < 0 && totalReadRes == 0)
+         return readRes;
+
+      if (readRes < 0)
+         break;
+
+      totalReadRes += readRes;
+      if (readRes < len)
+         break;
+   }
+
+   return totalReadRes;
+}
+#else // LINUX_VERSION_CODE
+static ssize_t FhgfsOps_buffered_read_iter(struct kiocb *iocb, struct iov_iter *to)
+{
+   App* app = FhgfsOps_getApp(iocb->ki_filp->f_mapping->host->i_sb);
+   ssize_t totalReadRes = 0;
+
+   (void) app;
+   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+         __func__, "(offset: %lld; nr_segs: %lu)", (long long)iocb->ki_pos, to->nr_segs);
+
+   if (!(to->type & ITER_BVEC))
+   {
+      struct iovec iov;
+      struct iov_iter iter = *to;
+
+      mm_segment_t segment = get_fs();
+
+      if (to->type & ITER_KVEC)
+         set_fs(KERNEL_DS);
+
+      if (iter.count > (2<<30))
+         iter.count = 2<<30;
+
+      iov_for_each(iov, iter, iter)
+      {
+         ssize_t readRes;
+
+         readRes = FhgfsOps_read(iocb->ki_filp, iov.iov_base, iov.iov_len, &iocb->ki_pos);
+         if (readRes < 0 && totalReadRes == 0)
+         {
+            totalReadRes = readRes;
+            break;
+         }
+
+         if (readRes <= 0)
+            break;
+
+         totalReadRes += readRes;
+         if (readRes < iov.iov_len)
+            break;
+      }
+
+      if (to->type & ITER_KVEC)
+         set_fs(segment);
+   }
+   else
+   {
+      struct page* buffer = alloc_page(GFP_NOFS);
+      void* kaddr;
+
+      if (!buffer)
+         return -ENOMEM;
+
+      kaddr = kmap_atomic(buffer);
+      {
+         ssize_t readRes;
+         size_t copyRes;
+
+         while (iov_iter_count(to) > 0)
+         {
+            readRes = FhgfsOps_read(iocb->ki_filp, kaddr, PAGE_SIZE, &iocb->ki_pos);
+            if (readRes < 0 && totalReadRes == 0)
+            {
+               totalReadRes = readRes;
+               break;
+            }
+
+            if (readRes <= 0)
+               break;
+
+            copyRes = copy_page_to_iter(buffer, 0, readRes, to);
+            if (copyRes < readRes)
+               readRes = copyRes;
+
+            totalReadRes += readRes;
+         }
+      }
+      kunmap_atomic(kaddr);
+      __free_page(buffer);
+   }
+
+   return totalReadRes;
+}
+#endif // LINUX_VERSION_CODE
+
 
 ssize_t FhgfsOps_write(struct file* file, const char __user *buf, size_t size,
    loff_t* offsetPointer)
@@ -1293,6 +1448,138 @@ ssize_t FhgfsOps_write_iter(struct kiocb *iocb, struct iov_iter *from)
 
    return retVal;
 }
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+static ssize_t FhgfsOps_buffered_aio_write(struct kiocb *iocb, const char __user *buf, size_t count,
+      loff_t pos)
+{
+   App* app = FhgfsOps_getApp(iocb->ki_filp->f_mapping->host->i_sb);
+
+   (void) app;
+   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+         __func__, "(offset: %lld; count: %lld)", (long long)pos, (long long)count);
+
+   return FhgfsOps_write(iocb->ki_filp, buf, count, &pos);
+}
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+static ssize_t FhgfsOps_buffered_aio_write(struct kiocb *iocb, const struct iovec *iov,
+      unsigned long nr_segs, loff_t pos)
+{
+   App* app = FhgfsOps_getApp(iocb->ki_filp->f_mapping->host->i_sb);
+   size_t totalWriteRes = 0;
+   unsigned long curSeg;
+
+   (void) app;
+   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+         __func__, "(offset: %lld; nr_segs: %lld)", (long long)pos, (long long)nr_segs);
+
+   for (curSeg = 0; curSeg < nr_segs; curSeg++)
+   {
+      void* base = iov[curSeg].iov_base;
+      size_t len = iov[curSeg].iov_len;
+      ssize_t writeRes;
+
+      if (totalWriteRes + len >= (2<<30) || totalWriteRes + len < totalWriteRes)
+         len = (2<<30) - totalWriteRes;
+
+      writeRes = FhgfsOps_write(iocb->ki_filp, base, len, &pos);
+      if (writeRes < 0 && totalWriteRes == 0)
+         return writeRes;
+
+      if (writeRes < 0)
+         break;
+
+      totalWriteRes += writeRes;
+      if (writeRes < len)
+         break;
+   }
+
+   return totalWriteRes;
+}
+#else // LINUX_VERSION_CODE
+static ssize_t FhgfsOps_buffered_write_iter(struct kiocb *iocb, struct iov_iter *from)
+{
+   App* app = FhgfsOps_getApp(iocb->ki_filp->f_mapping->host->i_sb);
+   ssize_t totalWriteRes = 0;
+
+   (void) app;
+   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+         __func__, "(offset: %lld; nr_segs: %lu)", (long long)iocb->ki_pos, from->nr_segs);
+
+   if (!(from->type & ITER_BVEC))
+   {
+      struct iovec iov;
+      struct iov_iter iter = *from;
+
+      mm_segment_t segment = get_fs();
+
+      if (from->type & ITER_KVEC)
+         set_fs(KERNEL_DS);
+
+      if (iter.count > (2<<30))
+         iter.count = 2<<30;
+
+      iov_for_each(iov, iter, iter)
+      {
+         ssize_t writeRes;
+
+         writeRes = FhgfsOps_write(iocb->ki_filp, iov.iov_base, iov.iov_len, &iocb->ki_pos);
+         if (writeRes < 0 && totalWriteRes == 0)
+         {
+            totalWriteRes = writeRes;
+            break;
+         }
+
+         if (writeRes <= 0)
+            break;
+
+         totalWriteRes += writeRes;
+         if (writeRes < iov.iov_len)
+            break;
+      }
+
+      if (from->type & ITER_KVEC)
+         set_fs(segment);
+   }
+   else
+   {
+      struct page* buffer = alloc_page(GFP_NOFS);
+      void* kaddr;
+
+      if (!buffer)
+         return -ENOMEM;
+
+      kaddr = kmap_atomic(buffer);
+      {
+         ssize_t writeRes;
+         size_t copyRes;
+
+         while (iov_iter_count(from) > 0)
+         {
+            copyRes = copy_page_from_iter(buffer, 0, PAGE_SIZE, from);
+
+            writeRes = FhgfsOps_write(iocb->ki_filp, kaddr, copyRes, &iocb->ki_pos);
+            if (writeRes < 0 && totalWriteRes == 0)
+            {
+               totalWriteRes = writeRes;
+               break;
+            }
+
+            if (writeRes <= 0)
+               break;
+
+            totalWriteRes += writeRes;
+            if (writeRes < copyRes)
+               break;
+         }
+      }
+      kunmap_atomic(kaddr);
+      __free_page(buffer);
+   }
+
+   return totalWriteRes;
+}
+#endif // LINUX_VERSION_CODE
 
 
 #ifdef KERNEL_HAS_FSYNC_RANGE /* added in vanilla 3.1 */

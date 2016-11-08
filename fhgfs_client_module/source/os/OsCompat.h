@@ -237,7 +237,7 @@ static inline int os_generic_write_checks(struct file* filp, loff_t* offset, siz
 }
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+#ifndef KERNEL_HAS_PAGE_ENDIO
 static inline void page_endio(struct page *page, int rw, int err)
 {
    if (rw == READ)

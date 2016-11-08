@@ -174,7 +174,7 @@ bool DataFetcher::retrieveChunks()
 
       // node will be released inside of work package
       RetrieveChunksWork* retrieveWork = new RetrieveChunksWork(this->database, node,
-            &(this->finishedPackages), fatalErrorsFound, &numChunksFound, forceRestart);
+            &(this->finishedPackages), &numChunksFound, forceRestart);
       this->workQueue->addIndirectWork(retrieveWork);
 
       bool started;

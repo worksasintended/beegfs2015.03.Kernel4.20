@@ -93,7 +93,7 @@ void ModificationEventFlusher::sendToFsck()
       this->fsckMissedEvent = true;
 
       // stop logging
-      this->disableLogging();
+      this->disableLoggingLocally(false);
 
       return;
    }
@@ -134,7 +134,7 @@ void ModificationEventFlusher::sendToFsck()
       this->fsckMissedEvent = true;
 
       // stop logging
-      this->disableLogging();
+      this->disableLoggingLocally(false);
    }
 
    SafeMutexLock eventsFlushedSafeLock(&eventsFlushedMutex);

@@ -738,6 +738,62 @@ void ModeCheckFS::logDuplicateChunk(std::list<FsckChunk>& dups, int&)
    }
 }
 
+int64_t ModeCheckFS::checkAndRepairMalformedChunk()
+{
+   FsckRepairAction possibleActions[] = {
+      FsckRepairAction_NOTHING,
+      FsckRepairAction_DELETECHUNK,
+   };
+
+   UserPrompter prompt(possibleActions, FsckRepairAction_DELETECHUNK);
+
+   FsckTkEx::fsckOutput("* Malformed chunk ...", OutputOptions_FLUSH | OutputOptions_LINEBREAK);
+
+   return checkAndRepairGeneric(Cursor<FsckChunk>(database->getMalformedChunksList()->cursor()),
+      &ModeCheckFS::repairMalformedChunk, prompt);
+}
+
+void ModeCheckFS::repairMalformedChunk(FsckChunk& chunk, UserPrompter& prompt)
+{
+   FsckRepairAction action = prompt.chooseAction("Chunk ID: " + chunk.getID() + " on " +
+         (chunk.getBuddyGroupID()
+            ? "group " + StringTk::uintToStr(chunk.getBuddyGroupID())
+            : "target " + StringTk::uintToStr(chunk.getTargetID())));
+
+   switch (action)
+   {
+   case FsckRepairAction_UNDEFINED:
+   case FsckRepairAction_NOTHING:
+      break;
+
+   case FsckRepairAction_DELETECHUNK: {
+      FhgfsOpsErr refErr;
+      NodeStore* storageNodeStore = Program::getApp()->getStorageNodes();
+      Node* node = storageNodeStore->referenceNodeByTargetID(chunk.getTargetID(),
+         Program::getApp()->getTargetMapper(), &refErr);
+
+      if(!node)
+      {
+         FsckTkEx::fsckOutput("could not get storage target "
+            + StringTk::uintToStr(chunk.getTargetID() ), OutputOptions_LINEBREAK);
+         return;
+      }
+
+      FsckChunkList chunks(1, chunk);
+      FsckChunkList failed;
+
+      MsgHelperRepair::deleteChunks(node, &chunks, &failed);
+
+      storageNodeStore->releaseNode(&node);
+
+      break;
+   }
+
+   default:
+      throw std::runtime_error("bad repair action");
+   }
+}
+
 void ModeCheckFS::checkAndRepair()
 {
    FsckTkEx::fsckOutput("Step 3: Check for errors... ", OutputOptions_DOUBLELINEBREAK);
@@ -756,6 +812,7 @@ void ModeCheckFS::checkAndRepair()
       return;
    }
 
+   errorCount += checkAndRepairMalformedChunk();
    errorCount += checkAndRepairFilesWithMissingTargets();
    errorCount += checkAndRepairOrphanedDentryByIDFiles();
    errorCount += checkAndRepairDirEntriesWithBrokeByIDFile();

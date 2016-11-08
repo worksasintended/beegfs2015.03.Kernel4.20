@@ -167,6 +167,7 @@ function init_multi_mode_single_configuration()
 
             mnt=`echo $line | awk '{print $1}'`
             cfg=`echo $line | awk '{print $2}'`
+            extra_mount_opts=`echo $line | awk '{print $3}'`
 
             if [ -z "$mnt" -o -z "$cfg" ]; then
                echo "Invalid config line: \"$line\""
@@ -192,7 +193,8 @@ function init_multi_mode_single_configuration()
                fi
             fi
 
-            mount -t beegfs beegfs_${CONFIG} ${mnt} -ocfgFile=${cfg},_netdev,${SELINUX_OPT}
+            mount -t beegfs beegfs_${CONFIG} ${mnt} \
+               -ocfgFile=${cfg},_netdev,${SELINUX_OPT},${extra_mount_opts}
             if [ $? -ne 0 ]
             then
                echo "Couldn't mount ${mnt}."

@@ -111,6 +111,7 @@ static inline void Logger_logTopErr(Logger* this, LogTopic logTopic, const char*
 
 enum LogLevel
 {
+   LOG_NOTHING=-1,
    Log_ERR=0, /* system error */
    Log_CRITICAL=1, /* something the users should definitely know about */
    Log_WARNING=2, /* things that indicate or are related to a problem */
@@ -134,7 +135,7 @@ enum LogTopic
    LogTopic_LAST      /* not valid, just exists to define the LogLevelsArray size */
 };
 
-typedef char LogTopicLevels[LogTopic_LAST]; /* array for per-topic log levels, see LogTopic/
+typedef signed char LogTopicLevels[LogTopic_LAST]; /* array for per-topic log levels, see LogTopic/
    LogLevel. Note: Type is actually type LogLevel, but we use char here because we also allow
    "-1" to disable a level. */
 

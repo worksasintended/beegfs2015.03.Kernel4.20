@@ -14,14 +14,14 @@
 #include <program/Program.h>
 
 RetrieveChunksWork::RetrieveChunksWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
-   AtomicUInt64& errors, AtomicUInt64* numChunksFound, bool forceRestart)
+   AtomicUInt64* numChunksFound, bool forceRestart)
     : Work(),
       log("RetrieveChunksWork"),
       node(node),
       counter(counter),
-      errors(&errors),
       numChunksFound(numChunksFound),
       chunks(db->getChunksTable() ), chunksHandle(chunks->newBulkHandle() ),
+      malformedChunks(db->getMalformedChunksList()),
       forceRestart(forceRestart),
       started(false), startedBarrier(2)
 {
@@ -104,14 +104,10 @@ void RetrieveChunksWork::doWork()
                   continue;
                }
 
-               LogContext(__func__).logErr("Found chunk with invalid entry ID or path."
-                     " node: " + StringTk::uintToStr(node->getNumID()) +
-                     ", path: " + it->getSavedPath()->getPathAsStr() +
-                     ", entryID: " + it->getID());
 
                FsckChunkListIter tmp = it;
                ++it;
-               errors->increase();
+               malformedChunks->append(*tmp);
                chunks.erase(tmp);
             }
 

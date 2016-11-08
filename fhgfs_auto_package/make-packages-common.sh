@@ -167,8 +167,8 @@ make_dep_lib()
 
 	echo ${lib}
 	pwd
-	run_cmd "make -C ${lib}/${EXTRA_DIR}/build clean >${LOGFILE:-/dev/null} 2>&1"
-	run_cmd "make -C ${lib}/${EXTRA_DIR}/build -j $make_concurrency >${LOGFILE:-/dev/null} 2>&1"
+	run_cmd "make -C ${lib}/${EXTRA_DIR}/build clean >${LOGFILE:-/dev/null}"
+	run_cmd "make -C ${lib}/${EXTRA_DIR}/build -j $make_concurrency >${LOGFILE:-/dev/null}"
 }
 
 # clean packages up here first, do not do it below, as we need

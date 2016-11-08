@@ -1,5 +1,5 @@
 #ifndef UPDATEPARENTENTRYIDRESPMSG_H_
-#define UPDATEDIRPARENTRESPMSG_H_
+#define UPDATEPARENTENTRYIDRESPMSG_H_
 
 #include <common/net/message/SimpleIntMsg.h>
 

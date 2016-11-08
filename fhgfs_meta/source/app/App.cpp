@@ -863,13 +863,13 @@ void App::stopComponents()
 
    // note: no commslave stop here, because that would keep workers from terminating
 
+   if(modificationEventFlusher)
+      modificationEventFlusher->selfTerminate();
+
    workersStop();
 
    if(metadataMirrorer)
       metadataMirrorer->selfTerminate();
-
-   if(modificationEventFlusher)
-      modificationEventFlusher->selfTerminate();
 
    if(fullRefresher)
       fullRefresher->stopRefreshing();

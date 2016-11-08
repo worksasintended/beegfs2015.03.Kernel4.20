@@ -26,7 +26,7 @@ class RetrieveChunksWork : public Work
        * @param numChunksFound
        */
       RetrieveChunksWork(FsckDB* db, Node* node, SynchronizedCounter* counter,
-         AtomicUInt64& errors, AtomicUInt64* numChunksFound, bool forceRestart);
+         AtomicUInt64* numChunksFound, bool forceRestart);
       virtual ~RetrieveChunksWork();
       void process(char* bufIn, unsigned bufInLen, char* bufOut, unsigned bufOutLen);
 
@@ -36,11 +36,12 @@ class RetrieveChunksWork : public Work
       LogContext log;
       Node* node;
       SynchronizedCounter* counter;
-      AtomicUInt64* errors;
       AtomicUInt64* numChunksFound;
 
       FsckDBChunksTable* chunks;
       FsckDBChunksTable::BulkHandle chunksHandle;
+
+      DiskList<FsckChunk>* malformedChunks;
 
       bool forceRestart;
 

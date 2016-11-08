@@ -145,7 +145,7 @@ void App_uninit(App* this)
    SAFE_DESTRUCT(this->mgmtNodes, NodeStoreEx_destruct);
 
    if(this->logger)
-      Logger_setAllLogLevels(this->logger, -1); // disable logging
+      Logger_setAllLogLevels(this->logger, LOG_NOTHING); // disable logging
 
    SAFE_DESTRUCT(this->localNode, Node_destruct);
    SAFE_DESTRUCT(this->targetMapper, TargetMapper_destruct);

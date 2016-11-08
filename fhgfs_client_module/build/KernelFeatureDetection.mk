@@ -473,6 +473,13 @@ $(call define_if_matches, KERNEL_HAS_XATTR_HANDLERS_INODE_ARG, \
    -P "generic_getxattr.*struct inode", xattr.h)
 $(call define_if_matches, KERNEL_HAS_INODE_LOCK, "static inline void inode_lock", fs.h)
 
+#<linuy-4.8
+$(call define_if_matches, KERNEL_HAS_PAGE_ENDIO, \
+   -F "void page_endio(struct page *page, int rw, int err);", pagemap.h)
+#>=linux-4.8
+$(call define_if_matches, KERNEL_HAS_PAGE_ENDIO, \
+   -F "void page_endio(struct page *page, bool is_write, int err);", pagemap.h)
+
 KERNEL_FEATURE_DETECTION += $(shell \
    grep -sFA1 "sock_recvmsg" ${KSRCDIR_PRUNED_HEAD}/include/linux/net.h \
       | grep -qsF "size_t size" \
@@ -512,3 +519,4 @@ KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_POSIX_GET_ACL)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_CONST_XATTR_HANDLER)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_DENTRY_XATTR_HANDLER)
 KERNEL_FEATURE_DETECTION += $(OFED_HAS_IB_CREATE_CQATTR)
+KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_PAGE_ENDIO)

@@ -21,6 +21,7 @@
 #include <common/storage/StorageDefinitions.h>
 #include <database/Cursor.h>
 #include <database/DirEntry.h>
+#include <database/DiskList.h>
 #include <database/EntryID.h>
 #include <database/Filter.h>
 #include <database/VectorSource.h>
@@ -103,6 +104,7 @@ class FsckDB
       boost::scoped_ptr<FsckDBFsIDsTable> fsIDsTable;
       boost::scoped_ptr<FsckDBUsedTargetIDsTable> usedTargetIDsTable;
       boost::scoped_ptr<FsckDBModificationEventsTable> modificationEventsTable;
+      DiskList<FsckChunk> malformedChunks;
 
    public:
       FsckDBDentryTable* getDentryTable()
@@ -143,6 +145,11 @@ class FsckDB
       FsckDBModificationEventsTable* getModificationEventsTable()
       {
          return this->modificationEventsTable.get();
+      }
+
+      DiskList<FsckChunk>* getMalformedChunksList()
+      {
+         return &malformedChunks;
       }
 };
 

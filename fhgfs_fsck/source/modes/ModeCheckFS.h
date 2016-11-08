@@ -82,6 +82,9 @@ class ModeCheckFS : public Mode
       int64_t checkDuplicateChunks();
       void logDuplicateChunk(std::list<FsckChunk>& dups, int&);
 
+      int64_t checkAndRepairMalformedChunk();
+      void repairMalformedChunk(FsckChunk& chunk, UserPrompter& prompt);
+
       void checkAndRepair();
 
       void repairDanglingDirEntry(db::DirEntry& entry,

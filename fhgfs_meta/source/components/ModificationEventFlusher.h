@@ -89,35 +89,15 @@ class ModificationEventFlusher: public PThread
 
          mutexLock.unlock();
 
-         stallAllWorkers();
+         stallAllWorkers(true, false);
          this->numLoggingWorkers.set(workers->size());
 
          return true;
       }
 
-      /*
-       * Note: if logging is already disabled, this function basically does nothing, but returns
-       * if the buffer is empty or not
-       * Caller must hold mutex lock.
-       *
-       * @return true if buffer is empty, false otherwise
-       */
       bool disableLogging()
       {
-         if ( this->loggingEnabled.read() != 0 )
-            this->loggingEnabled.setZero();
-
-         stallAllWorkers();
-         this->numLoggingWorkers.setZero();
-
-         SafeMutexLock mutexLock(&mutex);
-
-         // make sure list is empty and no worker is logging anymore
-         bool res = this->eventTypeBufferList.empty();
-
-         mutexLock.unlock();
-
-         return res;
+         return disableLoggingLocally(true);
       }
 
       bool isLoggingEnabled()
@@ -142,6 +122,31 @@ class ModificationEventFlusher: public PThread
       }
 
    private:
+      /*
+       * Note: if logging is already disabled, this function basically does nothing, but returns
+       * if the buffer is empty or not
+       * @param fromWorker set to true if this is called from a worker thread. Otherwise, the worker
+       *                   calling this will deadlock
+       * @return true if buffer is empty, false otherwise
+       */
+      bool disableLoggingLocally(bool fromWorker)
+      {
+         if ( this->loggingEnabled.read() != 0 )
+            this->loggingEnabled.setZero();
+
+         stallAllWorkers(fromWorker, true);
+         this->numLoggingWorkers.setZero();
+
+         SafeMutexLock mutexLock(&mutex);
+
+         // make sure list is empty and no worker is logging anymore
+         bool res = this->eventTypeBufferList.empty();
+
+         mutexLock.unlock();
+
+         return res;
+      }
+
       void setFsckParametersUnlocked(unsigned portUDP, NicAddressList& nicList)
       {
          this->fsckMissedEvent = false;
@@ -149,7 +154,15 @@ class ModificationEventFlusher: public PThread
          this->fsckNode->updateInterfaces(portUDP, 0, nicList);
       }
 
-      void stallAllWorkers()
+      /**
+       * @param fromWorker This is called from a worker thread. In that case, this function blocks
+       *                   only until n-1 workers have reached the counter work item - because one
+       *                   of the workers is already blocked inside this function.
+       * @param flush Flush the modification event queue. Do this when stopping the modification
+       *              event logger, because otherwise, workers might lock up trying to enqueue items
+       *              which will never be sent to the Fsck.
+       */
+      void stallAllWorkers(bool fromWorker, bool flush)
       {
          App* app = Program::getApp();
          MultiWorkQueue* workQueue = app->getWorkQueue();
@@ -160,14 +173,35 @@ class ModificationEventFlusher: public PThread
          for (WorkerListIter workerIt = workerList->begin(); workerIt != workerList->end();
               ++workerIt)
          {
-            if (!PThread::threadIDEquals((*workerIt)->getID(), threadID))
+            // don't enqueue it in the worker that processes this message (this would deadlock)
+            if (!PThread::threadIDEquals((*workerIt)->getID(), threadID) || !fromWorker)
             {
                PersonalWorkQueue* personalQ = (*workerIt)->getPersonalWorkQueue();
                workQueue->addPersonalWork(new IncSyncedCounterWork(&notified), personalQ);
             }
          }
 
-         notified.waitForCount(workerList->size() - 1);
+         while (true)
+         {
+            const bool done = notified.timedWaitForCount(workerList->size() - (fromWorker ? 1 : 0),
+                  1000);
+
+            if (done)
+            {
+               break;
+            }
+            else if (flush)
+            {
+               SafeMutexLock safeMutexLock(&mutex);
+               this->eventTypeBufferList.clear();
+               this->entryIDBufferList.clear();
+               safeMutexLock.unlock();
+
+               SafeMutexLock eventsFlushedSafeLock(&eventsFlushedMutex);
+               eventsFlushedCond.broadcast();
+               eventsFlushedSafeLock.unlock();
+            }
+         }
       }
 };
 

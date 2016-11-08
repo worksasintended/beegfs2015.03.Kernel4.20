@@ -263,9 +263,9 @@ void BuddyResyncJob::run()
    for(size_t i = 0; i < dirSyncSlaveVec.size(); i++)
    {
       if (likely(shallAbort.read() == 0))
-         dirSyncSlaveVec[i]->setOnlyTerminateIfIdle(false);
-      else
          dirSyncSlaveVec[i]->setOnlyTerminateIfIdle(true);
+      else
+         dirSyncSlaveVec[i]->setOnlyTerminateIfIdle(false);
 
       dirSyncSlaveVec[i]->selfTerminate();
    }
@@ -719,7 +719,7 @@ bool BuddyResyncJob::walkDirs(std::string chunksPath, std::string relPath, int l
                numDirsMatched.increase();
             }
 
-            bool walkRes = walkDirs(chunksPath, currentRelPath, ++level, lastBuddyCommTimeSecs);
+            bool walkRes = walkDirs(chunksPath, currentRelPath, level+1, lastBuddyCommTimeSecs);
 
             if (!walkRes)
                retVal = false;

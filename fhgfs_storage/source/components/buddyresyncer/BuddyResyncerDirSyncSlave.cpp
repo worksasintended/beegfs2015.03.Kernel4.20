@@ -82,9 +82,9 @@ void BuddyResyncerDirSyncSlave::syncLoop()
       FhgfsOpsErr resyncRes = doSync(relativePath, localTargetID, buddyTargetID);
       if (resyncRes == FhgfsOpsErr_SUCCESS)
          numDirsSynced.increase();
-      else
-      if (resyncRes != FhgfsOpsErr_INTERRUPTED)
-         errorCount.increase();
+      else if (resyncRes != FhgfsOpsErr_INTERRUPTED)
+         errorCount.increase(); // increment error count if an error occurred; note: if the slaves
+                                // were interrupted from the outside (e.g. ctl) this is not an error
    }
 }
 

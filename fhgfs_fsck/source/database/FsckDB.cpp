@@ -21,7 +21,8 @@ FsckDB::FsckDB(const std::string& databasePath, size_t fragmentSize, size_t name
      fsIDsTable(new FsckDBFsIDsTable(databasePath, fragmentSize, allowCreate) ),
      usedTargetIDsTable(new FsckDBUsedTargetIDsTable(databasePath, fragmentSize, allowCreate) ),
      modificationEventsTable(new FsckDBModificationEventsTable(databasePath, fragmentSize,
-         allowCreate) )
+         allowCreate) ),
+     malformedChunks(databasePath + "/malformedChunks")
 {
 }
 
@@ -35,4 +36,5 @@ void FsckDB::clear()
    this->fsIDsTable->clear();
    this->usedTargetIDsTable->clear();
    this->modificationEventsTable->clear();
+   this->malformedChunks.clear();
 }
