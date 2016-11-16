@@ -1105,7 +1105,7 @@ static ssize_t FhgfsOps_buffered_aio_read(struct kiocb *iocb, char __user *buf, 
    FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
          __func__, "(offset: %lld; count: %lld)", (long long)pos, (long long)count);
 
-   return FhgfsOps_read(iocb->ki_filp, buf, count, &pos);
+   return FhgfsOps_read(iocb->ki_filp, buf, count, &iocb->ki_pos);
 }
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
 static ssize_t FhgfsOps_buffered_aio_read(struct kiocb *iocb, const struct iovec *iov,
@@ -1128,7 +1128,7 @@ static ssize_t FhgfsOps_buffered_aio_read(struct kiocb *iocb, const struct iovec
       if (totalReadRes + len >= (2<<30) || totalReadRes + len < totalReadRes)
          len = (2<<30) - totalReadRes;
 
-      readRes = FhgfsOps_read(iocb->ki_filp, base, len, &pos);
+      readRes = FhgfsOps_read(iocb->ki_filp, base, len, &iocb->ki_pos);
       if (readRes < 0 && totalReadRes == 0)
          return readRes;
 
@@ -1459,7 +1459,7 @@ static ssize_t FhgfsOps_buffered_aio_write(struct kiocb *iocb, const char __user
    FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
          __func__, "(offset: %lld; count: %lld)", (long long)pos, (long long)count);
 
-   return FhgfsOps_write(iocb->ki_filp, buf, count, &pos);
+   return FhgfsOps_write(iocb->ki_filp, buf, count, &iocb->ki_pos);
 }
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
 static ssize_t FhgfsOps_buffered_aio_write(struct kiocb *iocb, const struct iovec *iov,
@@ -1482,7 +1482,7 @@ static ssize_t FhgfsOps_buffered_aio_write(struct kiocb *iocb, const struct iove
       if (totalWriteRes + len >= (2<<30) || totalWriteRes + len < totalWriteRes)
          len = (2<<30) - totalWriteRes;
 
-      writeRes = FhgfsOps_write(iocb->ki_filp, base, len, &pos);
+      writeRes = FhgfsOps_write(iocb->ki_filp, base, len, &iocb->ki_pos);
       if (writeRes < 0 && totalWriteRes == 0)
          return writeRes;
 
