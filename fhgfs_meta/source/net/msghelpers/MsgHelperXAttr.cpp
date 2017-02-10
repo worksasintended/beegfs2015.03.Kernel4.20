@@ -27,7 +27,7 @@ FhgfsOpsErr MsgHelperXAttr::listxattr(EntryInfo* entryInfo, StringVector& outNam
    else
    {
       const std::string parentID = entryInfo->getParentEntryID();
-      const std::string fileName = entryInfo->getFileName();
+      const std::string fileName = entryInfo->getEntryID();
 
       DirInode* dir = metaStore->referenceDir(parentID, false);
       if (unlikely(!dir) )
@@ -75,7 +75,7 @@ FhgfsOpsErr MsgHelperXAttr::getxattr(EntryInfo* entryInfo, const std::string& na
    else
    {
       const std::string parentID = entryInfo->getParentEntryID();
-      const std::string fileName = entryInfo->getFileName();
+      const std::string fileName = entryInfo->getEntryID();
 
       DirInode* dir = metaStore->referenceDir(parentID, false);
       if (unlikely(!dir) )
@@ -118,7 +118,7 @@ FhgfsOpsErr MsgHelperXAttr::removexattr(EntryInfo* entryInfo, const std::string&
    else
    {
       const std::string parentID = entryInfo->getParentEntryID();
-      const std::string fileName = entryInfo->getFileName();
+      const std::string fileName = entryInfo->getEntryID();
 
       DirInode* dir = metaStore->referenceDir(parentID, false);
       if (unlikely(!dir) )
@@ -153,7 +153,7 @@ FhgfsOpsErr MsgHelperXAttr::setxattr(EntryInfo* entryInfo, const std::string& na
    else
    {
       const std::string parentID = entryInfo->getParentEntryID();
-      const std::string fileName = entryInfo->getFileName();
+      const std::string fileName = entryInfo->getEntryID();
 
       DirInode* dir = metaStore->referenceDir(parentID, false);
       if (unlikely(!dir) )
@@ -167,15 +167,22 @@ FhgfsOpsErr MsgHelperXAttr::setxattr(EntryInfo* entryInfo, const std::string& na
    return retVal;
 }
 
+void MsgHelperXAttr::resetXAttrFn(void* context)
+{
+   StreamXAttrState* state = (StreamXAttrState*) context;
+
+   state->index = 0;
+}
+
 FhgfsOpsErr MsgHelperXAttr::streamXAttrFn(void* context, std::string& name, CharVector& value)
 {
    StreamXAttrState* state = (StreamXAttrState*) context;
 
-   if (state->names->empty())
+   if (state->index == state->names->size())
       return FhgfsOpsErr_SUCCESS;
 
-   name.swap(state->names->back());
-   state->names->pop_back();
+   name = state->names->at(state->index);
+   state->index += 1;
 
    ssize_t size = XATTR_SIZE_MAX;
 

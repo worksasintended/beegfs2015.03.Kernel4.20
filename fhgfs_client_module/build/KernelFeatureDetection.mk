@@ -309,16 +309,6 @@ KERNEL_HAS_DIRECT_IO_ITER = $(shell \
 	fi)
 # KERNEL_HAS_DIRECT_IO_ITER [END]
 
-# KERNEL_HAS_SPECIAL_UEK_IOV_ITER
-#
-# Find out if the kernel has a special struct iov_iter (which does not contain an iov pointer) which
-# only seems to exist in Oracle uek kernels.
-KERNEL_HAS_SPECIAL_UEK_IOV_ITER = $(shell \
-	if grep "struct iovec \*iov_iter_iovec" ${KSRCDIR_PRUNED_HEAD}/include/linux/fs.h 1>/dev/null 2>&1 ; \
-	then echo "-DKERNEL_HAS_SPECIAL_UEK_IOV_ITER" ; \
-	fi)
-# KERNEL_HAS_SPECIAL_UEK_IOV_ITER [END]
-
 # KERNEL_HAS_F_DENTRY [START]
 #
 # Find out if the kernel has f_dentry as part of struct dentry or a f_dentry define for
@@ -485,6 +475,91 @@ KERNEL_FEATURE_DETECTION += $(shell \
       | grep -qsF "size_t size" \
       && echo "-DKERNEL_HAS_RECVMSG_SIZE")
 
+$(call define_if_matches, KERNEL_HAS_MEMDUP_USER, "memdup_user", string.h)
+$(call define_if_matches, KERNEL_HAS_CURRENT_FSUID, "current_fsuid", cred.h)
+$(call define_if_matches, KERNEL_HAS_FIRST_NET_DEVICE_NS, "first_net_device.struct net", \
+   netdevice.h)
+$(call define_if_matches, KERNEL_HAS_FIRST_NET_DEVICE, "first_net_device.void.", netdevice.h)
+$(call define_if_matches, KERNEL_HAS_FAULTATTR_DNAME, -F "struct dentry *dname", fault-inject.h)
+$(call define_if_matches, KERNEL_HAS_MNT_WANT_WRITE, "mnt_want_write", mount.h)
+$(call define_if_matches, KERNEL_HAS_SYSTEM_UTSNAME, "system_utsname", utsname.h)
+$(call define_if_matches, KERNEL_HAS_IN4_PTON, "in4_pton", inet.h)
+$(call define_if_matches, KERNEL_HAS_KSTRNDUP, "kstrndup", string.h)
+$(call define_if_matches, KERNEL_HAS_SOCK_CREATE_KERN_NS, "sock_create_kern.struct net", net.h)
+$(call define_if_matches, KERNEL_HAS_SOCK_SENDMSG_NOLEN, "sock_sendmsg.*msg.;", net.h)
+$(call define_if_matches, KERNEL_HAS_MSGHDR_ITER, "msg_iter", socket.h)
+$(call define_if_matches, KERNEL_HAS_IOV_ITER_INIT_DIR, "iov_iter_init.*direction", uio.h)
+$(call define_if_matches, KERNEL_HAS_ITER_BVEC, "ITER_BVEC", uio.h)
+$(call define_if_matches, KERNEL_HAS_ITER_IS_IOVEC, "iter_is_iovec", uio.h)
+$(call define_if_matches, KERNEL_HAS_IOV_ITER_IN_FS, "struct iov_iter {", fs.h)
+$(call define_if_matches, KERNEL_HAS_IOV_ITER_IOVEC, "iov_iter_iovec", uio.h)
+$(call define_if_matches, KERNEL_HAS_GET_SB_NODEV, "get_sb_nodev", fs.h)
+$(call define_if_matches, KERNEL_HAS_GENERIC_FILE_LLSEEK_UNLOCKED, "generic_file_llseek_unlocked", \
+   fs.h)
+$(call define_if_matches, KERNEL_HAS_SET_NLINK, "set_nlink", fs.h)
+$(call define_if_matches, KERNEL_HAS_DENTRY_PATH_RAW, "dentry_path_raw", dcache.h)
+$(call define_if_matches, KERNEL_HAS_MAPPING_SET_ERROR, "mapping_set_error", pagemap.h)
+$(call define_if_matches, KERNEL_HAS_PREPARE_WRITE, -F "(*prepare_write)", fs.h)
+$(call define_if_matches, KERNEL_HAS_FSYNC_DENTRY, -P "(\*fsync).*dentry", fs.h)
+$(call define_if_matches, KERNEL_HAS_ITER_FILE_SPLICE_WRITE, "iter_file_splice_write", fs.h)
+$(call define_if_matches, KERNEL_HAS_ITER_GENERIC_FILE_SENDFILE, "generic_file_sendfile", fs.h)
+$(call define_if_matches, KERNEL_HAS_ITERATE_DIR, "iterate_dir", fs.h)
+$(call define_if_matches, KERNEL_HAS_ENCODE_FH_INODE, -P "\(\*encode_fh\).struct inode", exportfs.h)
+$(call define_if_matches, KERNEL_HAS_D_DELETE_CONST_ARG, \
+   -F "int (*d_delete)(const struct dentry *);", dcache.h)
+$(call define_if_matches, KERNEL_HAS_FILE_F_VFSMNT, -P "struct vfsmount\s*\*f_vfsmnt", fs.h)
+$(call define_if_matches, KERNEL_HAS_POSIX_ACL_XATTR_USERNS_ARG, \
+   -P "posix_acl_from_xattr.struct user_namespace", posix_acl_xattr.h)
+$(call define_if_matches, KERNEL_HAS_D_MAKE_ROOT, d_make_root, dcache.h)
+$(call define_if_matches, KERNEL_HAS_GENERIC_WRITE_CHECKS_ITER, \
+   -P "generic_write_checks.*iov_iter", fs.h)
+$(call define_if_matches, KERNEL_HAS_GENERIC_PERMISSION_2, \
+   -P "extern int generic_permission\(struct inode \*. int\);", fs.h)
+# fourth arg is a callback on the next line.
+$(call define_if_matches, KERNEL_HAS_GENERIC_PERMISSION_4, \
+   -P "extern int generic_permission.struct inode \*. int. unsigned int.", fs.h)
+$(call define_if_matches, KERNEL_HAS_WRITE_ITER, -F "ssize_t (*write_iter)", fs.h)
+$(call define_if_matches, KERNEL_HAS_AIO_WRITE_BUF, \
+   -P "ssize_t \(\*aio_write\).*const char", fs.h)
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -sFB20 "launder_page" ${KSRCDIR_PRUNED_HEAD}/include/linux/fs.h \
+      | grep -LF "address_space_operations_ext" | grep -qsvF "input" \
+      && echo "-DKERNEL_HAS_LAUNDER_PAGE")
+$(call define_if_matches, KERNEL_HAS_INVALIDATEPAGE_RANGE, \
+   -P "void \(\*invalidatepage\) \(struct page \*. unsigned int. unsigned int\);", fs.h)
+$(call define_if_matches, KERNEL_HAS_PERMISSION_2, \
+   -P "int \(\*permission\) \(struct inode \*. int\);", fs.h)
+$(call define_if_matches, KERNEL_HAS_PERMISSION_FLAGS, \
+   -P "int \(\*permission\) \(struct inode \*. int. unsigned int\);", fs.h)
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -sFA5 "kmem_cache_create" ${KSRCDIR_PRUNED_HEAD}/include/linux/slab.h \
+      | grep -qsF "void (*)(void *, struct kmem_cache *, unsigned long)" \
+      && echo "-DKERNEL_HAS_KMEMCACHE_CACHE_FLAGS_CTOR")
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -sFA5 "kmem_cache_create" ${KSRCDIR_PRUNED_HEAD}/include/linux/slab.h \
+      | grep -qsF "void (*)(struct kmem_cache *, void *)" \
+      && echo "-DKERNEL_HAS_KMEMCACHE_CACHE_CTOR")
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -sFA5 "kmem_cache_create" ${KSRCDIR_PRUNED_HEAD}/include/linux/slab.h \
+      | grep -qsxP "\s+void \(\*\)\(.*?\)," \
+      && echo "-DKERNEL_HAS_KMEMCACHE_DTOR")
+$(call define_if_matches, KERNEL_HAS_PROC_CREATE_DATA, -F "proc_create_data", proc_fs.h)
+$(call define_if_matches, KERNEL_HAS_SB_BDI, -F "struct backing_dev_info *s_bdi", fs.h)
+$(call define_if_matches, KERNEL_HAS_BDI_SETUP_AND_REGISTER, "bdi_setup_and_register", \
+   backing-dev.h)
+$(call define_if_matches, KERNEL_HAS_FOLLOW_LINK_COOKIE, \
+   -P "const char \* \(\*follow_link\) \(struct dentry \*. void \*\*\);", fs.h)
+$(call define_if_matches, KERNEL_HAS_FILEMAP_WRITE_AND_WAIT_RANGE, "filemap_write_and_wait_range", \
+   fs.h)
+$(call define_if_matches, KERNEL_HAS_FSYNC_2, \
+   -F "int (*fsync) (struct file *, int datasync);", fs.h)
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -sFA20 "struct address_space {" ${KSRCDIR_PRUNED_HEAD}/include/linux/fs.h \
+      | grep -qsP "struct backing_dev_info *backing_dev_info;" \
+      && echo "-DKERNEL_HAS_ADDRESS_SPACE_BDI")
+$(call define_if_matches, KERNEL_HAS_SET_ACL, \
+   -P "int \(\*set_acl\)\(struct inode \*. struct posix_acl \*. int\);", fs.h)
+
 # Combine results
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_DROP_NLINK)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_CLEAR_NLINK)
@@ -509,7 +584,6 @@ KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_NO_WRITE_CACHE_PAGES)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_LIST_IS_LAST)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_CLEAR_PAGE_LOCKED)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_DIRECT_IO_ITER)
-KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_SPECIAL_UEK_IOV_ITER)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_F_DENTRY)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_FILE_INODE)
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_GET_UNALIGNED_LE)

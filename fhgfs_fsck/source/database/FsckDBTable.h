@@ -14,8 +14,6 @@
 #include <database/StripeTargets.h>
 #include <database/UsedTarget.h>
 
-#include <fstream>
-
 class FsckDBDentryTable
 {
    public:
@@ -36,31 +34,61 @@ class FsckDBDentryTable
             NameBuffer(const std::string& path, unsigned id)
                : fileID(id)
             {
-               this->streamBuf.resize(4096 * 1024);
-               this->stream.rdbuf()->pubsetbuf(&this->streamBuf[0], this->streamBuf.size() );
+               fd = ::open(path.c_str(), O_RDWR | O_CREAT, 0660);
+               if(fd < 0)
+                  throw std::runtime_error("could not open name file");
 
-               this->stream.exceptions(std::fstream::badbit | std::fstream::failbit);
-               this->stream.open(path.c_str(),
-                  std::fstream::in | std::fstream::out | std::fstream::app);
-               this->stream.seekp(0, std::fstream::end);
-               this->writeOffset = this->stream.tellp();
+               streamBuf.reserve(4096 * 1024);
+
+               writePos = ::lseek(fd, 0, SEEK_END);
+               if (writePos < 0)
+               {
+                  close(fd);
+                  fd = -1;
+                  throw std::runtime_error("could not open name file");
+               }
+            }
+
+            ~NameBuffer()
+            {
+               if (fd >= 0)
+               {
+                  flush();
+                  close(fd);
+               }
             }
 
             uint64_t put(const std::string& name)
             {
-               unsigned len = name.size() + 1;
-               this->stream.write(name.c_str(), len);
-               this->writeOffset += len;
-               return this->writeOffset - len;
+               if (streamBuf.size() + name.size() + 1 > streamBuf.capacity())
+                  flush();
+
+               if (name.size() > streamBuf.capacity())
+                  streamBuf.reserve(name.size());
+
+               uint64_t result = writePos + streamBuf.size();
+               streamBuf.insert(streamBuf.end(), name.begin(), name.end());
+               streamBuf.push_back(0);
+
+               return result;
             }
 
             std::string get(uint64_t offset)
             {
-               this->stream.clear();
-               this->stream.seekg(offset);
+               flush();
 
                char buffer[255 + 1];
-               this->stream.getline(buffer, sizeof(buffer), 0);
+               ssize_t readRes = ::pread(fd, buffer, sizeof(buffer), offset);
+               // if the read did not fill the full buffer, we can
+               //   a) have an error, or
+               //   b) have a short read.
+               // errors should be reported directly. short reads are likely caused be trying to
+               // read past the end of the file. since we cannot possible have a sane read that
+               // stretches beyond writePos here (as we have flushed the write buffer), we can
+               // reliably detect both.
+               if (readRes < 0 || ssize_t(offset) + readRes > writePos)
+                  throw std::runtime_error("could not read name file");
+
                return buffer;
             }
 
@@ -70,8 +98,18 @@ class FsckDBDentryTable
             unsigned fileID;
             std::vector<char> streamBuf;
 
-            std::fstream stream;
-            uint64_t writeOffset;
+            int fd;
+            ssize_t writePos;
+
+            void flush()
+            {
+               ssize_t writeRes = ::pwrite(fd, &streamBuf[0], streamBuf.size(), writePos);
+               if (writeRes < 0 || size_t(writeRes) < streamBuf.size())
+                  throw std::runtime_error("error in flush");
+
+               writePos += writeRes;
+               streamBuf.resize(0);
+            }
       };
 
       struct BulkHandle

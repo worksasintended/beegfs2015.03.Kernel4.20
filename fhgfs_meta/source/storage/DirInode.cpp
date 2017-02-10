@@ -1615,7 +1615,9 @@ unlock_and_exit:
 FhgfsOpsErr DirInode::listXAttr(const std::string& fileName, StringVector& outAttrList)
 {
    const char* logContext = "DirInode listXAttr";
-   std::string dentryPath = entries.getDirEntryPath() + "/" + fileName;
+   std::string dentryPath = fileName == "."
+      ? entries.getDirEntryPath()
+      : entries.getDirEntryPath() + "/" META_DIRENTRYID_SUB_STR "/" + fileName;
    FhgfsOpsErr res;
 
    ssize_t size = listxattr(dentryPath.c_str(), NULL, 0); // get size of raw list
@@ -1685,7 +1687,9 @@ FhgfsOpsErr DirInode::getXAttr(const std::string& fileName, const std::string& x
       CharVector& outValue, ssize_t& inOutSize)
 {
    const char* logContext = "DirInode getXAttr";
-   std::string dentryPath = entries.getDirEntryPath() + "/" + fileName;
+   std::string dentryPath = fileName == "."
+      ? entries.getDirEntryPath()
+      : entries.getDirEntryPath() + "/" META_DIRENTRYID_SUB_STR "/" + fileName;
    int err;
 
    outValue.resize(inOutSize);
@@ -1726,7 +1730,9 @@ FhgfsOpsErr DirInode::removeXAttr(EntryInfo* entryInfo, const std::string& fileN
    const std::string& xAttrName)
 {
    const char* logContext = "DirInode removeXAttr";
-   std::string dentryPath = entries.getDirEntryPath() + "/" + fileName;
+   std::string dentryPath = fileName == "."
+      ? entries.getDirEntryPath()
+      : entries.getDirEntryPath() + "/" META_DIRENTRYID_SUB_STR "/" + fileName;
 
    int res = removexattr(dentryPath.c_str(), xAttrName.c_str() );
 
@@ -1779,7 +1785,9 @@ FhgfsOpsErr DirInode::setXAttr(EntryInfo* entryInfo, const std::string& fileName
    const std::string& xAttrName, const CharVector& xAttrValue, int flags, bool updateTimestamps)
 {
    const char* logContext = "DirInode setXAttr";
-   std::string dentryPath = entries.getDirEntryPath() + "/" + fileName;
+   std::string dentryPath = fileName == "."
+      ? entries.getDirEntryPath()
+      : entries.getDirEntryPath() + "/" META_DIRENTRYID_SUB_STR "/" + fileName;
 
    int res = setxattr(dentryPath.c_str(), xAttrName.c_str(), &xAttrValue.front(),
          xAttrValue.size(), flags);

@@ -66,8 +66,8 @@ bool Serialization::deserializeStr(const char* buf, size_t bufLen,
 bool Serialization::deserializeStr(const char* buf, size_t bufLen,
    std::string* outStr, unsigned* outBufLen)
 {
-   unsigned strLen;
-   const char* strStart;
+   unsigned strLen = 0; // just mute compiler warnings on sl5
+   const char* strStart = buf; // just mute compiler warnings on sl5;
 
    bool deserRes = Serialization::deserializeStr(buf, bufLen,
          &strLen, &strStart, outBufLen);

@@ -14,11 +14,11 @@ char* fhgfs_System_getHostnameCopy(void)
 #endif // LINUX_VERSION_CODE
 
    
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,18)
+#ifdef KERNEL_HAS_SYSTEM_UTSNAME
    hostnameOrig = system_utsname.nodename;
 #else
    hostnameOrig = utsname()->nodename;
-#endif // LINUX_VERSION_CODE
+#endif
    
    
    hostnameCopy = kmalloc(strlen(hostnameOrig)+1, GFP_KERNEL);

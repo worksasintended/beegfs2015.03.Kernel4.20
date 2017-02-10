@@ -151,7 +151,7 @@ bool ChunkFileInfo::deserializeVec(unsigned vecBufLen, unsigned elemNum, const c
    for(unsigned i=0; i < elemNum; i++)
    {
       ChunkFileInfo currentElem;
-      unsigned chunkFileInfoLen;
+      unsigned chunkFileInfoLen = 0; // just mute compiler warnings on sl5
 
       if ( unlikely(!currentElem.deserialize(&buf[bufPos], bufLen-bufPos, &chunkFileInfoLen) ) )
          return false;

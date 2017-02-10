@@ -15,6 +15,8 @@ class MsgHelperXAttr
       static FhgfsOpsErr removexattr(EntryInfo* entryInfo, const std::string& name);
       static FhgfsOpsErr setxattr(EntryInfo* entryInfo, const std::string& name,
          const CharVector& value, int flags);
+
+      static void resetXAttrFn(void* context);
       static FhgfsOpsErr streamXAttrFn(void* context, std::string& name, CharVector& value);
 
       static const std::string CURRENT_DIR_FILENAME;
@@ -25,6 +27,8 @@ class MsgHelperXAttr
          Socket* socket;
          EntryInfo* entryInfo;
          StringVector* names;
+
+         unsigned index;
       };
 
    private:

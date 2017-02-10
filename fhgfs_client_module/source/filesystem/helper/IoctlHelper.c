@@ -43,6 +43,8 @@ long IoctlHelper_ioctlCreateFileCopyFromUser(App* app, void __user *argp,
 
    /* Now copy and alloc all char* to kernel space */
 
+   if (outFileInfo->parentParentEntryIDLen == 0)
+      return -EINVAL;
    outFileInfo->parentParentEntryID = strndup_user(
       (const char __user *) userFileInfo.parentParentEntryID,
       outFileInfo->parentParentEntryIDLen);
@@ -54,6 +56,8 @@ long IoctlHelper_ioctlCreateFileCopyFromUser(App* app, void __user *argp,
       return error;
    }
 
+   if (outFileInfo->parentEntryIDLen == 0)
+      return -EINVAL;
    outFileInfo->parentEntryID = strndup_user(
       (const char __user *) userFileInfo.parentEntryID,
       outFileInfo->parentEntryIDLen);
@@ -65,6 +69,8 @@ long IoctlHelper_ioctlCreateFileCopyFromUser(App* app, void __user *argp,
       return error;
    }
 
+   if (outFileInfo->parentNameLen == 0)
+      return -EINVAL;
    outFileInfo->parentName = strndup_user(
       (const char __user *) userFileInfo.parentName,
       outFileInfo->parentNameLen);
@@ -76,6 +82,8 @@ long IoctlHelper_ioctlCreateFileCopyFromUser(App* app, void __user *argp,
       return error;
    }
 
+   if (outFileInfo->entryNameLen == 0)
+      return -EINVAL;
    outFileInfo->entryName = strndup_user(
       (const char __user *) userFileInfo.entryName,
       outFileInfo->entryNameLen);

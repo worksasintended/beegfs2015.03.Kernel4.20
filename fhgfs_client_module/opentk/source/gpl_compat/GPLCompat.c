@@ -13,7 +13,7 @@
  */
 int os_mnt_want_write(struct vfsmount *mnt)
 {
-   #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
+   #ifndef KERNEL_HAS_MNT_WANT_WRITE
       if (mnt->mnt_sb->s_flags & MS_RDONLY)
          return -EROFS;
       else
@@ -30,7 +30,7 @@ int os_mnt_want_write(struct vfsmount *mnt)
  */
 void os_mnt_drop_write(struct vfsmount *mnt)
 {
-   #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
+   #ifndef KERNEL_HAS_MNT_WANT_WRITE
       // noop before 2.6.26, as those didn't have mnt_want_write yet and so didn't take a
       // write ref-counter yet.
       return;
@@ -40,27 +40,3 @@ void os_mnt_drop_write(struct vfsmount *mnt)
    #endif
 
 }
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
-/**
- * Wrapper for add_to_page_cache_lru()
- */
-int os_addToPageCacheLRU(struct page *page, struct address_space *mapping,
-   pgoff_t offset, gfp_t gfp_mask)
-{
-   return add_to_page_cache_lru(page, mapping, offset, gfp_mask);
-}
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36)
-int os_GenericDropInode(struct inode *inode)
-{
-   return generic_drop_inode(inode);
-}
-#else
-void os_GenericDropInode(struct inode *inode)
-{
-   generic_drop_inode(inode);
-}
-#endif
-

@@ -54,6 +54,7 @@ void InternodeSyncer::syncLoop()
 {
    App* app = Program::getApp();
    Config* cfg = app->getConfig();
+   LogContext log("SyncLoop");
 
    const int sleepIntervalMS = 3*1000; // 3sec
 
@@ -85,12 +86,18 @@ void InternodeSyncer::syncLoop()
 
          currentCacheSweepMS = (flushTriggered ? sweepStressedMS : sweepNormalMS);
 
+         log.log(LogTopic_ADVANCED, Log_DEBUG,
+               "Last cache sweep elapsed ms: " + StringTk::uintToStr(lastCacheSweepT.elapsedMS()));
          lastCacheSweepT.setToNow();
       }
 
       if(lastIdleDisconnectT.elapsedMS() > idleDisconnectIntervalMS)
       {
          dropIdleConns();
+
+         log.log(LogTopic_ADVANCED, Log_DEBUG,
+               "Drop idle conns elapsed ms: "
+               + StringTk::uintToStr(lastIdleDisconnectT.elapsedMS()));
          lastIdleDisconnectT.setToNow();
       }
 
@@ -101,6 +108,8 @@ void InternodeSyncer::syncLoop()
          downloadAndSyncTargetMappings();
          downloadAndSyncMirrorBuddyGroups();
 
+         log.log(LogTopic_ADVANCED, Log_DEBUG,
+               "Download nodes elapsed ms: " + StringTk::uintToStr(lastDownloadNodesT.elapsedMS()));
          lastDownloadNodesT.setToNow();
       }
 
@@ -109,6 +118,9 @@ void InternodeSyncer::syncLoop()
       {
          updateTargetStatesAndBuddyGroups();
 
+         log.log(LogTopic_ADVANCED, Log_DEBUG,
+               "Target states update elapsed ms: "
+               + StringTk::uintToStr(lastTargetStatesUpdateT.elapsedMS()));
          lastTargetStatesUpdateT.setToNow();
       }
 
@@ -117,6 +129,9 @@ void InternodeSyncer::syncLoop()
       {
          publishTargetCapacities();
 
+         log.log(LogTopic_ADVANCED, Log_DEBUG,
+               "Capacity update elapsed ms: "
+               + StringTk::uintToStr(lastCapacityUpdateT.elapsedMS()));
          lastCapacityUpdateT.setToNow();
       }
    }
@@ -424,12 +439,12 @@ bool InternodeSyncer::publishTargetStateChanges(UInt16List& targetIDs, UInt8List
    NodeStore* mgmtNodes = app->getMgmtNodes();
    bool res;
 
-   log.log(Log_DEBUG, "Publishing target state change");
+   log.log(LogTopic_STATESYNC, Log_DEBUG, "Publishing target state change");
 
    Node* mgmtNode = mgmtNodes->referenceFirstNode();
    if (!mgmtNode)
    {
-      log.logErr("Management node not defined.");
+      log.log(LogTopic_STATESYNC, Log_ERR, "Management node not defined.");
       return true; // Don't stall indefinitely if we don't have a management node.
    }
 
@@ -442,7 +457,8 @@ bool InternodeSyncer::publishTargetStateChanges(UInt16List& targetIDs, UInt8List
 
    if (!sendRes)
    {
-      log.log(Log_CRITICAL, "Pushing target state changes to management node failed.");
+      log.log(LogTopic_STATESYNC, Log_CRITICAL,
+            "Pushing target state changes to management node failed.");
       res = false; // Retry.
    }
    else
@@ -452,7 +468,8 @@ bool InternodeSyncer::publishTargetStateChanges(UInt16List& targetIDs, UInt8List
 
       if ( (FhgfsOpsErr)respMsgCast->getValue() != FhgfsOpsErr_SUCCESS)
       {
-         log.log(Log_CRITICAL, "Management node did not accept target state changes.");
+         log.log(LogTopic_STATESYNC, Log_CRITICAL,
+               "Management node did not accept target state changes.");
          res = false; // States were changed while we evaluated the state changed. Try again.
       }
       else
@@ -870,7 +887,7 @@ bool InternodeSyncer::downloadAllExceededQuotaLists()
       {
          if(!cfg->getQuotaEnableEnforcement() )
          {
-            LogContext(logContext).log(Log_WARNING,
+            LogContext(logContext).log(Log_DEBUG,
                "Quota enforcement is enabled on the management daemon, "
                "but not in the configuration of this storage server. "
                "The configuration from the management daemon overrides the local setting.");
@@ -887,7 +904,7 @@ bool InternodeSyncer::downloadAllExceededQuotaLists()
       {
          if(cfg->getQuotaEnableEnforcement() )
          {
-            LogContext(logContext).log(Log_WARNING,
+            LogContext(logContext).log(Log_DEBUG,
                "Quota enforcement is enabled in the configuration of this storage server, "
                "but not on the management daemon. "
                "The configuration from the management daemon overrides the local setting.");

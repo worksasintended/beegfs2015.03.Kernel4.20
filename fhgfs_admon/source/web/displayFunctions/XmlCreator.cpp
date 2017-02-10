@@ -1570,6 +1570,8 @@ void XmlCreator::mailNotification(struct mg_connection *conn,
    {
       std::string change = WebTk::getVar(conn, "change", "false", postBuf, postBufLen);
       std::string mailEnabled = WebTk::getVar(conn, "mailEnabled", "false", postBuf, postBufLen);
+      std::string sendType = WebTk::getVar(conn, "sendType", "", postBuf, postBufLen);
+      std::string sendMailPath = WebTk::getVar(conn, "sendmailPath", "", postBuf, postBufLen);
       std::string smtpServer = WebTk::getVar(conn, "smtpServer", "", postBuf, postBufLen);
       std::string sender = WebTk::getVar(conn, "sender", "", postBuf, postBufLen);
       std::string recipient = WebTk::getVar(conn, "recipient", "", postBuf, postBufLen);
@@ -1599,18 +1601,70 @@ void XmlCreator::mailNotification(struct mg_connection *conn,
                "The system could not authenticate you as administrative user"));
             errorElement->LinkEndChild(entryElement);
          }
-         else
-         if(enableMail && ( sender.empty() || recipient.empty() ) )
+         else if(enableMail && ( sender.empty() || recipient.empty() ||
+            ( (StringTk::strToInt(sendType) == SmtpSendType_SOCKET) && smtpServer.empty() ) ||
+            ( (StringTk::strToInt(sendType) == SmtpSendType_SENDMAIL) && sendMailPath.empty() ) ) )
          {
+            bool notFirstEmptyValue = false;
+
+            std::string errorMessage = "Could not write new config. Please be aware that if you"
+               "activate eMail support, you MUST specify a ";
+
+            if(sender.empty() )
+            {
+               errorMessage.append("sender");
+               notFirstEmptyValue = true;
+            }
+
+            if(recipient.empty() )
+            {
+               if(notFirstEmptyValue)
+               {
+                  errorMessage.append(", recipient");
+               }
+               else
+               {
+                  errorMessage.append("recipient");
+                  notFirstEmptyValue = true;
+               }
+
+            }
+
+            if( (StringTk::strToInt(sendType) == SmtpSendType_SOCKET) && smtpServer.empty() )
+            {
+               if(notFirstEmptyValue)
+               {
+                  errorMessage.append(", SMTP Server");
+               }
+               else
+               {
+                  errorMessage.append("SMTP Server");
+                  notFirstEmptyValue = true;
+               }
+            }
+
+            if( (StringTk::strToInt(sendType) == SmtpSendType_SENDMAIL) && sendMailPath.empty() )
+            {
+               if(notFirstEmptyValue)
+               {
+                  errorMessage.append(", path to sendmail");
+               }
+               else
+               {
+                  errorMessage.append("path to sendmail");
+               }
+            }
+            errorMessage.append(".");
+
             TiXmlElement *entryElement = new TiXmlElement("entry");
-            entryElement->LinkEndChild(new TiXmlText(
-               "Could not write new config. Please be aware that if you activate eMail support, "
-               "you MUST specify a sender and a recipient.") );
+            entryElement->LinkEndChild(new TiXmlText(errorMessage) );
             errorElement->LinkEndChild(entryElement);
          }
          else
          {
             runtimeCfg->setMailEnabled(enableMail);
+            runtimeCfg->setMailSmtpSendType( (SmtpSendType)StringTk::strToInt(sendType) );
+            runtimeCfg->setMailSendmailPath(sendMailPath);
             runtimeCfg->setMailSmtpServer(smtpServer);
             runtimeCfg->setMailSender(sender);
             runtimeCfg->setMailRecipient(recipient);
@@ -1651,16 +1705,25 @@ void XmlCreator::mailNotification(struct mg_connection *conn,
          }
          rootElement->LinkEndChild(overrideActiveElement);
 
+         TiXmlElement *sendTypeElement = new TiXmlElement("sendType");
+         sendTypeElement->LinkEndChild(new TiXmlText(
+            StringTk::intToStr(runtimeCfg->getMailSmtpSendType() ) ) );
+         rootElement->LinkEndChild(sendTypeElement);
+
+         TiXmlElement *sendmailPathElement = new TiXmlElement("sendmailPath");
+         sendmailPathElement->LinkEndChild(new TiXmlText(runtimeCfg->getMailSendmailPath() ) );
+         rootElement->LinkEndChild(sendmailPathElement);
+
          TiXmlElement *smtpElement = new TiXmlElement("smtpServer");
-         smtpElement->LinkEndChild(new TiXmlText(runtimeCfg->getMailSmtpServer()));
+         smtpElement->LinkEndChild(new TiXmlText(runtimeCfg->getMailSmtpServer() ) );
          rootElement->LinkEndChild(smtpElement);
 
          TiXmlElement *senderElement = new TiXmlElement("sender");
-         senderElement->LinkEndChild(new TiXmlText(runtimeCfg->getMailSender()));
+         senderElement->LinkEndChild(new TiXmlText(runtimeCfg->getMailSender() ) );
          rootElement->LinkEndChild(senderElement);
 
          TiXmlElement *recipientElement = new TiXmlElement("recipient");
-         recipientElement->LinkEndChild(new TiXmlText(runtimeCfg->getMailRecipient()));
+         recipientElement->LinkEndChild(new TiXmlText(runtimeCfg->getMailRecipient() ) );
          rootElement->LinkEndChild(recipientElement);
 
          TiXmlElement *delayElement = new TiXmlElement("delay");
@@ -3167,14 +3230,13 @@ void XmlCreator::testEMail(struct mg_connection *conn,
    debugMongoose(conn,request_info, postBuf, postBufLen);
 #endif
 
-   RuntimeConfig *runtimeCfg = Program::getApp()->getRuntimeConfig();
+   App* app  = Program::getApp();
+   Mailer* mailer = app->getMailer();
 
    std::string msg = "Test email from beegfs-admon.";
    std::string subject = "BeeGFS : test email";
 
-   int sendToSmtpServerSuccsessfull = Mail::sendMail(
-         runtimeCfg->getMailSmtpServer(), runtimeCfg->getMailSender(),
-         runtimeCfg->getMailRecipient(), subject, msg);
+   int sendToSmtpServerSuccsessfull = mailer->sendMail(subject, msg);
 
    TiXmlDocument doc;
    TiXmlElement *rootElement = new TiXmlElement("data");

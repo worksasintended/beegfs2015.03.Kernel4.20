@@ -348,7 +348,7 @@ fhgfs_bool SocketTk_getHostByName(struct ExternalHelperd* helperd, const char* h
 fhgfs_bool SocketTk_getHostByAddrStr(const char* hostAddr, fhgfs_in_addr* outIPAddr)
 {
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,19)
+#ifndef KERNEL_HAS_IN4_PTON
 
    *outIPAddr = in_aton(hostAddr); // this version has no error handling
 

@@ -15,6 +15,7 @@ class MovingFileInsertMsg : public NetMessage
    friend class AbstractNetMessageFactory;
 
    public:
+      typedef void (*ResetFn)(void* context);
       typedef FhgfsOpsErr (*NextXAttrFn)(void* context, std::string& name, CharVector& value);
 
       /**
@@ -70,6 +71,7 @@ class MovingFileInsertMsg : public NetMessage
       EntryInfo* toDirInfoPtr; // for serialization
       EntryInfo  toDirInfo; // for deserialization
 
+      ResetFn resetAttr;
       NextXAttrFn nextAttr;
       void* nextAttrContext;
 
@@ -79,6 +81,8 @@ class MovingFileInsertMsg : public NetMessage
 
          std::string name;
          CharVector value;
+
+         msg->resetAttr(msg->nextAttrContext);
 
          while (true)
          {
@@ -134,9 +138,11 @@ class MovingFileInsertMsg : public NetMessage
          return &this->fromFileInfo;
       }
 
-      void registerStreamoutHook(RequestResponseArgs& rrArgs, NextXAttrFn fn, void* context)
+      void registerStreamoutHook(RequestResponseArgs& rrArgs, ResetFn reset, NextXAttrFn fn,
+         void* context)
       {
          addMsgHeaderFeatureFlag(MOVINGFILEINSERTMSG_FLAG_HAS_XATTRS);
+         resetAttr = reset;
          nextAttr = fn;
          nextAttrContext = context;
          rrArgs.sendExtraData = &streamToSocketFn;

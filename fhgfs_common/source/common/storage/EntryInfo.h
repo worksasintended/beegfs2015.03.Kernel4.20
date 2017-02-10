@@ -131,17 +131,17 @@ class EntryInfo
          return this->ownerNodeID;
       }
 
-      std::string getParentEntryID(void)
+      const std::string& getParentEntryID(void)
       {
          return this->parentEntryID;
       }
 
-      std::string getEntryID(void)
+      const std::string& getEntryID(void)
       {
          return this->entryID;
       }
 
-      std::string getFileName(void)
+      const std::string& getFileName(void)
       {
          return this->fileName;
       }

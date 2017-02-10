@@ -5,10 +5,10 @@
 #include <linux/inetdevice.h>
 
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,21)
+#if !defined(KERNEL_HAS_FIRST_NET_DEVICE) && !defined(KERNEL_HAS_FIRST_NET_DEVICE_NS)
 #define fhgfs_first_net_device()             dev_base
 #define fhgfs_next_net_device(currentDev)    currentDev->next
-#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
+#elif defined(KERNEL_HAS_FIRST_NET_DEVICE)
 #define fhgfs_first_net_device()             first_net_device()
 #define fhgfs_next_net_device(currentDev)    next_net_device(currentDev)
 #else

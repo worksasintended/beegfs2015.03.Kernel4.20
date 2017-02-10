@@ -287,7 +287,7 @@ void __FhgfsOpsCommKit_readfileV2bStageRECVDATA(RWfileStatesHelper* statesHelper
    if(!__FhgfsOpsCommKit_readfileV2bIsDataAvailable(statesHelper, currentState) )
       return;
 
-   iov = BEEGFS_IOV_ITER_IOVEC(&currentState->data);
+   iov = iov_iter_iovec(&currentState->data);
    missingLength = MIN(iov.iov_len, currentState->toBeTransmitted - currentState->transmitted);
 
    // receive available dataPart

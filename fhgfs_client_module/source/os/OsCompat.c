@@ -11,11 +11,7 @@
 #include <common/Common.h>
 #include <filesystem/FhgfsOpsSuper.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32) && LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34)
-   static atomic_long_t fhgfs_bdiSeq = ATOMIC_LONG_INIT(0);
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
+#ifndef KERNEL_HAS_MEMDUP_USER
    /**
     * memdup_user - duplicate memory region from user space
     *
@@ -47,8 +43,7 @@
 #endif // memdup_user, LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
 
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32) && \
-     LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34)
+#if defined(KERNEL_HAS_SB_BDI) && !defined(KERNEL_HAS_BDI_SETUP_AND_REGISTER)
    /*
     * For use from filesystems to quickly init and register a bdi associated
     * with dirty writeback
@@ -56,6 +51,7 @@
    int bdi_setup_and_register(struct backing_dev_info *bdi, char *name,
                unsigned int cap)
    {
+      static atomic_long_t fhgfs_bdiSeq = ATOMIC_LONG_INIT(0);
       char tmp[32];
       int err;
 
@@ -114,7 +110,7 @@
 #endif // find_get_pages_tag() for <2.6.22
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
+#ifndef KERNEL_HAS_D_MAKE_ROOT
 
 /**
  * This is the former d_alloc_root with an additional iput on error.
@@ -127,7 +123,7 @@ struct dentry *d_make_root(struct inode *root_inode)
 
    return allocRes;
 }
-#endif // LINUX_VERSION_CODE (d_make_root)
+#endif
 
 #ifndef KERNEL_HAS_D_MATERIALISE_UNIQUE
 /**
@@ -142,10 +138,10 @@ struct dentry* d_materialise_unique(struct dentry *dentry, struct inode *inode)
 /**
  * Note: Call this once during module init (and remember to call kmem_cache_destroy() )
  */
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
+#if defined(KERNEL_HAS_KMEMCACHE_CACHE_FLAGS_CTOR)
 struct kmem_cache* OsCompat_initKmemCache(const char* cacheName, size_t cacheSize,
    void initFuncPtr(void* initObj, struct kmem_cache* cache, unsigned long flags) )
-#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,26)
+#elif defined(KERNEL_HAS_KMEMCACHE_CACHE_CTOR)
 struct kmem_cache* OsCompat_initKmemCache(const char* cacheName, size_t cacheSize,
    void initFuncPtr(struct kmem_cache* cache, void* initObj) )
 #else
@@ -157,7 +153,7 @@ struct kmem_cache* OsCompat_initKmemCache(const char* cacheName, size_t cacheSiz
 
    unsigned long cacheFlags = SLAB_RECLAIM_ACCOUNT | SLAB_MEM_SPREAD;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23)
+#if defined(KERNEL_HAS_KMEMCACHE_DTOR)
    cache = kmem_cache_create(cacheName, cacheSize, 0, cacheFlags, initFuncPtr, NULL);
 #else
    cache = kmem_cache_create(cacheName, cacheSize, 0, cacheFlags, initFuncPtr);

@@ -32,7 +32,7 @@ tar czf $BUILD/buildroot/SOURCES/${NAME}-${VER}-$RELEASE_STR.tgz   --exclude=bui
 cd $BUILD
 sed 	-e "s#%BEEGFS_OPENTK_PATH%#$BEEGFS_OPENTK_PATH#" \
 	-e "s#%BEEGFS_COMMON_PATH%#$BEEGFS_COMMON_PATH#" \
-	-e "s/%NAME%/$NAME/" \
+	-e "s/%NAME%/$NAME/g" \
 	-e "s/%RELEASE_STR%/$RELEASE_STR/" \
 	-e "s/%VER%/$VER/"   \
 	-e "s/%BUILDARCH%/$BUILDARCH/"   \

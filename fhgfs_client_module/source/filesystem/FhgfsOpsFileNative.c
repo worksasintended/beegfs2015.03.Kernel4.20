@@ -284,7 +284,8 @@ static int beegfs_release_range(struct file* filp, loff_t first, loff_t last)
 
    clear_bit(AS_EIO, &filp->f_mapping->flags);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
+#if !defined(KERNEL_HAS_FILEMAP_WRITE_AND_WAIT_RANGE) || LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+   /* rhel5 kernels declare the *_range symbol, but don't actually have it ... */
    writeRes = filemap_write_and_wait(filp->f_mapping);
 #else
    writeRes = filemap_write_and_wait_range(filp->f_mapping, first, last);
@@ -368,17 +369,22 @@ static int beegfs_release(struct inode* inode, struct file* filp)
    return FhgfsOps_release(inode, filp);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+#if defined(KERNEL_HAS_AIO_WRITE_BUF)
 static ssize_t beegfs_file_write_iter(struct kiocb* iocb, struct iov_iter* from)
 {
-   struct iovec iov = BEEGFS_IOV_ITER_IOVEC(from);
+   struct iovec iov = iov_iter_iovec(from);
 
    return generic_file_aio_write(iocb, iov.iov_base, iov.iov_len, iocb->ki_pos);
 }
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+#elif !defined(KERNEL_HAS_WRITE_ITER)
 static ssize_t beegfs_file_write_iter(struct kiocb* iocb, struct iov_iter* from)
 {
-   return generic_file_aio_write(iocb, BEEGFS_IOV_ITER_RAW(from), from->nr_segs, iocb->ki_pos);
+   struct iovec iov = iov_iter_iovec(from);
+
+   if (from->iov_offset == 0)
+      return generic_file_aio_write(iocb, from->iov, from->nr_segs, iocb->ki_pos);
+   else
+      return generic_file_aio_write(iocb, &iov, 1, iocb->ki_pos);
 }
 #else
 static ssize_t beegfs_file_write_iter(struct kiocb* iocb, struct iov_iter* from)
@@ -492,7 +498,7 @@ static ssize_t beegfs_write_iter(struct kiocb* iocb, struct iov_iter* from)
    return beegfs_file_write_iter(iocb, from);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+#if !defined(KERNEL_HAS_WRITE_ITER)
 static ssize_t beegfs_aio_write_iov(struct kiocb* iocb, const struct iovec* iov,
    unsigned long nr_segs, loff_t pos)
 {
@@ -504,7 +510,7 @@ static ssize_t beegfs_aio_write_iov(struct kiocb* iocb, const struct iovec* iov,
    return beegfs_write_iter(iocb, &iter);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+#if defined(KERNEL_HAS_AIO_WRITE_BUF)
 static ssize_t beegfs_aio_write(struct kiocb* iocb, const char __user* buf, size_t count,
    loff_t pos)
 {
@@ -560,7 +566,7 @@ static int beegfs_fsync(struct file* file, loff_t start, loff_t end, int datasyn
 {
    return __beegfs_fsync(file, start, end, datasync);
 }
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)
+#elif defined(KERNEL_HAS_FSYNC_2)
 static int beegfs_fsync(struct file* file, int datasync)
 {
    return __beegfs_fsync(file, 0, LLONG_MAX, datasync);
@@ -650,7 +656,7 @@ const struct file_operations fhgfs_file_native_ops = {
    .lock = beegfs_lock,
    .mmap = beegfs_mmap,
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+#if !defined(KERNEL_HAS_WRITE_ITER)
    .read = do_sync_read,
    .write = do_sync_write,
    .aio_read = generic_file_aio_read,
@@ -660,7 +666,7 @@ const struct file_operations fhgfs_file_native_ops = {
    .write_iter = beegfs_write_iter,
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
+#if defined(KERNEL_HAS_WRITE_ITER)
    .splice_read  = generic_file_splice_read,
    .splice_write = iter_file_splice_write,
 #else
@@ -1339,7 +1345,7 @@ out:
    return result;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
+#ifdef KERNEL_HAS_PREPARE_WRITE
 static int beegfs_prepare_write(struct file* filp, struct page* page, unsigned from, unsigned to)
 {
    return __beegfs_write_begin(filp, from, to - from + 1, page);
@@ -1429,7 +1435,7 @@ static void __beegfs_invalidate_page(struct page* page, unsigned begin, unsigned
    ard_assign(page, NULL);
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0)
+#if !defined(KERNEL_HAS_INVALIDATEPAGE_RANGE)
 static void beegfs_invalidate_page(struct page* page, unsigned long begin)
 {
    __beegfs_invalidate_page(page, begin, PAGE_CACHE_SIZE);
@@ -1600,7 +1606,7 @@ static ssize_t beegfs_direct_IO(int rw, struct kiocb* iocb, const struct iovec* 
 }
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+#if defined(KERNEL_HAS_LAUNDER_PAGE)
 static int beegfs_launderpage(struct page* page)
 {
    return beegfs_flush_page(page);
@@ -1618,11 +1624,11 @@ const struct address_space_operations fhgfs_addrspace_native_ops = {
    .readpages = beegfs_readpages,
    .writepages = beegfs_writepages,
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,20)
+#if defined(KERNEL_HAS_LAUNDER_PAGE)
    .launder_page = beegfs_launderpage,
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
+#ifdef KERNEL_HAS_PREPARE_WRITE
    .prepare_write = beegfs_prepare_write,
    .commit_write = beegfs_commit_write,
 #else

@@ -177,7 +177,7 @@ FhgfsOpsErr WriteLocalFileMsg_sendDataPartInstant(App* app, struct iov_iter* dat
    {
       struct iovec iov;
 
-      iov = BEEGFS_IOV_ITER_IOVEC(data);
+      iov = iov_iter_iovec(data);
       sendRes = sock->send(sock, iov.iov_base, iov.iov_len, BEEGFS_MSG_DONTWAIT);
 
       if (sendRes < 0)

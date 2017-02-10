@@ -21,11 +21,11 @@
 #endif
 
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
+#ifndef KERNEL_HAS_MEMDUP_USER
    extern void *memdup_user(const void __user *src, size_t len);
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,3,0)
+#ifndef KERNEL_HAS_D_MAKE_ROOT
    extern struct dentry *d_make_root(struct inode *root_inode);
 #endif
 
@@ -36,7 +36,7 @@
 
 static inline int os_generic_permission(struct inode *inode, int mask);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34)
+#if defined(KERNEL_HAS_SB_BDI) && !defined(KERNEL_HAS_BDI_SETUP_AND_REGISTER)
    extern int bdi_setup_and_register(struct backing_dev_info *bdi, char *name, unsigned int cap);
 #endif
 
@@ -49,9 +49,9 @@ static inline int os_generic_permission(struct inode *inode, int mask);
  */
 int os_generic_permission(struct inode *inode, int mask)
 {
-   #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,1,0)
+   #ifdef KERNEL_HAS_GENERIC_PERMISSION_2
       return generic_permission(inode, mask);
-   #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38)
+   #elif defined(KERNEL_HAS_GENERIC_PERMISSION_4)
       return generic_permission(inode, mask, 0, NULL);
    #else
       return generic_permission(inode, mask, NULL);
@@ -135,10 +135,10 @@ static inline void i_gid_write(struct inode *inode, gid_t gid)
 #endif // KERNEL_HAS_I_UID_READ
 
 
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,23)
+#if defined(KERNEL_HAS_KMEMCACHE_CACHE_FLAGS_CTOR)
 struct kmem_cache* OsCompat_initKmemCache(const char* cacheName, size_t cacheSize,
    void initFuncPtr(void* initObj, struct kmem_cache* cache, unsigned long flags) );
-#elif LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,26)
+#elif defined(KERNEL_HAS_KMEMCACHE_CACHE_CTOR)
 struct kmem_cache* OsCompat_initKmemCache(const char* cacheName, size_t cacheSize,
    void initFuncPtr(struct kmem_cache* cache, void* initObj) );
 #else
@@ -195,7 +195,7 @@ static inline void __clear_page_locked(struct page *page)
 
 static inline struct posix_acl* os_posix_acl_from_xattr(const void* value, size_t size)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
+#ifndef KERNEL_HAS_POSIX_ACL_XATTR_USERNS_ARG
    return posix_acl_from_xattr(value, size);
 #else
    return posix_acl_from_xattr(&init_user_ns, value, size);
@@ -204,14 +204,14 @@ static inline struct posix_acl* os_posix_acl_from_xattr(const void* value, size_
 
 static inline int os_posix_acl_to_xattr(const struct posix_acl* acl, void* buffer, size_t size)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,7,0)
+#ifndef KERNEL_HAS_POSIX_ACL_XATTR_USERNS_ARG
    return posix_acl_to_xattr(acl, buffer, size);
 #else
    return posix_acl_to_xattr(&init_user_ns, acl, buffer, size);
 #endif
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+#ifndef KERNEL_HAS_GENERIC_WRITE_CHECKS_ITER
 # define os_generic_write_checks generic_write_checks
 #else
 static inline int os_generic_write_checks(struct file* filp, loff_t* offset, size_t* size,
@@ -268,7 +268,7 @@ static inline void page_endio(struct page *page, int rw, int err)
 }
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+#ifndef KERNEL_HAS_NO_WRITE_CACHE_PAGES
 static inline int os_write_cache_pages(struct address_space* mapping, struct writeback_control* wbc,
    writepage_t writepage, void* data)
 {

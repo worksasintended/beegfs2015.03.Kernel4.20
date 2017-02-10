@@ -367,7 +367,7 @@ bool MgmtdTargetStateStore::resolveDoubleResync()
       if (primaryState == onlineNeedsResyncState)
       {
          CombinedTargetState secondaryState;
-         const bool secondaryStateRes = getState(secondaryTargetID, secondaryState);
+         const bool secondaryStateRes = getStateUnlocked(secondaryTargetID, secondaryState);
 
          if (!secondaryStateRes)
          {

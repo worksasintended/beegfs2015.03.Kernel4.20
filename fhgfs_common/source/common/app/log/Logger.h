@@ -22,6 +22,7 @@ enum LogTopic
 {
    LogTopic_GENERAL=0,       // default log topic
    LogTopic_STATESYNC=1,     // everything related to node reachability state sync
+   LogTopic_ADVANCED=2,      // advanced debug logging (latency, ...)
    LogTopic_INVALID          // not valid
 };
 
@@ -218,7 +219,7 @@ class Logger
 
       static LogTopic logTopicFromName(std::string name)
       {
-         for(int i=0; LogTopics[i].name != NULL; i++)
+         for(int i=0; LogTopics[i].logTopic != LogTopic_INVALID; i++)
          {
             if (name == LogTopics[i].name)
             {

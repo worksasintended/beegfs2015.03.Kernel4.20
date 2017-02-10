@@ -17,8 +17,6 @@
 #include <linux/uio.h>
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-
 #ifndef KERNEL_HAS_IOV_ITER_TYPE
 struct iov_iter {
    const struct iovec *iov;
@@ -84,44 +82,27 @@ static inline void iov_iter_init(struct iov_iter *i, const struct iovec *iov, un
 }
 #endif
 
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,14,0)
+#if defined(KERNEL_HAS_IOV_ITER_IN_FS)
 #include <linux/fs.h>
 #else
 #include <linux/uio.h>
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)
+#ifndef iov_for_each
 #define iov_for_each(iov, iter, start)                          \
         for (iter = (start);                                    \
              (iter).count &&                                    \
-             ((iov = BEEGFS_IOV_ITER_IOVEC(&(iter))), 1);              \
+             ((iov = iov_iter_iovec(&(iter))), 1);              \
              iov_iter_advance(&(iter), (iov).iov_len))
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,15,0)) && !defined(KERNEL_HAS_SPECIAL_UEK_IOV_ITER)
+#if !defined(KERNEL_HAS_IOV_ITER_IOVEC)
 static inline struct iovec iov_iter_iovec(const struct iov_iter *iter)
 {
    return (struct iovec) {
       .iov_base = iter->iov->iov_base + iter->iov_offset,
       .iov_len = min(iter->count, iter->iov->iov_len - iter->iov_offset),
    };
-}
-#endif
-
-#ifdef KERNEL_HAS_SPECIAL_UEK_IOV_ITER
-static inline struct iovec BEEGFS_IOV_ITER_IOVEC(struct iov_iter *iter)
-{
-   struct iovec iov = *iov_iter_iovec(iter);
-
-   return (struct iovec) {
-      .iov_base = iov.iov_base + iter->iov_offset,
-      .iov_len = min(iter->count, iov.iov_len - iter->iov_offset),
-   };
-}
-#else
-static inline struct iovec BEEGFS_IOV_ITER_IOVEC(const struct iov_iter *iter)
-{
-   return iov_iter_iovec(iter);
 }
 #endif
 
@@ -136,37 +117,23 @@ static inline void iov_iter_truncate(struct iov_iter *i, size_t count)
 static inline void BEEGFS_IOV_ITER_INIT(struct iov_iter* iter, int direction,
    const struct iovec* iov, unsigned long nr_segs, size_t count)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)
+#ifdef KERNEL_HAS_IOV_ITER_INIT_DIR
    iov_iter_init(iter, direction, iov, nr_segs, count);
 #else
    iov_iter_init(iter, iov, nr_segs, count, 0);
 #endif
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+#if !defined(KERNEL_HAS_ITER_BVEC)
 static inline bool iter_is_iovec(struct iov_iter* i)
 {
    return true;
 }
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
+#elif !defined(KERNEL_HAS_ITER_IS_IOVEC)
 static inline bool iter_is_iovec(struct iov_iter* i)
 {
    return !(i->type & (ITER_BVEC | ITER_KVEC) );
 }
-#endif
-
-#ifdef KERNEL_HAS_SPECIAL_UEK_IOV_ITER
-#define BEEGFS_IOV_ITER_RAW(iter) \
-   ({ \
-      BUG_ON((iter)->iov_offset); \
-      (struct iovec*) (iter)->data; \
-   })
-#else
-#define BEEGFS_IOV_ITER_RAW(iter) \
-   ({ \
-      BUG_ON((iter)->iov_offset); \
-      (iter)->iov; \
-   })
 #endif
 
 #endif

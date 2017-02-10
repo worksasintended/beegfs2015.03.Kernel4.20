@@ -148,7 +148,7 @@ fhgfs_bool _StandardSocket_initSock(StandardSocket* this, int domain, int type, 
    int createRes;
 
    // prepare/create socket
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
+#ifndef KERNEL_HAS_SOCK_CREATE_KERN_NS
    createRes = sock_create_kern(domain, type, protocol, &this->sock);
 #else
    createRes = sock_create_kern(&init_net, domain, type, protocol, &this->sock);
@@ -688,7 +688,7 @@ ssize_t _StandardSocket_sendto(Socket* this, const void *buf, size_t len, int fl
       .msg_namelen      = sizeof(toSockAddr),
    };
 
-   #if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
+   #ifndef KERNEL_HAS_MSGHDR_ITER
       msg.msg_iov       = &iov;
       msg.msg_iovlen    = 1;
    #else
@@ -704,7 +704,7 @@ ssize_t _StandardSocket_sendto(Socket* this, const void *buf, size_t len, int fl
 
    ACQUIRE_PROCESS_CONTEXT(oldfs);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+#ifndef KERNEL_HAS_SOCK_SENDMSG_NOLEN
    sendRes = sock_sendmsg(thisCast->sock, &msg, len);
 #else
    sendRes = sock_sendmsg(thisCast->sock, &msg);
@@ -757,7 +757,7 @@ ssize_t StandardSocket_recvfrom(StandardSocket* this, void *buf, size_t len, int
       .msg_namelen      = sizeof(fromSockAddr),
    };
 
-   #if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
+   #ifndef KERNEL_HAS_MSGHDR_ITER
       msg.msg_iov       = &iov;
       msg.msg_iovlen    = 1;
    #else

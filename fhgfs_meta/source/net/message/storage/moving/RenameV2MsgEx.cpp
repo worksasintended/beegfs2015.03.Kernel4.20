@@ -445,8 +445,9 @@ FhgfsOpsErr RenameV2MsgEx::remoteFileInsertAndUnlink(EntryInfo* fromFileInfo, En
 
    // send request and receive response
 
-   MsgHelperXAttr::StreamXAttrState streamState = { socket, fromFileInfo, &xattrs };
-   insertMsg.registerStreamoutHook(rrArgs, MsgHelperXAttr::streamXAttrFn, &streamState);
+   MsgHelperXAttr::StreamXAttrState streamState = { socket, fromFileInfo, &xattrs, 0 };
+   insertMsg.registerStreamoutHook(rrArgs, MsgHelperXAttr::resetXAttrFn,
+         MsgHelperXAttr::streamXAttrFn, &streamState);
 
    FhgfsOpsErr requestRes = MessagingTk::requestResponseNode(&rrNode, &rrArgs);
 

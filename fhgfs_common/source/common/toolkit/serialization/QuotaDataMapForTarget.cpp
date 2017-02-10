@@ -102,7 +102,7 @@ bool Serialization::deserializeQuotaDataMapForTarget(unsigned mapBufLen, unsigne
       // the targetNumID of the target QuotaDataMap
 
       uint16_t outTargetNumID = 0;
-      unsigned targetNumIDLen;
+      unsigned targetNumIDLen = 0; // just mute compiler warnings on sl5
       if(unlikely(!deserializeUShort(&buf[bufPos], bufLen-bufPos, &outTargetNumID,
          &targetNumIDLen) ) )
          return false;
