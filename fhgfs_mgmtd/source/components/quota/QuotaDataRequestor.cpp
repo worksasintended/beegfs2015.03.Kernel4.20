@@ -45,7 +45,7 @@ bool QuotaDataRequestor::requestQuota(QuotaDataMapForTarget* outQuotaData,
    QuotaInodeSupport quotaInodeSupport;
 
    // ignore return value, update of quota data is required also when a target is off-line
-   requestQuotaDataAndCollectResponses(mgmtNode, storageNodes, app->getWorkQueue(), &tmpQuotaData,
+   requestQuotaDataAndCollectResponses(mgmtNode, storageNodes, &workQueue, &tmpQuotaData,
       mapper, false, &quotaInodeSupport);
 
    mgmtNodes->releaseNode(&mgmtNode);

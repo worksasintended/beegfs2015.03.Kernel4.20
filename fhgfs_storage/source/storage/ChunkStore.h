@@ -89,6 +89,9 @@ class ChunkStore
       bool mkdirChunkDirPath(int targetFD, PathVec* chunkDirPath, bool hasOrigFeature,
          ChunkDir** outChunkDir);
 
+      int openAndChown(const int targetFD, const std::string& path, const int openFlags,
+         const SessionQuotaInfo& quota);
+
       // inlined
 
       /**
