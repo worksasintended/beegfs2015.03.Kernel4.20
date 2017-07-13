@@ -686,7 +686,6 @@ int ModeGetQuotaInfo::getUsedQuotaStrings(QuotaDataMap* usedQuota, unsigned id,
       if(this->cfg.cfgCsv)
       {
          usedSizeOut = StringTk::doubleToStr(usedQuotaIter->second.getSize(), 0);
-         usedSizeOut.append(" Byte");
       }
       else
       {
@@ -753,7 +752,6 @@ void ModeGetQuotaInfo::getQuotaLimitsStrings(QuotaDataMap* quotaLimits, unsigned
          else if( this->cfg.cfgCsv )
          {
             limitSizeOut = StringTk::doubleToStr(limitsIter->second.getSize(), 0);
-            limitSizeOut.append(" Byte");
          }
          else
          {

@@ -19,8 +19,9 @@ class MgmtdTargetStateStore : public TargetStateStore
          MirrorBuddyGroupMapper* buddyGroups);
       bool resolveDoubleResync();
 
-      void saveTargetsToResyncFile();
-      bool loadTargetsToResyncFromFile() throw (InvalidConfigException);
+      bool loadTargetsToResyncFromFile();
+      void saveStates();
+      bool loadStates();
 
    private:
 
@@ -33,6 +34,7 @@ class MgmtdTargetStateStore : public TargetStateStore
       TargetIDSet targetsToResync;
       bool targetsToResyncSetDirty;
       std::string targetsToResyncStorePath;
+      std::string stateStorePath;
 
       NodeType nodeType; // Meta node state store or storage target state store.
 
@@ -55,6 +57,15 @@ class MgmtdTargetStateStore : public TargetStateStore
          this->targetsToResyncStorePath = storePath;
       }
 
+      void setTargetStatePath(const std::string& p)
+      {
+         stateStorePath = p;
+      }
+
+      const std::string& getTargetStatePath()
+      {
+         return stateStorePath;
+      }
 
    private:
 

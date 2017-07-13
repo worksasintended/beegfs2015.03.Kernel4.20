@@ -81,9 +81,7 @@ class TargetStateStore
          safeLock.unlock(); // U N L O C K
       }
 
-
    protected:
-
       bool getStateUnlocked(uint16_t targetID, CombinedTargetState& outState)
       {
          TargetStateInfoMapConstIter iter = this->statesMap.find(targetID);
@@ -91,18 +89,6 @@ class TargetStateStore
             return false;
 
          outState = iter->second;
-         return true;
-      }
-
-
-   private:
-      bool getStateInfoUnlocked(uint16_t targetID, TargetStateInfo& outStateInfo)
-      {
-         TargetStateInfoMapConstIter iter = this->statesMap.find(targetID);
-         if (unlikely(iter == statesMap.end() ) )
-            return false;
-
-         outStateInfo = iter->second;
          return true;
       }
 
@@ -118,6 +104,17 @@ class TargetStateStore
                currentState.lastChangedTime.setToNow();
             }
          }
+      }
+
+   private:
+      bool getStateInfoUnlocked(uint16_t targetID, TargetStateInfo& outStateInfo)
+      {
+         TargetStateInfoMapConstIter iter = this->statesMap.find(targetID);
+         if (unlikely(iter == statesMap.end() ) )
+            return false;
+
+         outStateInfo = iter->second;
+         return true;
       }
 };
 

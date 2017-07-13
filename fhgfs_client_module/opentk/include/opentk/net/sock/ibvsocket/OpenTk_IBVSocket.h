@@ -4,7 +4,6 @@
 #include <opentk/OpenTk_Common.h>
 
 
-
 /*
  * This is the interface of the ibverbs socket abstraction.
  */

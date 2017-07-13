@@ -1,5 +1,6 @@
 #include <common/net/message/nodes/SetTargetConsistencyStatesMsg.h>
 #include <common/net/message/nodes/SetTargetConsistencyStatesRespMsg.h>
+#include <common/toolkit/serialization/Serialization.h>
 #include <common/toolkit/MessagingTk.h>
 #include <components/HeartbeatManager.h>
 #include <program/Program.h>
@@ -7,6 +8,7 @@
 #include "MgmtdTargetStateStore.h"
 
 #define MGMTDTARGETSTATESTORE_TMPFILE_EXT ".tmp"
+#define MGMTDTARGETSTATESTORE_SERBUF_SIZE (4*1024*1024)
 
 MgmtdTargetStateStore::MgmtdTargetStateStore(NodeType nodeType) : TargetStateStore(),
    targetsToResyncSetDirty(false),
@@ -471,50 +473,43 @@ bool MgmtdTargetStateStore::resolveDoubleResync()
    return res;
 }
 
-/**
- * Saves the list of targets which need a resync to the targets_need_resync file.
- */
-void MgmtdTargetStateStore::saveTargetsToResyncFile()
+void MgmtdTargetStateStore::saveStates()
 {
-   const char* logContext = "Save to resync file";
+   const char* logContext = "Save target states";
 
-   App* app = Program::getApp();
+   std::vector<char> buf(Serialization::serialLenTargetStateInfoMap(&statesMap));
 
-   Path mgmtdPath = *app->getMgmtdPath();
-   Path targetsToResyncPath(mgmtdPath, targetsToResyncStorePath);
-
-   std::string targetsToResyncTmpPath =
-      targetsToResyncPath.getPathAsStr() + MGMTDTARGETSTATESTORE_TMPFILE_EXT;
-
-   std::string targetsToResyncStr;
-
+   // serialize into buffer
    {
-      SafeRWLock safeLock(&targetsToResyncSetLock, SafeRWLock_READ); // L O C K
+      SafeRWLock lock(&rwlock, SafeRWLock_READ);
 
-      for (TargetIDSetCIter targetIter = targetsToResync.begin();
-           targetIter != targetsToResync.end(); ++targetIter)
-         targetsToResyncStr += StringTk::uintToStr(*targetIter) + "\n";
+      if (!Serialization::serializeTargetStateInfoMap(&buf[0], &statesMap))
+      {
+         LogContext(logContext).log(Log_ERR, "Failed to serialize target state store.");
+         return;
+      }
 
-      safeLock.unlock(); // U N L O C K
+      lock.unlock();
    }
 
-   // Create tmp file.
-   const int openFlags = O_CREAT | O_TRUNC | O_RDWR;
-   int fd = open(targetsToResyncTmpPath.c_str(), openFlags, 0644);
-   if (fd == -1)
-   { // error
-      LogContext(logContext).log(Log_ERR, "Could not open temporary file: "
-         + targetsToResyncTmpPath + "; SysErr: " + System::getErrString() );
+   Path statesPath(*Program::getApp()->getMgmtdPath(), stateStorePath);
+   std::string statesTmpPath(statesPath.getPathAsStr() + MGMTDTARGETSTATESTORE_TMPFILE_EXT);
 
+   // write to tmp file
+   const int openFlags = O_CREAT | O_TRUNC | O_RDWR;
+   int fd = open(statesTmpPath.c_str(), openFlags, 0644);
+   if (fd == -1)
+   {
+      LogContext(logContext).log(Log_ERR, "Could not open temporary file: "
+            + statesTmpPath + "; SysErr: " + System::getErrString());
       return;
    }
 
-   ssize_t writeRes = write(fd, targetsToResyncStr.c_str(), targetsToResyncStr.length() );
-   if (writeRes != (ssize_t)targetsToResyncStr.length() )
+   size_t writeRes = write(fd, &buf[0], buf.size());
+   if (writeRes != buf.size())
    {
-      LogContext(logContext).log(Log_ERR, "Writing to file " + targetsToResyncTmpPath +
-         " failed; SysErr: " + System::getErrString() );
-
+      LogContext(logContext).log(Log_ERR, "Writing to file " + statesTmpPath +
+            " failed. SysErr: " + System::getErrString());
       close(fd);
       return;
    }
@@ -522,28 +517,75 @@ void MgmtdTargetStateStore::saveTargetsToResyncFile()
    fsync(fd);
    close(fd);
 
-   // Rename tmp file to actual file name.
-   int renameRes =
-      rename(targetsToResyncTmpPath.c_str(), targetsToResyncPath.getPathAsStr().c_str() );
-   if (renameRes == -1)
+   // move over
+   if (rename(statesTmpPath.c_str(), statesPath.getPathAsStr().c_str()))
    {
-      LogContext(logContext).log(Log_ERR, "Renaming file " + targetsToResyncPath.getPathAsStr()
-         + " to " + targetsToResyncPath.getPathAsStr() + " failed; SysErr: "
-         + System::getErrString() );
+      LogContext(logContext).log(Log_ERR, "Renaming file " + statesTmpPath + " to "
+            + statesPath.getPathAsStr() + " failed; SysErr: " + System::getErrString());
+   }
+}
+
+bool MgmtdTargetStateStore::loadStates()
+{
+   if (stateStorePath.empty())
+      throw InvalidConfigException("State store path not set.");
+
+   Path statesPath(*Program::getApp()->getMgmtdPath(), stateStorePath);
+
+   int fd = open(statesPath.getPathAsStr().c_str(), O_RDONLY, 0);
+   if (fd == -1)
+   {
+      LogContext(__func__).log(Log_NOTICE, "Unable to load state store file. SysErr: "
+            + System::getErrString());
+      return false;
    }
 
-   { // Clear dirty flag.
-      SafeRWLock safeLock(&targetsToResyncSetLock, SafeRWLock_READ); // L O C K
-      targetsToResyncSetDirty = false;
-      safeLock.unlock(); // U N L O C K
+   std::vector<char> buf(MGMTDTARGETSTATESTORE_SERBUF_SIZE);
+   int readRes = read(fd, &buf[0], buf.size());
+   if (readRes <= 0)
+   {
+      LogContext(__func__).log(Log_ERR, "Unable to read state store file. SysErr: "
+            + System::getErrString());
+      return false;
    }
+
+   // deserialize
+   const char* infoStart;
+   unsigned elemNum;
+   unsigned len;
+
+   bool preprocRes = Serialization::deserializeTargetStateInfoMapPreprocess(&buf[0], readRes,
+         &infoStart, &elemNum, &len);
+
+   if (!preprocRes)
+   {
+      LogContext(__func__).log(Log_ERR, "Unable to preprocess state store file.");
+      return false;
+   }
+
+   TargetStateInfoMap tmpMap;
+
+   bool deserRes = Serialization::deserializeTargetStateInfoMap(elemNum, infoStart, &tmpMap);
+
+   if (!deserRes)
+   {
+      LogContext(__func__).log(Log_ERR, "Unable to deserialize state store file.");
+      return false;
+   }
+
+   SafeRWLock lock(&rwlock, SafeRWLock_WRITE);
+   tmpMap.swap(statesMap);
+   setAllStatesUnlocked(TargetReachabilityState_POFFLINE);
+   lock.unlock();
+
+   return true;
 }
 
 /**
  * Reads the list of targets which need a resync from the targets_need_resync file.
  * Note: We assume the set is empty here, because this method is only called at startup.
  */
-bool MgmtdTargetStateStore::loadTargetsToResyncFromFile() throw (InvalidConfigException)
+bool MgmtdTargetStateStore::loadTargetsToResyncFromFile()
 {
    const char* logContext = "Read resync file";
 
@@ -561,6 +603,8 @@ bool MgmtdTargetStateStore::loadTargetsToResyncFromFile() throw (InvalidConfigEx
    if (fileExists)
       ICommonConfig::loadStringListFile(targetsToResyncPath.getPathAsStr().c_str(),
          targetsToResyncList);
+   else
+      return false;
 
    SafeRWLock safeLock(&targetsToResyncSetLock, SafeRWLock_WRITE); // L O C K
 

@@ -21,6 +21,8 @@
  */
 class Time
 {
+   friend class Serialization;
+
    public:
       Time()
       {

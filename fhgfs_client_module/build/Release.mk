@@ -4,50 +4,14 @@
 # Use "make help" to find out about configuration options.
 
 TARGET ?= beegfs
-
-
-ifneq ($(KERNELRELEASE),)
-
-#
-# --- kbuild part [START] ---
-#
-
-# Auto-selection of source files and corresponding target objects 
-BEEGFS_SOURCES := $(shell find $(obj)/../source -name '*.c')
-BEEGFS_SOURCES_STRIPPED := $(subst $(obj)/, , $(BEEGFS_SOURCES) ) 
-
-BEEGFS_SOURCES_OPENTK := $(shell find $(obj)/../opentk -name '*.c')
-BEEGFS_SOURCES_OPENTK_STRIPPED := $(subst $(obj)/, , $(BEEGFS_SOURCES_OPENTK) )
-
-BEEGFS_OBJECTS := $(BEEGFS_SOURCES_STRIPPED:.c=.o)
-BEEGFS_OBJECTS += $(BEEGFS_SOURCES_OPENTK_STRIPPED:.c=.o)
-
-
-
-obj-m	+= ${TARGET}.o
-
-${TARGET}-y	:= $(BEEGFS_OBJECTS)
-
-#
-# --- kbuild part [END] ---
-#
-
-else
-
-#
-# --- Normal make part [START] ---
-#
+export TARGET
+export OFED_INCLUDE_PATH
 
 ifeq ($(obj),)
 BEEGFS_BUILDDIR := $(shell pwd)
 else
 BEEGFS_BUILDDIR := $(obj)
 endif
-
-BEEGFS_OPENTK_AUTOCONF_REL_PATH=opentk/source/common/rdma_autoconf.h
-BEEGFS_OPENTK_AUTOCONF_BUILD_REL_PATH=../$(BEEGFS_OPENTK_AUTOCONF_REL_PATH)
-BEEGFS_OPENTK_AUTOCONF_BUILD_PATH=$(BEEGFS_BUILDDIR)/$(BEEGFS_OPENTK_AUTOCONF_BUILD_REL_PATH)
-
 
 # The following section deals with the auto-detection of the kernel
 # build directory (KDIR)
@@ -137,18 +101,6 @@ ifneq ($(BEEGFS_OFED_1_2_API),)
 BEEGFS_CFLAGS += "-DBEEGFS_OFED_1_2_API=$(BEEGFS_OFED_1_2_API)"
 endif
 
-# Note: Make sure we include OFED_INCLUDE_PATH files before the standard kernel
-# include files.
-ifneq ($(OFED_INCLUDE_PATH),)
-BEEGFS_CFLAGS += -I$(OFED_INCLUDE_PATH)
-endif
-
-
-ifneq ($(OFED_LIB_PATH),)
-BEEGFS_LDFLAGS += -L$(OFED_LIB_PATH)
-endif
-
-
 # if path to strip command was not given, use default
 # (alternative strip is important when cross-compiling)
 ifeq ($(STRIP),)
@@ -176,28 +128,14 @@ endif
 
 ifneq ($(OFED_INCLUDE_PATH),)
 	if [ -f $(OFED_INCLUDE_PATH)/../Module.symvers ]; then \
-		cp $(OFED_INCLUDE_PATH)/../Module.symvers . ; \
-		cp $(OFED_INCLUDE_PATH)/../Module.symvers Modules.symvers ; \
+		cp $(OFED_INCLUDE_PATH)/../Module.symvers ../source ; \
 	fi
 endif
 
-	@ cp $(BEEGFS_OPENTK_AUTOCONF_BUILD_PATH).in \
-		$(BEEGFS_OPENTK_AUTOCONF_BUILD_PATH)
-
-	@ # note the "/" in ${OFED_INCLUDE_PATH}/! Therefore the if-condition.
-	@ if [ -n "${OFED_INCLUDE_PATH}" ]; then 			       	\
-		  sed -i -e 's#__OFED_INCLUDE_PATH__#${OFED_INCLUDE_PATH}/#g' 	\
-			$(BEEGFS_OPENTK_AUTOCONF_BUILD_PATH);			\
-	  else 									\
-		  sed -i -e 's#__OFED_INCLUDE_PATH__##g' 			\
-			$(BEEGFS_OPENTK_AUTOCONF_BUILD_PATH);			\
-	  fi
-
-
-	@echo "Building beegfs client module"
-	$(MAKE) -C $(KDIR_PRUNED_HEAD) SUBDIRS=$(BEEGFS_BUILDDIR) \
+	$(MAKE) -C $(KDIR_PRUNED_HEAD) "SUBDIRS=$(BEEGFS_BUILDDIR)/../source" \
 	"EXTRA_CFLAGS=$(BEEGFS_CFLAGS)" modules
 	
+	@cp ../source/$(TARGET).ko .
 	@ cp ${TARGET}.ko ${TARGET}-unstripped.ko
 	@ ${STRIP} --strip-debug ${TARGET}.ko
 
@@ -214,7 +152,7 @@ install:
 clean:
 	rm -f *~ .${TARGET}??*
 	rm -f .*.cmd *.mod.c *.mod.o *.o *.ko *.ko.unsigned
-	rm -f Module*.symvers modules.order Module.markers
+	rm -f ../source/Module*.symvers ../source/modules.order ../source/Module.markers
 	rm -f $(AUTO_REBUILD_KVER_FILE)
 	rm -rf .tmp_versions/
 	find ../source/ -mount -name '*.o' -type f -delete
@@ -223,9 +161,6 @@ clean:
 	find ../opentk/ -mount -name '*.o' -type f -delete
 	find ../opentk/ -mount -name '.*.o.cmd' -type f -delete
 	find ../opentk/ -mount -name '.*.o.d' -type f -delete
-
-	rm -f $(BEEGFS_OPENTK_AUTOCONF_BUILD_REL_PATH)
-
 
 help:
 	@echo "This makefile creates the kernel module: $(TARGET) (beegfs-client)"
@@ -248,9 +183,3 @@ help:
 	@echo '  BEEGFS_OFED_1_2_API={1,2}:'
 	@echo '    Defining this enables OFED 1.2.0 ibverbs API compatibility.'
 	@echo '    (If not defined, OFED 1.2.5 or higher API will be used.)'
-
-#	
-# --- Normal make part [END] ---
-#
-
-endif

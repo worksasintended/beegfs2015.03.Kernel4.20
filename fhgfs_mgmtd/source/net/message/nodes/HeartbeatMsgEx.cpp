@@ -157,6 +157,9 @@ bool HeartbeatMsgEx::processIncoming(struct sockaddr_in* fromAddr, Socket* sock,
    MsgHelperAck::respondToAckRequest(this, fromAddr, sock,
       respBuf, bufLen, app->getDatagramListener() );
 
+   if (nodeType == NODETYPE_Storage)
+      app->getTargetStateStore()->saveStates();
+
    return true;
 }
 

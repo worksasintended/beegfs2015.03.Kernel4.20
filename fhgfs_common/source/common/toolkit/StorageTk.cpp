@@ -14,11 +14,9 @@
 
 #define STORAGETK_DIR_LOCK_FILENAME          "lock.pid"
 
-#define STORAGETK_FORMAT_FILENAME            "format.conf"
 #define STORAGETK_FORMAT_KEY_VERSION         "version"
 
 #define STORAGETK_TMPFILE_EXT                ".tmp" /* tmp extension for saved files until rename */
-#define STORAGETK_BACKUP_EXT                 ".bak" /* extension for old file backups */
 
 #define STORAGETK_DEFAULT_FILEMODE           (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH)
 

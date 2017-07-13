@@ -40,5 +40,8 @@ bool ChangeTargetConsistencyStatesMsgEx::processIncoming(struct sockaddr_in* fro
    // send response
    sock->sendto(respBuf, respMsg.getMsgLength(), 0, NULL, 0);
 
+   if (getNodeType() == NODETYPE_Storage)
+      targetStateStore->saveStates();
+
    return true;
 }

@@ -24,6 +24,8 @@
 #define STORAGETK_TARGETID_FILENAME          "targetID" /* contains first-run targetID */
 #define STORAGETK_TARGETNUMID_FILENAME       "targetNumID" /* contains first-run targetNumID */
 #define STORAGETK_SESSIONS_BACKUP_FILE_NAME  "sessions" /* contains session backup information */
+#define STORAGETK_FORMAT_FILENAME            "format.conf"
+#define STORAGETK_BACKUP_EXT                 ".bak" /* extension for old file backups */
 
 
 #define STORAGETK_FILEID_TIMESTAMP_SHIFTBITS  32 /* timestamp is shifted by this number of bits */

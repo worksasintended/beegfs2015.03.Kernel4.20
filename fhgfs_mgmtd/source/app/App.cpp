@@ -329,7 +329,7 @@ bool App::runIntegrationTests()
 
 void App::initDataObjects(int argc, char** argv) throw(InvalidConfigException)
 {
-   preinitStorage();
+   const bool firstRun = !preinitStorage();
 
    this->netFilter = new NetFilter(cfg->getConnNetFilterFile() );
    this->tcpOnlyFilter = new NetFilter(cfg->getConnTcpOnlyFilterFile() );
@@ -408,7 +408,7 @@ void App::initDataObjects(int argc, char** argv) throw(InvalidConfigException)
 
    registerSignalHandler();
 
-   initStorage(); // (required here for persistent objects)
+   initStorage(firstRun); // (required here for persistent objects)
 
    // apply forced root (if configured)
    uint16_t forcedRoot = this->cfg->getSysForcedRoot();
@@ -479,7 +479,10 @@ void App::initLocalNodeInfo() throw(InvalidConfigException)
    localNode->setFeatureFlags(&nodeFeatureFlags);
 }
 
-void App::preinitStorage() throw(InvalidConfigException)
+/**
+ * @returns true if this is an mgmtd directory that has been initialized before (false on first run)
+ */
+bool App::preinitStorage() throw(InvalidConfigException)
 {
    /* note: this contains things that would actually live inside initStorage() but need to be
       done at an earlier stage (like working dir locking before log file creation) */
@@ -495,8 +498,9 @@ void App::preinitStorage() throw(InvalidConfigException)
    if(!mgmtdPath->isAbsolute() ) /* (check to avoid problems after chdir) */
       throw InvalidConfigException("Path to storage directory must be absolute: " + mgmtdPathStr);
 
-   if(!cfg->getStoreAllowFirstRunInit() &&
-      !StorageTk::checkStorageFormatFileExists(mgmtdPathStr) )
+   const bool initialized = StorageTk::checkStorageFormatFileExists(mgmtdPathStr);
+
+   if (!cfg->getStoreAllowFirstRunInit() && !initialized)
       throw InvalidConfigException("Storage directory not initialized and "
          "initialization has been disabled: " + mgmtdPathStr);
 
@@ -513,9 +517,11 @@ void App::preinitStorage() throw(InvalidConfigException)
    this->workingDirLockFD = StorageTk::lockWorkingDirectory(cfg->getStoreMgmtdDirectory() );
    if(workingDirLockFD == -1)
       throw InvalidConfigException("Invalid working directory: locking failed");
+
+   return initialized;
 }
 
-void App::initStorage() throw(InvalidConfigException)
+void App::initStorage(const bool firstRun) throw(InvalidConfigException, ComponentInitException)
 {
    std::string mgmtdPathStr = mgmtdPath->getPathAsStr();
 
@@ -530,12 +536,13 @@ void App::initStorage() throw(InvalidConfigException)
 
    // storage format file
 
-   if(!StorageTk::createStorageFormatFile(mgmtdPathStr, STORAGETK_FORMAT_CURRENT_VERSION) )
+   if(!StorageTkEx::createStorageFormatFile(mgmtdPathStr, STORAGETK_FORMAT_CURRENT_VERSION))
       throw InvalidConfigException("Unable to create storage format file in: " +
-         cfg->getStoreMgmtdDirectory() );
+         cfg->getStoreMgmtdDirectory());
 
+   StringMap formatProperties;
    StorageTk::checkAndUpdateStorageFormatFile(mgmtdPathStr,
-      STORAGETK_FORMAT_MIN_VERSION, STORAGETK_FORMAT_CURRENT_VERSION);
+      STORAGETK_FORMAT_MIN_VERSION, STORAGETK_FORMAT_CURRENT_VERSION, &formatProperties);
 
    // check for nodeID changes
 
@@ -586,14 +593,18 @@ void App::initStorage() throw(InvalidConfigException)
       this->log->log(Log_NOTICE, "Loaded mirror buddy group mappings: " +
          StringTk::intToStr(mirrorBuddyGroupMapper->getSize() ) );
 
-   // load targets need resync list
+   // targets need resync list and states file path
    Path targetsToResyncPath(CONFIG_TARGETSTORESYNC_FILENAME);
    targetStateStore->setTargetsToResyncStorePath(targetsToResyncPath.getPathAsStr() );
-   if (targetStateStore->loadTargetsToResyncFromFile() )
-      this->log->log(Log_NOTICE, "Loaded targets to resync list.");
+   Path targetStatePath(CONFIG_TARGETSTATE_FILENAME);
+   targetStateStore->setTargetStatePath(targetStatePath.getPathAsStr());
+
+   readTargetStates(firstRun, formatProperties);
+
+   StorageTkEx::updateStorageFormatFile(mgmtdPathStr, STORAGETK_FORMAT_MIN_VERSION,
+         STORAGETK_FORMAT_CURRENT_VERSION, &formatProperties);
 
    // raise file descriptor limit
-
    if(cfg->getTuneProcessFDLimit() )
    {
       uint64_t oldLimit;
@@ -608,6 +619,36 @@ void App::initStorage() throw(InvalidConfigException)
 
 }
 
+void App::readTargetStates(const bool firstRun, StringMap& formatProperties)
+{
+   if (targetStateStore->loadStates())
+   {
+      log->log(Log_NOTICE, "Loaded storage target states.");
+      return;
+   }
+
+   if (firstRun)
+   {
+      formatProperties[STORAGETK_FORMAT_STATES_STORAGE] = "1";
+      return;
+   }
+
+   if (formatProperties[STORAGETK_FORMAT_STATES_STORAGE] == "1")
+      throw ComponentInitException("Could not load target states.");
+
+   // The first run after an update - read the old file, and set the flag
+   if (targetStateStore->loadTargetsToResyncFromFile())
+   {
+      log->log(Log_NOTICE, "Restored resync set.");
+
+      // Make an effort to unlink the resync set file.
+      Path stateStorePathAbsolute(*mgmtdPath, targetStateStore->getTargetStatePath());
+      log->log(Log_NOTICE, "Trying to unlink: " + stateStorePathAbsolute.getPathAsStr());
+      ::unlink(stateStorePathAbsolute.getPathAsStr().c_str());
+   }
+
+   formatProperties[STORAGETK_FORMAT_STATES_STORAGE] = "1";
+}
 
 void App::initComponents() throw(ComponentInitException)
 {

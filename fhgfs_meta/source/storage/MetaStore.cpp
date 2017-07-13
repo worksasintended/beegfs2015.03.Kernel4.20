@@ -886,7 +886,7 @@ FhgfsOpsErr MetaStore::mkNewMetaFileUnlocked(DirInode* dir, MkFileDetails* mkDet
    // apply access ACL calculated from default ACL
    if (needsACL)
    {
-      FhgfsOpsErr setXAttrRes = dir->setXAttr(outEntryInfo, mkDetails->newName,
+      FhgfsOpsErr setXAttrRes = dir->setXAttr(outEntryInfo, newEntryID,
          PosixACL::accessACLXAttrName, aclXAttr, 0, false);
 
       if (setXAttrRes != FhgfsOpsErr_SUCCESS)

@@ -44,6 +44,7 @@ void InternodeSyncer::run()
    }
 
    saveTargetMappings();
+   Program::getApp()->getTargetStateStore()->saveStates();
 }
 
 void InternodeSyncer::syncLoop()
@@ -86,6 +87,8 @@ void InternodeSyncer::syncLoop()
                to meta mirror buddy group mapper when it's available */
 
          statesModified |= mgmtdTargetStateStore->resolveDoubleResync();
+
+         mgmtdTargetStateStore->saveStates();
 
          // if target states have changed, inform other nodes about it
          if (statesModified)
@@ -593,7 +596,6 @@ void InternodeSyncer::saveTargetMappings()
    NumericIDMapper* targetNumIDMapper = app->getTargetNumIDMapper();
    TargetMapper* targetMapper = app->getTargetMapper();
    MirrorBuddyGroupMapper* mirrorBuddyGroupMapper = app->getMirrorBuddyGroupMapper();
-   MgmtdTargetStateStore* targetStateStore = app->getTargetStateStore();
 
    if(targetNumIDMapper->isMapperDirty() )
       targetNumIDMapper->saveToFile();
@@ -603,9 +605,6 @@ void InternodeSyncer::saveTargetMappings()
 
    if (mirrorBuddyGroupMapper->isMapperDirty() )
       mirrorBuddyGroupMapper->saveToFile();
-
-   if (targetStateStore->isToResyncSetDirty() )
-      targetStateStore->saveTargetsToResyncFile();
 }
 
 /**

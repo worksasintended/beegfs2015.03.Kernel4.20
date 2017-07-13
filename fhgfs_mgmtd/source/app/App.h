@@ -128,8 +128,9 @@ class App : public AbstractApp
 
       void initDataObjects(int argc, char** argv) throw(InvalidConfigException);
       void initLocalNodeInfo() throw(InvalidConfigException);
-      void preinitStorage() throw(InvalidConfigException);
-      void initStorage() throw(InvalidConfigException);
+      bool preinitStorage() throw(InvalidConfigException);
+      void initStorage(const bool firstRun) throw(InvalidConfigException, ComponentInitException);
+      void readTargetStates(const bool firstRun, StringMap& formatProperties);
       void initRootDir() throw(InvalidConfigException);
       void initDisposalDir() throw(InvalidConfigException);
       void initComponents() throw(ComponentInitException);

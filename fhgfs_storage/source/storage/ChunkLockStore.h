@@ -36,8 +36,7 @@ class ChunkLockStore
       ChunkLockStoreMap targetsMap;
       RWLock targetsLock; // synchronizes insertion into targetsMap
 
-   public:
-      void lockChunk(uint16_t targetID, std::string chunkID)
+      ChunkLockStoreContents* getOrInsertTargetLockStore(const uint16_t targetID)
       {
          targetsLock.readLock(); // lock targets map
 
@@ -51,7 +50,38 @@ class ChunkLockStore
                ChunkLockStoreMapVal(targetID, ChunkLockStoreContents() ) ).first;
          }
 
-         ChunkLockStoreContents* targetLockStore = &targetsIter->second;
+         targetsLock.unlock();
+         return &targetsIter->second;
+      }
+
+      ChunkLockStoreContents* findTargetLockStore(const uint16_t targetID)
+      {
+         ChunkLockStoreContents* res = NULL;
+
+         targetsLock.readLock(); // lock targets map
+
+         ChunkLockStoreMapIter targetsIter = targetsMap.find(targetID);
+         if(unlikely(targetsIter == targetsMap.end() ) )
+         { // target not found should never happen here
+            LogContext(__func__).log(Log_WARNING,
+               "Tried to access chunk lock, but target not found in lock map. Printing backtrace. "
+               "targetID: " + StringTk::uintToStr(targetID) );
+            LogContext(__func__).logBacktrace();
+
+            goto unlock_targets;
+         }
+
+         res = &targetsIter->second;
+
+unlock_targets:
+         targetsLock.unlock();
+         return res;
+      }
+
+   public:
+      void lockChunk(uint16_t targetID, std::string chunkID)
+      {
+         ChunkLockStoreContents* targetLockStore = getOrInsertTargetLockStore(targetID);
 
          SafeMutexLock chunksLock(&targetLockStore->lockedChunksMutex);
 
@@ -68,29 +98,15 @@ class ChunkLockStore
          }
 
          chunksLock.unlock();
-
-         targetsLock.unlock(); // unlock targets map
       }
 
       void unlockChunk(uint16_t targetID, std::string chunkID)
       {
-         ChunkLockStoreContents* targetLockStore;
          StringSetIter lockChunksIter;
 
-         targetsLock.readLock(); // lock targets map
-
-         ChunkLockStoreMapIter targetsIter = targetsMap.find(targetID);
-         if(unlikely(targetsIter == targetsMap.end() ) )
-         { // target not found should never happen here
-            LogContext(__func__).log(Log_WARNING,
-               "Tried to unlock chunk, but target not found in lock map. Printing backtrace. "
-               "targetID: " + StringTk::uintToStr(targetID) );
-            LogContext(__func__).logBacktrace();
-
-            goto unlock_targets;
-         }
-
-         targetLockStore = &targetsIter->second;
+         ChunkLockStoreContents* targetLockStore = findTargetLockStore(targetID);
+         if (!targetLockStore)
+            return;
 
          targetLockStore->lockedChunksMutex.lock();
 
@@ -112,9 +128,6 @@ class ChunkLockStore
 
          unlock_chunks:
             targetLockStore->lockedChunksMutex.unlock();
-
-         unlock_targets:
-            targetsLock.unlock(); // unlock targets map
       }
 
    protected:
@@ -123,21 +136,15 @@ class ChunkLockStore
       {
          size_t retVal = 0;
 
-         targetsLock.readLock(); // lock targets map
-
-         ChunkLockStoreMapIter targetsIter = targetsMap.find(targetID);
-         if(targetsIter != targetsMap.end() ) // map does exist
+         ChunkLockStoreContents* targetLockStore = findTargetLockStore(targetID);
+         if(targetLockStore) // map does exist
          {
-            ChunkLockStoreContents* targetLockStore = &targetsIter->second;
-
             SafeMutexLock chunksLock(&targetLockStore->lockedChunksMutex);
 
             retVal = targetLockStore->lockedChunks.size();
 
             chunksLock.unlock();
          }
-
-         targetsLock.unlock(); // unlock targets map
 
          return retVal;
       }
@@ -146,21 +153,15 @@ class ChunkLockStore
       {
          StringSet outLockStore;
 
-         targetsLock.readLock(); // lock targets map
-
-         ChunkLockStoreMapIter targetsIter = targetsMap.find(targetID);
-         if(targetsIter != targetsMap.end() ) // map does exist
+         ChunkLockStoreContents* targetLockStore = findTargetLockStore(targetID);
+         if(targetLockStore) // map does exist
          {
-            ChunkLockStoreContents* targetLockStore = &targetsIter->second;
-
             SafeMutexLock chunksLock(&targetLockStore->lockedChunksMutex);
 
             outLockStore = targetLockStore->lockedChunks;
 
             chunksLock.unlock();
          }
-
-         targetsLock.unlock(); // unlock targets map
 
          return outLockStore;
       }

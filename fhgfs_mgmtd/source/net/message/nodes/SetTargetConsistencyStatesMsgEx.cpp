@@ -32,5 +32,7 @@ bool SetTargetConsistencyStatesMsgEx::processIncoming(struct sockaddr_in* fromAd
    // send response
    sock->sendto(respBuf, respMsg.getMsgLength(), 0, NULL, 0);
 
+   targetStateStore->saveStates();
+
    return true;
 }

@@ -11,7 +11,6 @@
 #include <linux/poll.h>
 #include <linux/socket.h>
 
-
 #define IBVSOCKET_CONN_TIMEOUT_MS         5000
 #define IBVSOCKET_COMPLETION_TIMEOUT_MS   300000 /* this also includes send completion wait times */
 #define IBVSOCKET_FLOWCONTROL_ONSEND_TIMEOUT_MS  180000

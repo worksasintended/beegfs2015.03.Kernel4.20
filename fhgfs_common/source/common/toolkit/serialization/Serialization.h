@@ -288,6 +288,20 @@ class Serialization
          const char* mapStart, QuotaDataMapForTarget* outQuotaDataMapForTarget);
       static unsigned serialLenQuotaDataMapForTarget(QuotaDataMapForTarget* quotaDataMap);
 
+      // TargetStateInfoMap
+      static unsigned serializeTargetStateInfoMap(char* buf,
+            TargetStateInfoMap* targetStateInfoMap);
+      static unsigned serialLenTargetStateInfoMap(
+            TargetStateInfoMap* targetStateInfoMap);
+      static bool deserializeTargetStateInfoMapPreprocess(const char* buf,
+            size_t bufLen, const char** outInfoStart, unsigned *outElemNum, unsigned* outLen);
+      static bool deserializeTargetStateInfoMap(unsigned targetStateInfoMapElemNum,
+            const char* targetStateInfoMapStart, TargetStateInfoMap* outMap);
+      static unsigned serializeTargetStateInfoMapElement(char* buf,
+            const std::pair<uint16_t, TargetStateInfo>& value);
+      static bool deserializeTargetStateInfoMapElement(const char* buf,
+            size_t bufLen, std::pair<uint16_t, TargetStateInfo>* outValue, unsigned* outLen);
+      static unsigned serialLenTargetStateInfoMapElem();
 
    private:
       Serialization() {}

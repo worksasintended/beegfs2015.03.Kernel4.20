@@ -1,7 +1,6 @@
 #ifndef IBVSOCKET_H_
 #define IBVSOCKET_H_
 
-#include <common/rdma_autoconf.h>
 #include <common/threading/Condition.h>
 #include <common/threading/Mutex.h>
 #include <common/toolkit/Serialization.h>
@@ -17,6 +16,11 @@
 #include <net/inet_common.h>
 #include <asm/atomic.h>
 
+#ifdef BEEGFS_OPENTK_IBVERBS
+#include <rdma/ib_cm.h>
+#include <rdma/ib_verbs.h>
+#include <rdma/rdma_cm.h>
+#endif
 
 #define IBVSOCKET_RECV_WORK_ID_OFFSET  (1)
 #define IBVSOCKET_SEND_WORK_ID_OFFSET  (1 + IBVSOCKET_RECV_WORK_ID_OFFSET)

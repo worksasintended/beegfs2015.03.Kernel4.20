@@ -11,6 +11,7 @@
 #define CONFIG_TARGETNUMIDS_FILENAME       "targetNumIDs"
 #define CONFIG_BUDDYGROUPMAPPINGS_FILENAME "buddygroups"
 #define CONFIG_TARGETSTORESYNC_FILENAME    "targetsToResync"
+#define CONFIG_TARGETSTATE_FILENAME        "targetStates"
 
 #define CONFIG_QUOTA_DATA_DIR                 "quota/"
 #define CONFIG_QUOTA_DEFAULT_LIMITS           (CONFIG_QUOTA_DATA_DIR "quotaDefaultLimits.store")
