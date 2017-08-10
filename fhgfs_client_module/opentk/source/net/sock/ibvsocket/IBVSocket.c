@@ -589,7 +589,11 @@ fhgfs_bool __IBVSocket_createCommContext(IBVSocket* _this, struct rdma_cm_id* cm
 
    // protection domain...
 
+#ifndef OFED_UNSAFE_GLOBAL_RKEY
    commContext->pd = ib_alloc_pd(cm_id->device);
+#else
+   commContext->pd = ib_alloc_pd(cm_id->device, IB_PD_UNSAFE_GLOBAL_RKEY);
+#endif
    if(IS_ERR(commContext->pd) )
    {
       printk_fhgfs(KERN_INFO, "%s:%d: Couldn't allocate PD. ErrCode: %d\n", __func__, __LINE__,
@@ -605,6 +609,7 @@ fhgfs_bool __IBVSocket_createCommContext(IBVSocket* _this, struct rdma_cm_id* cm
    //    "The consumer is not allowed to assign remote-write (or remote-atomic) to
    //    a memory region that has not been assigned local-write.")
 
+#ifndef OFED_UNSAFE_GLOBAL_RKEY
    commContext->dmaMR = ib_get_dma_mr(commContext->pd,
       IB_ACCESS_LOCAL_WRITE| IB_ACCESS_REMOTE_READ| IB_ACCESS_REMOTE_WRITE);
    if(IS_ERR(commContext->dmaMR) )
@@ -615,6 +620,7 @@ fhgfs_bool __IBVSocket_createCommContext(IBVSocket* _this, struct rdma_cm_id* cm
       commContext->dmaMR = NULL;
       goto err_cleanup;
    }
+#endif
 
    // alloc and register buffers...
 
@@ -835,8 +841,10 @@ void __IBVSocket_cleanupCommContext(struct rdma_cm_id* cm_id, IBVCommContext* co
    SAFE_KFREE(commContext->sendBufs);
    SAFE_KFREE(commContext->sendBufsDMA);
 
+#ifndef OFED_UNSAFE_GLOBAL_RKEY
    if(commContext->dmaMR)
       ib_dereg_mr(commContext->dmaMR);
+#endif
 
    if(commContext->pd)
       ib_dealloc_pd(commContext->pd);
@@ -859,7 +867,11 @@ void __IBVSocket_initCommDest(IBVCommContext* commContext, IBVCommDest* outDest)
       IBVSOCKET_PRIVATEDATA_PROTOCOL_VER);
 
    //outDest->rkey = commContext->dmaMR->rkey;
+#ifndef OFED_UNSAFE_GLOBAL_RKEY
    Serialization_serializeUInt( (char*)&outDest->rkey, commContext->dmaMR->rkey);
+#else
+   Serialization_serializeUInt( (char*)&outDest->rkey, commContext->pd->unsafe_global_rkey);
+#endif
 
    //outDest->vaddr = commContext->numUsedSendBufsDMA;
    Serialization_serializeUInt64( (char*)&outDest->vaddr, commContext->numUsedSendBufsDMA);
@@ -973,7 +985,11 @@ int __IBVSocket_postRecv(IBVSocket* _this, IBVCommContext* commContext, size_t b
 
    list.addr = (u64)commContext->recvBufsDMA[bufIndex];
    list.length = commContext->commCfg.bufSize;
+#ifndef OFED_UNSAFE_GLOBAL_RKEY
    list.lkey = commContext->dmaMR->lkey;
+#else
+   list.lkey = commContext->pd->local_dma_lkey;
+#endif
 
    wr.next = NULL;
    wr.wr_id = bufIndex + IBVSOCKET_RECV_WORK_ID_OFFSET;
@@ -1023,7 +1039,11 @@ int __IBVSocket_postWrite(IBVSocket* _this, IBVCommDest* remoteDest, u64 localBu
 
    list.addr = (u64)localBuf;
    list.length = bufLen;
+#ifndef OFED_UNSAFE_GLOBAL_RKEY
    list.lkey = commContext->dmaMR->lkey;
+#else
+   list.lkey = commContext->pd->local_dma_lkey;
+#endif
 
    rdma_of(wr).remote_addr = remoteDest->vaddr;
    rdma_of(wr).rkey = remoteDest->rkey;
@@ -1089,7 +1109,11 @@ int __IBVSocket_postRead(IBVSocket* _this, IBVCommDest* remoteDest,
 
    list.addr = (u64)localBuf;
    list.length = bufLen;
+#ifndef OFED_UNSAFE_GLOBAL_RKEY
    list.lkey = commContext->dmaMR->lkey;
+#else
+   list.lkey = commContext->pd->local_dma_lkey;
+#endif
 
    rdma_of(wr).remote_addr = remoteDest->vaddr;
    rdma_of(wr).rkey = remoteDest->rkey;
@@ -1135,7 +1159,11 @@ int __IBVSocket_postSend(IBVSocket* _this, size_t bufIndex, int bufLen)
 
    list.addr   = (u64)commContext->sendBufsDMA[bufIndex];
    list.length = bufLen;
-   list.lkey   = commContext->dmaMR->lkey;
+#ifndef OFED_UNSAFE_GLOBAL_RKEY
+   list.lkey = commContext->dmaMR->lkey;
+#else
+   list.lkey = commContext->pd->local_dma_lkey;
+#endif
 
    wr.wr_id      = bufIndex + IBVSOCKET_SEND_WORK_ID_OFFSET;
    wr.sg_list    = &list;

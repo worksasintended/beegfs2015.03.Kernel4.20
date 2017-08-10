@@ -121,11 +121,17 @@ static inline void ihold(struct inode *inode)
 }
 #endif // KERNEL_HAS_IHOLD
 
-#ifndef KERNEL_HAS_FILE_INODE
+#ifndef KERNEL_HAS_FILE_DENTRY
+static inline struct dentry *file_dentry(const struct file *file)
+{
+   return file->f_dentry;
+}
+#endif
 
+#ifndef KERNEL_HAS_FILE_INODE
 struct inode *file_inode(struct file *f)
 {
-   return f->f_dentry->d_inode;
+   return file_dentry(f)->d_inode;
 }
 
 #endif // KERNEL_HAS_FILE_INODE

@@ -25,6 +25,11 @@ KERNEL_FEATURE_DETECTION += $(shell \
       ${OFED_DETECTION_PATH}/rdma/ib_verbs.h \
       && echo "-DOFED_SPLIT_WR")
 
+KERNEL_FEATURE_DETECTION += $(shell \
+   grep -qs -F "IB_PD_UNSAFE_GLOBAL_RKEY" \
+      ${OFED_DETECTION_PATH}/rdma/ib_verbs.h \
+      && echo "-DOFED_UNSAFE_GLOBAL_RKEY")
+
 # Find out whether the kernel has a drop_nlink function.
 # Note: Was added in vanilla 2.6.19, but RedHat adds it to 2.6.18.
 KERNEL_HAS_DROP_NLINK = $(shell \
@@ -559,6 +564,9 @@ KERNEL_FEATURE_DETECTION += $(shell \
       && echo "-DKERNEL_HAS_ADDRESS_SPACE_BDI")
 $(call define_if_matches, KERNEL_HAS_SET_ACL, \
    -P "int \(\*set_acl\)\(struct inode \*. struct posix_acl \*. int\);", fs.h)
+
+$(call define_if_matches, KERNEL_HAS_FILE_DENTRY, \
+   "file_dentry", fs.h)
 
 # Combine results
 KERNEL_FEATURE_DETECTION += $(KERNEL_HAS_DROP_NLINK)

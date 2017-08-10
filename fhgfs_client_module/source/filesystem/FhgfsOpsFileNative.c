@@ -292,8 +292,8 @@ static int beegfs_release_range(struct file* filp, loff_t first, loff_t last)
 #endif
    if(writeRes < 0)
    {
-      App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
-      FhgfsOpsHelper_logOpMsg(3, app, filp->f_dentry, filp->f_mapping->host, __func__,
+      App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
+      FhgfsOpsHelper_logOpMsg(3, app, file_dentry(filp), filp->f_mapping->host, __func__,
          "error %i during flush", writeRes);
       IGNORE_UNUSED_VARIABLE(app);
       return writeRes;
@@ -305,7 +305,7 @@ static int beegfs_release_range(struct file* filp, loff_t first, loff_t last)
 // TODO: this should not be a full flush-and-invalidate
 static int beegfs_acquire_range(struct file* filp, loff_t first, loff_t last)
 {
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
    FhgfsIsizeHints iSizeHints;
    int err;
 
@@ -329,11 +329,11 @@ static int beegfs_acquire_range(struct file* filp, loff_t first, loff_t last)
 
 static int beegfs_open(struct inode* inode, struct file* filp)
 {
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
    int err;
    RemotingIOInfo ioInfo;
 
-   FhgfsOpsHelper_logOp(5, app, filp->f_dentry, file_inode(filp), __func__);
+   FhgfsOpsHelper_logOp(5, app, file_dentry(filp), file_inode(filp), __func__);
    IGNORE_UNUSED_VARIABLE(app);
 
    err = FhgfsOps_open(inode, filp);
@@ -343,7 +343,7 @@ static int beegfs_open(struct inode* inode, struct file* filp)
    FsFileInfo_getIOInfo(__FhgfsOps_getFileInfo(filp), BEEGFS_INODE(inode), &ioInfo);
    if(ioInfo.pattern->chunkSize % PAGE_SIZE)
    {
-      FhgfsOpsHelper_logOpMsg(1, app, filp->f_dentry, inode, __func__,
+      FhgfsOpsHelper_logOpMsg(1, app, file_dentry(filp), inode, __func__,
          "chunk size is not a multiple of PAGE_SIZE!");
       FhgfsOps_release(inode, filp);
       return -EIO;
@@ -437,9 +437,9 @@ static ssize_t beegfs_write_iter(struct kiocb* iocb, struct iov_iter* from)
    size_t size = from->count;
    struct FhgfsInode* inode = BEEGFS_INODE(filp->f_mapping->host);
 
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
 
-   FhgfsOpsHelper_logOpDebug(app, filp->f_dentry, file_inode(filp), __func__,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(filp), file_inode(filp), __func__,
       "(offset: %lld; size: %zu)", iocb->ki_pos, size);
    IGNORE_UNUSED_VARIABLE(app);
    IGNORE_UNUSED_VARIABLE(size);
@@ -533,11 +533,11 @@ static ssize_t beegfs_aio_write(struct kiocb* iocb, const struct iovec* iov,
 
 static int __beegfs_fsync(struct file* filp, loff_t start, loff_t end, int datasync)
 {
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
    Config* cfg = App_getConfig(app);
    int err;
 
-   FhgfsOpsHelper_logOp(5, app, filp->f_dentry, file_inode(filp), __func__);
+   FhgfsOpsHelper_logOp(5, app, file_dentry(filp), file_inode(filp), __func__);
 
    IGNORE_UNUSED_VARIABLE(start);
    IGNORE_UNUSED_VARIABLE(end);
@@ -580,10 +580,10 @@ static int beegfs_fsync(struct file* file, struct dentry* dentry, int datasync)
 
 static int beegfs_flock(struct file* filp, int cmd, struct file_lock* flock)
 {
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
    int err = -EINVAL;
 
-   FhgfsOpsHelper_logOp(5, app, filp->f_dentry, file_inode(filp), __func__);
+   FhgfsOpsHelper_logOp(5, app, file_dentry(filp), file_inode(filp), __func__);
    IGNORE_UNUSED_VARIABLE(app);
 
    switch(flock->fl_type)
@@ -606,10 +606,10 @@ static int beegfs_flock(struct file* filp, int cmd, struct file_lock* flock)
 
 static int beegfs_lock(struct file* filp, int cmd, struct file_lock* flock)
 {
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
    int err = -EINVAL;
 
-   FhgfsOpsHelper_logOp(5, app, filp->f_dentry, file_inode(filp), __func__);
+   FhgfsOpsHelper_logOp(5, app, file_dentry(filp), file_inode(filp), __func__);
    IGNORE_UNUSED_VARIABLE(app);
 
    switch(flock->fl_type)
@@ -632,10 +632,10 @@ static int beegfs_lock(struct file* filp, int cmd, struct file_lock* flock)
 
 static int beegfs_mmap(struct file* filp, struct vm_area_struct* vma)
 {
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
    int err = -EINVAL;
 
-   FhgfsOpsHelper_logOp(5, app, filp->f_dentry, file_inode(filp), __func__);
+   FhgfsOpsHelper_logOp(5, app, file_dentry(filp), file_inode(filp), __func__);
    IGNORE_UNUSED_VARIABLE(app);
 
    err = beegfs_acquire_range(filp, 0, -1);
@@ -1042,7 +1042,7 @@ static int beegfs_flush_page(struct page* page)
 
 static int beegfs_readpage(struct file* filp, struct page* page)
 {
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
 
    struct inode* inode = filp->f_mapping->host;
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
@@ -1052,7 +1052,7 @@ static int beegfs_readpage(struct file* filp, struct page* page)
 
    loff_t offset = page_offset(page);
 
-   FhgfsOpsHelper_logOpDebug(app, filp->f_dentry, inode, __func__, "offset: %lld", offset);
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(filp), inode, __func__, "offset: %lld", offset);
    IGNORE_UNUSED_VARIABLE(app);
 
    FsFileInfo_getIOInfo(fileInfo, fhgfsInode, &ioInfo);
@@ -1193,7 +1193,7 @@ static int beegfs_readpages_add_page(void* data, struct page* page)
 static int beegfs_readpages(struct file* filp, struct address_space* mapping,
    struct list_head* pages, unsigned nr_pages)
 {
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
 
    struct inode* inode = mapping->host;
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
@@ -1207,8 +1207,9 @@ static int beegfs_readpages(struct file* filp, struct address_space* mapping,
    if(!state)
       return -ENOMEM;
 
-   FhgfsOpsHelper_logOpDebug(app, filp->f_dentry, inode, __func__, "first offset: %lld nr_pages %u",
-      page_offset(list_entry(pages->prev, struct page, lru) ), nr_pages);
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(filp), inode, __func__,
+         "first offset: %lld nr_pages %u", page_offset(list_entry(pages->prev, struct page, lru)),
+         nr_pages);
    IGNORE_UNUSED_VARIABLE(app);
 
    FsFileInfo_getIOInfo(fileInfo, fhgfsInode, &ioInfo);
@@ -1231,9 +1232,9 @@ static int __beegfs_write_begin(struct file* filp, loff_t pos, unsigned len, str
    struct append_range_descriptor* ard;
    int result = 0;
 
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
 
-   FhgfsOpsHelper_logOpDebug(app, filp->f_dentry, page->mapping->host, __func__,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(filp), page->mapping->host, __func__,
       "write_begin %lli by %u", pos, len);
    IGNORE_UNUSED_VARIABLE(app);
    IGNORE_UNUSED_VARIABLE(len);
@@ -1287,15 +1288,15 @@ static int __beegfs_write_end(struct file* filp, loff_t pos, unsigned len, unsig
    struct inode* inode = page->mapping->host;
    int result = copied;
 
-   App* app = FhgfsOps_getApp(filp->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(filp)->d_sb);
 
-   FhgfsOpsHelper_logOpDebug(app, filp->f_dentry, inode, __func__, "write_end %lli by %u", pos,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(filp), inode, __func__, "write_end %lli by %u", pos,
       len);
    IGNORE_UNUSED_VARIABLE(filp);
 
    if(copied != len && pvr_present(page) )
    {
-      FhgfsOpsHelper_logOpMsg(2, app, filp->f_dentry, inode, __func__, "short write!");
+      FhgfsOpsHelper_logOpMsg(2, app, file_dentry(filp), inode, __func__, "short write!");
       result = 0;
       goto out;
    }
@@ -1452,7 +1453,7 @@ static ssize_t beegfs_dIO_read(struct kiocb* iocb, struct iov_iter* iter, loff_t
 {
    struct file* filp = iocb->ki_filp;
    struct inode* inode = file_inode(filp);
-   struct dentry* dentry = filp->f_dentry;
+   struct dentry* dentry = file_dentry(filp);
 
    App* app = FhgfsOps_getApp(dentry->d_sb);
 
@@ -1515,7 +1516,7 @@ static ssize_t beegfs_dIO_write(struct kiocb* iocb, struct iov_iter* iter, loff_
 {
    struct file* filp = iocb->ki_filp;
    struct inode* inode = file_inode(filp);
-   struct dentry* dentry = filp->f_dentry;
+   struct dentry* dentry = file_dentry(filp);
 
    App* app = FhgfsOps_getApp(dentry->d_sb);
 

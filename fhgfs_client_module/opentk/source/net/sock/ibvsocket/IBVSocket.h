@@ -147,7 +147,9 @@ struct IBVCommContext
 {
    //struct ib_context*        context; // doesn't exist in kernel ib impl
    struct ib_pd*             pd; // protection domain
+#ifndef OFED_UNSAFE_GLOBAL_RKEY
    struct ib_mr*             dmaMR; // dma mem region keys
+#endif
 
    atomic_t                  recvCompEventCount; // incremented on incoming event notification
    wait_queue_head_t         recvCompWaitQ; // for recvCompEvents

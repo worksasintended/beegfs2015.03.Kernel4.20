@@ -201,7 +201,7 @@ struct address_space_operations fhgfs_address_pagecache_ops =
  */
 loff_t FhgfsOps_llseekdir(struct file *file, loff_t offset, int origin)
 {
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Logger* log = App_getLogger(app);
    const char* logContext = "FhgfsOps_llseekDir";
    struct inode* inode = file_inode(file);
@@ -210,7 +210,7 @@ loff_t FhgfsOps_llseekdir(struct file *file, loff_t offset, int origin)
    FsDirInfo* dirInfo = __FhgfsOps_getDirInfo(file);
 
    if(unlikely(Logger_getLogLevel(log) >= Log_SPAM) )
-      FhgfsOpsHelper_logOpMsg(Log_SPAM, app, file->f_dentry, inode, logContext,
+      FhgfsOpsHelper_logOpMsg(Log_SPAM, app, file_dentry(file), inode, logContext,
          "offset: %lld directive: %d", (long long)offset, origin);
 
    if(origin != SEEK_SET)
@@ -235,7 +235,7 @@ loff_t FhgfsOps_llseekdir(struct file *file, loff_t offset, int origin)
 loff_t FhgfsOps_llseek(struct file *file, loff_t offset, int origin)
 {
    const char* logContext = "FhgfsOps_llseek";
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Logger* log = App_getLogger(app);
    Config* cfg = App_getConfig(app);
 
@@ -249,7 +249,7 @@ loff_t FhgfsOps_llseek(struct file *file, loff_t offset, int origin)
    FhgfsIsizeHints iSizeHints;
 
    if(unlikely(Logger_getLogLevel(log) >= Log_SPAM) )
-      FhgfsOpsHelper_logOpMsg(Log_SPAM, app, file->f_dentry, inode, logContext,
+      FhgfsOpsHelper_logOpMsg(Log_SPAM, app, file_dentry(file), inode, logContext,
          "offset: %lld directive: %d", (long long)offset, origin);
 
    /* note: globally locked append with SEEK_CUR is a special case, because we need to flush
@@ -283,7 +283,7 @@ loff_t FhgfsOps_llseek(struct file *file, loff_t offset, int origin)
 clean_up:
    // clean-up
 
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, logContext, "retVal: %lld",
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(file), inode, logContext, "retVal: %lld",
       retVal);
 
    return retVal;
@@ -324,16 +324,16 @@ int FhgfsOps_readlink(struct dentry* dentry, char __user* buf, int size)
  */
 int FhgfsOps_opendirIncremental(struct inode* inode, struct file* file)
 {
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Logger* log = App_getLogger(app);
    const char* logContext = "FhgfsOps_opendirIncremental";
 
    int retVal = 0;
-   //struct dentry* dentry = file->f_dentry;
+   //struct dentry* dentry = file_dentry(file);
    FsDirInfo* dirInfo;
 
    if(unlikely(Logger_getLogLevel(log) >= Log_SPAM) )
-      FhgfsOpsHelper_logOp(Log_SPAM, app, file->f_dentry, inode, logContext);
+      FhgfsOpsHelper_logOp(Log_SPAM, app, file_dentry(file), inode, logContext);
 
    //retVal = __FhgfsOps_refreshInode(app, inode); // not necessary
    if(!retVal)
@@ -354,7 +354,7 @@ int FhgfsOps_readdirIncremental(struct file* file, void* buf, filldir_t filldir)
    /* note: if the user seeks to a custom offset, llseekdir will invalidate any retrieved contents
       and set the new offset in the dirinfo object */
 
-   struct dentry* dentry = file->f_dentry;
+   struct dentry* dentry = file_dentry(file);
    struct super_block* superBlock = dentry->d_sb;
    App* app = FhgfsOps_getApp(superBlock);
    Logger* log = App_getLogger(app);
@@ -490,7 +490,7 @@ int FhgfsOps_releasedir(struct inode* inode, struct file* file)
 
    App* app = FsObjectInfo_getApp(fsObjectInfo);
 
-   FhgfsOpsHelper_logOp(Log_SPAM, app, file->f_dentry, inode, logContext);
+   FhgfsOpsHelper_logOp(Log_SPAM, app, file_dentry(file), inode, logContext);
 
    FsObjectInfo_virtualDestruct(fsObjectInfo);
 
@@ -510,7 +510,7 @@ int FhgfsOps_openReferenceHandle(App* app, struct inode* inode, struct file* fil
    const char* logContext = "FhgfsOps_openReferenceHandle";
 
    struct super_block* sb = inode->i_sb;
-   struct dentry* dentry = file->f_dentry;
+   struct dentry* dentry = file_dentry(file);
 
    int retVal = 0;
    int fhgfsOpenFlags;
@@ -562,10 +562,10 @@ int FhgfsOps_open(struct inode* inode, struct file* file)
 {
    const char* logContext = "FhgfsOps_open";
 
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Logger* log = App_getLogger(app);
 
-   struct dentry* dentry = file->f_dentry;
+   struct dentry* dentry = file_dentry(file);
 
    unsigned openFlags = file->f_flags;
    LookupIntentInfoOut* lookupInfo = NULL; // not available for direct open
@@ -595,7 +595,7 @@ int FhgfsOps_release(struct inode* inode, struct file* file)
 
    App* app = FsObjectInfo_getApp(fsObjectInfo);
 
-   FhgfsOpsHelper_logOp(Log_SPAM, app, file->f_dentry, inode, logContext);
+   FhgfsOpsHelper_logOp(Log_SPAM, app, file_dentry(file), inode, logContext);
 
    if(unlikely(!fileInfo) )
    { // invalid file handle
@@ -688,7 +688,7 @@ int FhgfsOps_flock(struct file* file, int cmd, struct file_lock* fileLock)
 {
    const char* logContext = __func__;
 
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Logger* log = App_getLogger(app);
    Config* cfg = App_getConfig(app);
 
@@ -702,7 +702,7 @@ int FhgfsOps_flock(struct file* file, int cmd, struct file_lock* fileLock)
    lockTypeFlags = OsTypeConv_flockTypeToFhgfs(fileLock);
 
    if(unlikely(Logger_getLogLevel(log) >= Log_SPAM) )
-      FhgfsOpsHelper_logOpMsg(Log_SPAM, app, file->f_dentry, inode, logContext, "lockType: %s",
+      FhgfsOpsHelper_logOpMsg(Log_SPAM, app, file_dentry(file), inode, logContext, "lockType: %s",
          LockingTk_lockTypeToStr(lockTypeFlags) );
 
 
@@ -795,7 +795,7 @@ int FhgfsOps_lock(struct file* file, int cmd, struct file_lock* fileLock)
 {
    const char* logContext = "FhgfsOps_lock (fcntl)";
 
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Logger* log = App_getLogger(app);
    Config* cfg = App_getConfig(app);
 
@@ -839,7 +839,7 @@ int FhgfsOps_lock(struct file* file, int cmd, struct file_lock* fileLock)
    lockTypeFlags = OsTypeConv_flockTypeToFhgfs(fileLock);
 
    if(unlikely(Logger_getLogLevel(log) >= Log_SPAM) )
-      FhgfsOpsHelper_logOpMsg(Log_SPAM, app, file->f_dentry, inode, logContext,
+      FhgfsOpsHelper_logOpMsg(Log_SPAM, app, file_dentry(file), inode, logContext,
          "lockType: %s; start: %lld; end: %lld", LockingTk_lockTypeToStr(lockTypeFlags),
          (long long)fileLock->fl_start, (long long)fileLock->fl_end);
 
@@ -940,7 +940,7 @@ int FhgfsOps_lock(struct file* file, int cmd, struct file_lock* fileLock)
 
 ssize_t FhgfsOps_read(struct file* file, char __user *buf, size_t size, loff_t *offsetPointer)
 {
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
 
    struct inode* inode = file->f_mapping->host;
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
@@ -948,7 +948,7 @@ ssize_t FhgfsOps_read(struct file* file, char __user *buf, size_t size, loff_t *
    RemotingIOInfo ioInfo;
    ssize_t readRes;
 
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, __func__, "(offset: %lld; size: %lld)",
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(file), inode, __func__, "(offset: %lld; size: %lld)",
       (long long)*offsetPointer, (long long)size);
    IGNORE_UNUSED_VARIABLE(app);
 
@@ -1007,7 +1007,7 @@ ssize_t FhgfsOps_read(struct file* file, char __user *buf, size_t size, loff_t *
  */
 ssize_t __FhgfsOps_readSparse(struct file* file, char __user *buf, size_t size, loff_t offset)
 {
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
 
    struct inode* inode = file->f_mapping->host;
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
@@ -1018,7 +1018,7 @@ ssize_t __FhgfsOps_readSparse(struct file* file, char __user *buf, size_t size, 
    FhgfsOpsErr helperReadRes;
    FhgfsIsizeHints iSizeHints;
 
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, __func__, "(offset: %lld; size: %lld)",
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(file), inode, __func__, "(offset: %lld; size: %lld)",
       (long long)offset, (long long)size);
 
    readRes = __FhgfsOps_refreshInode(app, inode, NULL, &iSizeHints);
@@ -1072,7 +1072,7 @@ ssize_t FhgfsOps_read_iter(struct kiocb *iocb, struct iov_iter *to)
 
    ssize_t retVal;
 
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, __func__, "(offset: %lld; size: %lld)",
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(file), inode, __func__, "(offset: %lld; size: %lld)",
       (long long)pos, (long long)count);
 
    IGNORE_UNUSED_VARIABLE(pos);
@@ -1102,7 +1102,7 @@ static ssize_t FhgfsOps_buffered_aio_read(struct kiocb *iocb, char __user *buf, 
    App* app = FhgfsOps_getApp(iocb->ki_filp->f_mapping->host->i_sb);
 
    (void) app;
-   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(iocb->ki_filp), iocb->ki_filp->f_mapping->host,
          __func__, "(offset: %lld; count: %lld)", (long long)pos, (long long)count);
 
    return FhgfsOps_read(iocb->ki_filp, buf, count, &iocb->ki_pos);
@@ -1116,7 +1116,7 @@ static ssize_t FhgfsOps_buffered_aio_read(struct kiocb *iocb, const struct iovec
    unsigned long curSeg;
 
    (void) app;
-   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(iocb->ki_filp), iocb->ki_filp->f_mapping->host,
          __func__, "(offset: %lld; nr_segs: %lld)", (long long)pos, (long long)nr_segs);
 
    for (curSeg = 0; curSeg < nr_segs; curSeg++)
@@ -1149,7 +1149,7 @@ static ssize_t FhgfsOps_buffered_read_iter(struct kiocb *iocb, struct iov_iter *
    ssize_t totalReadRes = 0;
 
    (void) app;
-   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(iocb->ki_filp), iocb->ki_filp->f_mapping->host,
          __func__, "(offset: %lld; nr_segs: %lu)", (long long)iocb->ki_pos, to->nr_segs);
 
    if (!(to->type & ITER_BVEC))
@@ -1231,7 +1231,7 @@ static ssize_t FhgfsOps_buffered_read_iter(struct kiocb *iocb, struct iov_iter *
 ssize_t FhgfsOps_write(struct file* file, const char __user *buf, size_t size,
    loff_t* offsetPointer)
 {
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Config* cfg = App_getConfig(app);
 
    int writeCheckRes;
@@ -1248,7 +1248,7 @@ ssize_t FhgfsOps_write(struct file* file, const char __user *buf, size_t size,
    fhgfs_bool isGloballyLockedAppend =
       FsFileInfo_getAppending(fileInfo) && Config_getTuneUseGlobalAppendLocks(cfg);
 
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, __func__, "(offset: %lld; size: %lld)",
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(file), inode, __func__, "(offset: %lld; size: %lld)",
       (long long)*offsetPointer, (long long)size);
 
    writeCheckRes = os_generic_write_checks(file, offsetPointer, &size, S_ISBLK(inode->i_mode) );
@@ -1367,7 +1367,7 @@ ssize_t FhgfsOps_write_iter(struct kiocb *iocb, struct iov_iter *from)
 #endif // LINUX_VERSION_CODE
 
    struct file* file = iocb->ki_filp;
-   struct dentry* dentry = file->f_dentry;
+   struct dentry* dentry = file_dentry(file);
    struct inode* inode = file_inode(file);
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
 
@@ -1456,7 +1456,7 @@ static ssize_t FhgfsOps_buffered_aio_write(struct kiocb *iocb, const char __user
    App* app = FhgfsOps_getApp(iocb->ki_filp->f_mapping->host->i_sb);
 
    (void) app;
-   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(iocb->ki_filp), iocb->ki_filp->f_mapping->host,
          __func__, "(offset: %lld; count: %lld)", (long long)pos, (long long)count);
 
    return FhgfsOps_write(iocb->ki_filp, buf, count, &iocb->ki_pos);
@@ -1470,7 +1470,7 @@ static ssize_t FhgfsOps_buffered_aio_write(struct kiocb *iocb, const struct iove
    unsigned long curSeg;
 
    (void) app;
-   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(iocb->ki_filp), iocb->ki_filp->f_mapping->host,
          __func__, "(offset: %lld; nr_segs: %lld)", (long long)pos, (long long)nr_segs);
 
    for (curSeg = 0; curSeg < nr_segs; curSeg++)
@@ -1503,7 +1503,7 @@ static ssize_t FhgfsOps_buffered_write_iter(struct kiocb *iocb, struct iov_iter 
    ssize_t totalWriteRes = 0;
 
    (void) app;
-   FhgfsOpsHelper_logOpDebug(app, iocb->ki_filp->f_dentry, iocb->ki_filp->f_mapping->host,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(iocb->ki_filp), iocb->ki_filp->f_mapping->host,
          __func__, "(offset: %lld; nr_segs: %lu)", (long long)iocb->ki_pos, from->nr_segs);
 
    if (!(from->type & ITER_BVEC))
@@ -1585,11 +1585,11 @@ static ssize_t FhgfsOps_buffered_write_iter(struct kiocb *iocb, struct iov_iter 
 #ifdef KERNEL_HAS_FSYNC_RANGE /* added in vanilla 3.1 */
 int FhgfsOps_fsync(struct file* file, loff_t start, loff_t end, int datasync)
 {
-   struct dentry* dentry = file->f_dentry;
+   struct dentry* dentry = file_dentry(file);
 #elif !defined(KERNEL_HAS_FSYNC_DENTRY)
 int FhgfsOps_fsync(struct file* file, int datasync)
 {
-      struct dentry* dentry = file->f_dentry;
+      struct dentry* dentry = file_dentry(file);
 #else /* LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,34) */
 int FhgfsOps_fsync(struct file* file, struct dentry* dentry, int datasync)
 {
@@ -1659,7 +1659,7 @@ int __FhgfsOps_flush(App* app, struct file *file, fhgfs_bool discardCacheOnError
    fhgfs_bool doSyncOnClose = Config_getSysSyncOnClose(App_getConfig(app)) && isClose;
 
    if(unlikely(Logger_getLogLevel(log) >= 5) )
-      FhgfsOpsHelper_logOp(Log_SPAM, app, file->f_dentry, inode, logContext);
+      FhgfsOpsHelper_logOp(Log_SPAM, app, file_dentry(file), inode, logContext);
 
    if (hasWriteHandle || FhgfsInode_getHasDirtyPages(fhgfsInode) )
    {
@@ -1704,7 +1704,7 @@ clean_up:
 
 int FhgfsOps_mmap(struct file* file, struct vm_area_struct* vma)
 {
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Logger* log = App_getLogger(app);
    const char* logContext = "FhgfsOps_mmap";
 
@@ -1714,7 +1714,7 @@ int FhgfsOps_mmap(struct file* file, struct vm_area_struct* vma)
    struct inode* inode = file_inode(file);
 
    if(unlikely(Logger_getLogLevel(log) >= 5) )
-      FhgfsOpsHelper_logOp(5, app, file->f_dentry, inode, logContext);
+      FhgfsOpsHelper_logOp(5, app, file_dentry(file), inode, logContext);
 
    if (app->cfg->tuneCoherentBuffers)
    {
@@ -1760,7 +1760,7 @@ int FhgfsOps_prepare_write(struct file* file, struct page* page, unsigned from, 
 
    struct inode* inode = file->f_mapping->host;
 
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Logger* log = App_getLogger(app);
 
    int retVal = 0;
@@ -1768,7 +1768,7 @@ int FhgfsOps_prepare_write(struct file* file, struct page* page, unsigned from, 
    loff_t fileSize;
    loff_t offset;
 
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, logContext, "from: %u; to: %u", from, to);
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(file), inode, logContext, "from: %u; to: %u", from, to);
    IGNORE_UNUSED_VARIABLE(logContext);
    IGNORE_UNUSED_VARIABLE(inode);
 
@@ -1827,7 +1827,7 @@ clean_up:
  */
 int FhgfsOps_commit_write(struct file* file, struct page* page, unsigned from, unsigned to)
 {
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
    Logger* log = App_getLogger(app);
    const char* logContext = "FhgfsOps_commit_write";
 
@@ -1838,7 +1838,7 @@ int FhgfsOps_commit_write(struct file* file, struct page* page, unsigned from, u
    loff_t pageStart = page_offset(page);
    loff_t endPos = pageStart + to;
 
-   FhgfsOpsHelper_logOpDebug(app, file->f_dentry, inode, __func__,
+   FhgfsOpsHelper_logOpDebug(app, file_dentry(file), inode, __func__,
       "pageStart: %lld; from: %u; to: %u", (long long)pageStart, from, to);
 
    // check fileSize and update it to page endPos if required
@@ -1889,7 +1889,7 @@ int FhgfsOps_write_begin(struct file* file, struct address_space* mapping,
    struct page* page;
 
    int retVal = 0;
-   App* app = FhgfsOps_getApp(file->f_dentry->d_sb);
+   App* app = FhgfsOps_getApp(file_dentry(file)->d_sb);
 
    // FhgfsOpsHelper_logOpDebug(app, file->f_dentry, __func__, "(offset: %lld; page_start: %lld; len: %u)",
    //   (long long)offset, (long long)page_start, len);
@@ -1956,7 +1956,7 @@ int FhgfsOps_write_end(struct file* file, struct address_space* mapping,
 
    int retVal;
 
-   struct dentry *dentry= file->f_dentry;
+   struct dentry *dentry= file_dentry(file);
    App* app = FhgfsOps_getApp(dentry->d_sb);
    Logger* log = App_getLogger(app);
    const char* logContext = __func__;
@@ -2090,7 +2090,7 @@ ssize_t FhgfsOps_directIO(int rw, struct kiocb *iocb, const struct iovec *iov, l
 
    struct file* file = iocb->ki_filp;
    FsFileInfo* fileInfo = __FhgfsOps_getFileInfo(file);
-   struct dentry* dentry = file->f_dentry;
+   struct dentry* dentry = file_dentry(file);
    struct inode* inode = file_inode(file);
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
    RemotingIOInfo ioInfo;
