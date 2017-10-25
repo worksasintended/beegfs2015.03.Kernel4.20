@@ -63,15 +63,12 @@ class RWLock
          lockType = RWLockType_UNSET;
       }
 
-      /**
-       * @throw RWLockException
-       */
       ~RWLock()
       {
-         int pthreadRes = pthread_rwlock_destroy(&rwlock);
-
-         if(unlikely(pthreadRes) )
-            throw RWLockException(System::getErrString(pthreadRes) );
+         // may return
+         // * [EBUSY]  never returned by glibc, little useful info without a lockdep tool
+         // * [EINVAL] never happens (mutex is properly initialized)
+         pthread_rwlock_destroy(&rwlock);
       }
 
       /**
@@ -176,59 +173,39 @@ class RWLock
          return 0;
       }
 
-      /**
-       * @throw RWLockException
-       */
       bool tryWriteLock()
       {
-         int pthreadRes = pthread_rwlock_trywrlock(&rwlock);
-         if(!pthreadRes)
-         {
-            lockType = RWLockType_WRITE;
-
-            return true;
-         }
-
-         if(pthreadRes == EBUSY)
+         // may return
+         // * [EINVAL] never happens (rwlock is properly initialized)
+         // * [EBUSY]  not an error
+         if (pthread_rwlock_trywrlock(&rwlock) != 0)
             return false;
 
-         throw RWLockException(System::getErrString(pthreadRes) );
+         lockType = RWLockType_WRITE;
+         return true;
       }
 
-      /**
-       * @throw RWLockException
-       */
       bool tryReadLock()
       {
-         int pthreadRes = pthread_rwlock_tryrdlock(&rwlock);
-         if(!pthreadRes)
-         {
-            lockType = RWLockType_READ;
-
-            return true;
-         }
-         if(pthreadRes == EBUSY)
+         // may return
+         // * [EINVAL] never happens (rwlock is properly initialized)
+         // * [EBUSY]  not an error
+         // * [EAGAIN] not an error
+         if (pthread_rwlock_tryrdlock(&rwlock) != 0)
             return false;
 
-         throw RWLockException(System::getErrString(pthreadRes) );
+         lockType = RWLockType_READ;
+         return true;
       }
 
-      /**
-       * @throw RWLockException
-       */
       void unlock()
       {
-         RWLockLockType oldLockType = lockType; // store the old value
          lockType = RWLockType_UNSET;
 
-         int pthreadRes = pthread_rwlock_unlock(&rwlock);
-
-         if(unlikely(pthreadRes) )
-         {
-            lockType = oldLockType;
-            throw RWLockException(System::getErrString(pthreadRes) );
-         }
-
+         // may return:
+         // * [EINVAL] never happens (rwlock is properly initialized)
+         // * [EPERM]  never returned by glibc, little useful info without a lockdep tool
+         pthread_rwlock_unlock(&rwlock);
       }
 
 

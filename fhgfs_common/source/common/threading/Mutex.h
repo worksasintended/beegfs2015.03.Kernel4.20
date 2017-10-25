@@ -14,16 +14,13 @@ class Mutex
       {
          pthread_mutex_init(&mutex, NULL);
       }
-      
-      /**
-       * @throw MutexException
-       */
+
       ~Mutex()
       {
-         int pthreadRes = pthread_mutex_destroy(&mutex);
-
-         if(unlikely(pthreadRes) )
-            throw MutexException(System::getErrString(pthreadRes));
+         // may return:
+         // * [EBUSY]  never returned by glibc, little useful info without a lockdep tool
+         // * [EINVAL] never happens (mutex is properly initialized)
+         pthread_mutex_destroy(&mutex);
       }
       
       /**
@@ -37,29 +34,21 @@ class Mutex
             throw MutexException(System::getErrString(pthreadRes));
       }
 
-      /**
-       * @throw MutexException
-       */
       bool tryLock()
       {
-         int pthreadRes = pthread_mutex_trylock(&mutex);
-         if(!pthreadRes)
-            return true;
-         if(pthreadRes == EBUSY)
-            return false;
-
-         throw MutexException(System::getErrString(pthreadRes));
+         // may return:
+         // * [EINVAL] never happens (mutex is properly initialized)
+         // * [EBUSY]  not an error
+         // * [EAGAIN] never happens (this mutex is not recursive)
+         return pthread_mutex_trylock(&mutex) == 0;
       }
 
-      /**
-       * @throw MutexException
-       */
       void unlock()
       {
-         int pthreadRes = pthread_mutex_unlock(&mutex);
-         
-         if(unlikely(pthreadRes) )
-            throw MutexException(System::getErrString(pthreadRes));
+         // may return:
+         // * [EINVAL] never happens (mutex is properly initialized)
+         // * [EPERM]  never returned by glibc, little useful info without a lockdep tool
+         pthread_mutex_unlock(&mutex);
       }
    
    private:

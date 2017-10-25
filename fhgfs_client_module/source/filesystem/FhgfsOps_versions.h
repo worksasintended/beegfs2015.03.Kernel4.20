@@ -128,7 +128,8 @@ static inline struct dentry *file_dentry(const struct file *file)
 }
 #endif
 
-#ifndef KERNEL_HAS_FILE_INODE
+/* mlnx ofeds backport this too and #define file_inode backport_file_inode */
+#if !defined(KERNEL_HAS_FILE_INODE) && !defined(file_inode)
 struct inode *file_inode(struct file *f)
 {
    return file_dentry(f)->d_inode;

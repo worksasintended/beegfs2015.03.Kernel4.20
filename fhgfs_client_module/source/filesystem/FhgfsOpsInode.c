@@ -492,7 +492,7 @@ int FhgfsOps_set_acl(struct inode* inode, struct posix_acl* acl, int type)
    FhgfsOpsErr remotingRes;
    char* xAttrName;
    int xAttrBufLen;
-   void* xAttrBuf;
+   void* xAttrBuf = NULL;
 
    FhgfsInode* fhgfsInode = BEEGFS_INODE(inode);
    EntryInfo* entryInfo = FhgfsInode_getEntryInfo(fhgfsInode);
@@ -508,21 +508,31 @@ int FhgfsOps_set_acl(struct inode* inode, struct posix_acl* acl, int type)
    else
       return -EOPNOTSUPP;
 
-   // prepare extended attribute - determine size needed for buffer.
-   xAttrBufLen = os_posix_acl_to_xattr(acl, NULL, 0);
+   if (acl)
+   {
+      // prepare extended attribute - determine size needed for buffer.
+      xAttrBufLen = os_posix_acl_to_xattr(acl, NULL, 0);
 
-   if (xAttrBufLen < 0)
-      return xAttrBufLen;
+      if (xAttrBufLen < 0)
+         return xAttrBufLen;
 
-   xAttrBuf = os_kmalloc(xAttrBufLen);
-   if (!xAttrBuf)
-      return -ENOMEM;
+      xAttrBuf = os_kmalloc(xAttrBufLen);
+      if (!xAttrBuf)
+         return -ENOMEM;
 
-   res = os_posix_acl_to_xattr(acl, xAttrBuf, xAttrBufLen);
-   if (res != xAttrBufLen)
-      goto cleanup;
+      res = os_posix_acl_to_xattr(acl, xAttrBuf, xAttrBufLen);
+      if (res != xAttrBufLen)
+         goto cleanup;
 
-   remotingRes = FhgfsOpsRemoting_setXAttr(app, entryInfo, xAttrName, xAttrBuf, xAttrBufLen, 0);
+      remotingRes = FhgfsOpsRemoting_setXAttr(app, entryInfo, xAttrName, xAttrBuf, xAttrBufLen, 0);
+   }
+   else
+   {
+      remotingRes = FhgfsOpsRemoting_removeXAttr(app, entryInfo, xAttrName);
+      if (remotingRes == FhgfsOpsErr_NODATA)
+         remotingRes = FhgfsOpsErr_SUCCESS;
+   }
+
    if (remotingRes != FhgfsOpsErr_SUCCESS)
       res = FhgfsOpsErr_toSysErr(remotingRes);
    else

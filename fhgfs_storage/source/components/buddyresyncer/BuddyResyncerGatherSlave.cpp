@@ -114,7 +114,8 @@ int BuddyResyncerGatherSlave::handleDiscoveredEntry(const char* path,
    if ( relPathStr.empty() )
       return FTW_CONTINUE;
 
-   bool buddyCommIsOverride;
+   bool buddyCommIsOverride = false; // mute gcc. this value will not be initialized only if the
+      // target does not exist.
    int64_t lastBuddyCommTimeSecs =
       storageTargets->readLastBuddyCommTimestamp(thisStatic->getTargetID(), &buddyCommIsOverride);
    int64_t lastBuddyCommSafetyThresholdSecs = cfg->getSysResyncSafetyThresholdMins()*60;
