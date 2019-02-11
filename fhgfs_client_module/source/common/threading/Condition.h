@@ -4,9 +4,10 @@
 #include <common/Common.h>
 #include <common/toolkit/Time.h>
 #include <common/toolkit/TimeTk.h>
+#include <linux/sched/signal.h> //signal_pending moved here
 #include "Mutex.h"
 
-#include <linux/sched.h>
+//#include <linux/sched.h>
 
 
 struct Condition;
@@ -81,7 +82,7 @@ void Condition_destruct(Condition* this)
  */
 void Condition_wait(Condition* this, Mutex* mutex)
 {
-   wait_queue_t wait;
+   wait_queue_entry_t wait;
 
    init_waitqueue_entry(&wait, current);
    add_wait_queue(&this->queue, &wait);
@@ -111,7 +112,7 @@ void Condition_wait(Condition* this, Mutex* mutex)
 cond_wait_res_t Condition_waitInterruptible(Condition* this, Mutex* mutex)
 {
    cond_wait_res_t retVal;
-   wait_queue_t wait;
+   wait_queue_entry_t wait;
 
    init_waitqueue_entry(&wait, current);
    add_wait_queue(&this->queue, &wait);
@@ -143,7 +144,7 @@ cond_wait_res_t Condition_timedwait(Condition* this, Mutex* mutex, int timeoutMS
    cond_wait_res_t retVal;
    long __timeout;
 
-   wait_queue_t wait;
+wait_queue_entry_t wait;
    init_waitqueue_entry(&wait, current);
    add_wait_queue(&this->queue, &wait);
 
@@ -179,7 +180,7 @@ cond_wait_res_t Condition_timedwaitInterruptible(Condition* this, Mutex* mutex, 
    cond_wait_res_t retVal;
    long __timeout;
 
-   wait_queue_t wait;
+   wait_queue_entry_t wait;
    init_waitqueue_entry(&wait, current);
    add_wait_queue(&this->queue, &wait);
 

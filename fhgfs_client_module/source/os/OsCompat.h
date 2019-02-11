@@ -2,16 +2,34 @@
  * Compatibility functions for older Linux versions
  */
 
+//#ifndef OSCOMPAT_H_
+//#define OSCOMPAT_H_
+//
+//#include <common/Common.h>
+//#include <linux/fs.h>
+//#include <linux/namei.h>
+//#include <linux/uio.h>
+//#include <asm/kmap_types.h>
+//#include <linux/compat.h>
+//#include <linux/list.h>
+//#include <linux/posix_acl_xattr.h>
+//#include <linux/swap.h>
+//#include <linux/writeback.h>
+//
+//#ifdef KERNEL_HAS_TASK_IO_ACCOUNTING
+//   #include <linux/task_io_accounting_ops.h>
+//#endif
+
 #ifndef OSCOMPAT_H_
 #define OSCOMPAT_H_
 
 #include <common/Common.h>
 #include <linux/fs.h>
 #include <linux/namei.h>
-#include <linux/uio.h>
 #include <asm/kmap_types.h>
 #include <linux/compat.h>
 #include <linux/list.h>
+#include <linux/mount.h>
 #include <linux/posix_acl_xattr.h>
 #include <linux/swap.h>
 #include <linux/writeback.h>
@@ -20,7 +38,11 @@
    #include <linux/task_io_accounting_ops.h>
 #endif
 
-
+#ifdef KERNEL_HAS_GENERIC_SEMAPHORE
+#include <linux/semaphore.h>
+#else
+//#include <asm/semaphore.h>
+#endif
 #ifndef KERNEL_HAS_MEMDUP_USER
    extern void *memdup_user(const void __user *src, size_t len);
 #endif
@@ -36,9 +58,15 @@
 
 static inline int os_generic_permission(struct inode *inode, int mask);
 
-#if defined(KERNEL_HAS_SB_BDI) && !defined(KERNEL_HAS_BDI_SETUP_AND_REGISTER)
-   extern int bdi_setup_and_register(struct backing_dev_info *bdi, char *name, unsigned int cap);
+#ifndef KERNEL_HAS_HAVE_SUBMOUNTS
+extern int have_submounts(struct dentry *parent);
 #endif
+
+
+
+//#if defined(KERNEL_HAS_SB_BDI) && !defined(KERNEL_HAS_BDI_SETUP_AND_REGISTER)
+   extern int bdi_setup_and_register(struct backing_dev_info *bdi, char *name);
+//#endif
 
 /**
  * generic_permission() compatibility function
@@ -429,8 +457,11 @@ static inline void i_mmap_unlock_read(struct address_space* mapping)
 
 static inline bool beegfs_hasMappings(struct inode* inode)
 {
-#ifdef KERNEL_HAS_I_MMAP_RBTREE
+#if defined(KERNEL_HAS_I_MMAP_RBTREE)
    if (!RB_EMPTY_ROOT(&inode->i_mapping->i_mmap))
+      return true; 
+#elif defined(KERNEL_HAS_I_MMAP_CACHED_RBTREE)
+   if (!RB_EMPTY_ROOT(&inode->i_mapping->i_mmap.rb_root))
       return true;
 #else
    if (!prio_tree_empty(&inode->i_mapping->i_mmap))
@@ -440,11 +471,29 @@ static inline bool beegfs_hasMappings(struct inode* inode)
 #ifdef KERNEL_HAS_I_MMAP_NONLINEAR
    if (!list_empty(&inode->i_mapping->i_mmap_nonlinear))
       return true;
-#endif
+#endif 
 
    return false;
-}
+}  
 
+//static inline bool beegfs_hasMappings(struct inode* inode)
+//{
+//#ifdef KERNEL_HAS_I_MMAP_RBTREE
+//   if (!RB_EMPTY_ROOT(&inode->i_mapping->i_mmap))
+//      return true;
+//#else
+//   if (!prio_tree_empty(&inode->i_mapping->i_mmap))
+//      return true;
+//#endif
+//
+//#ifdef KERNEL_HAS_I_MMAP_NONLINEAR
+//   if (!list_empty(&inode->i_mapping->i_mmap_nonlinear))
+//      return true;
+//#endif
+//
+//   return false;
+//}
+//
 #ifndef KERNEL_HAS_INODE_LOCK
 static inline void os_inode_lock(struct inode* inode)
 {

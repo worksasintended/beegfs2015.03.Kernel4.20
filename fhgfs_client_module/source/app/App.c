@@ -518,8 +518,9 @@ fhgfs_bool __App_initInodeOperations(App* this)
    this->fileInodeOps->getattr     = FhgfsOps_getattr;
    this->fileInodeOps->permission  = FhgfsOps_permission;
    this->fileInodeOps->setattr     = FhgfsOps_setattr;
-
+#ifdef KERNEL_HAS_GENERIC_READLINK
    this->symlinkInodeOps->readlink    = generic_readlink; // default is fine for us currently
+#endif
 #ifdef KERNEL_HAS_GET_LINK
    this->symlinkInodeOps->get_link    = FhgfsOps_get_link;
 #else
@@ -551,16 +552,32 @@ fhgfs_bool __App_initInodeOperations(App* this)
    this->specialInodeOps->setattr = FhgfsOps_setattr;
 
    if (Config_getSysXAttrsEnabled(cfg) )
-   {
+   {   
       this->fileInodeOps->listxattr   = FhgfsOps_listxattr;
+      this->dirInodeOps->listxattr   = FhgfsOps_listxattr;
+
+#ifdef KERNEL_HAS_GENERIC_GETXATTR
       this->fileInodeOps->getxattr    = generic_getxattr;
       this->fileInodeOps->removexattr = FhgfsOps_removexattr;
       this->fileInodeOps->setxattr    = generic_setxattr;
 
-      this->dirInodeOps->listxattr   = FhgfsOps_listxattr;
       this->dirInodeOps->getxattr    = generic_getxattr;
       this->dirInodeOps->removexattr = FhgfsOps_removexattr;
       this->dirInodeOps->setxattr    = generic_setxattr;
+#endif
+
+   
+//   if (Config_getSysXAttrsEnabled(cfg) )
+//   {
+//      this->fileInodeOps->listxattr   = FhgfsOps_listxattr;
+//      this->fileInodeOps->getxattr    = generic_getxattr;
+//      this->fileInodeOps->removexattr = FhgfsOps_removexattr;
+//      this->fileInodeOps->setxattr    = generic_setxattr;
+//
+//      this->dirInodeOps->listxattr   = FhgfsOps_listxattr;
+//      this->dirInodeOps->getxattr    = generic_getxattr;
+//      this->dirInodeOps->removexattr = FhgfsOps_removexattr;
+//      this->dirInodeOps->setxattr    = generic_setxattr;
 
       if (Config_getSysACLsEnabled(cfg) )
       {

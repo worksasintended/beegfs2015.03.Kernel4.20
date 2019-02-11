@@ -49,6 +49,19 @@ static ssize_t FhgfsOps_buffered_write_iter(struct kiocb *iocb, struct iov_iter 
 static ssize_t FhgfsOps_buffered_read_iter(struct kiocb *iocb, struct iov_iter *to);
 #endif // LINUX_VERSION_CODE
 
+//fix for iov_for_each, overwrite Kernel Header
+#undef iov_for_each
+#define iov_for_each(iov, iter, start)                          \
+        if (iov_iter_type(&start) == ITER_IOVEC ||               \
+            iov_iter_type(&start) == ITER_KVEC)                  \
+        for (iter = (start);                                    \
+             (iter).count &&                                    \
+             ((iov = iov_iter_iovec(&(iter))), 1);              \
+             iov_iter_advance(&(iter), (iov).iov_len))
+
+
+
+
 /**
  * Operations for files with cache type "buffered" and "none".
  */

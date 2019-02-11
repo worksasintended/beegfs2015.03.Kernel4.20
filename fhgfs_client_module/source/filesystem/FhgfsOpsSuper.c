@@ -185,13 +185,23 @@ int __FhgfsOps_constructFsInfo(struct super_block* sb, void* rawMountOptions)
            bdi->congested_fn = NULL;
            bdi->congested_data = NULL;
     */
+
    bdi->ra_pages = BEEGFS_DEFAULT_READAHEAD_PAGES;
 
-   #ifdef KERNEL_HAS_BDI_CAP_MAP_COPY
-      res = bdi_setup_and_register(bdi, BEEGFS_MODULE_NAME_STR, BDI_CAP_MAP_COPY);
-   #else
-      res = bdi_setup_and_register(bdi, BEEGFS_MODULE_NAME_STR);
-   #endif
+   //#if defined(KERNEL_HAS_BDI_CAP_MAP_COPY)
+   //    res = bdi_setup_and_register(bdi, BEEGFS_MODULE_NAME_STR, BDI_CAP_MAP_COPY);
+   //#else
+       res = bdi_setup_and_register(bdi, BEEGFS_MODULE_NAME_STR);
+   //#endif
+
+
+   bdi->ra_pages = BEEGFS_DEFAULT_READAHEAD_PAGES;
+
+   //#if defined(KERNEL_HAS_BDI_CAP_MAP_COPY) 
+   //   res = bdi_setup_and_register(bdi, BEEGFS_MODULE_NAME_STR, BDI_CAP_MAP_COPY);
+   //#else
+   //   res = bdi_setup_and_register(bdi, BEEGFS_MODULE_NAME_STR);
+   //#endif
 
    if (res)
    {
@@ -230,9 +240,9 @@ void __FhgfsOps_destructFsInfo(struct super_block* sb)
       App* app = FhgfsOps_getApp(sb);
 
 #if defined(KERNEL_HAS_SB_BDI)
-      struct backing_dev_info* bdi = FhgfsOps_getBdi(sb);
+//      struct backing_dev_info* bdi = FhgfsOps_getBdi(sb);
 
-      bdi_destroy(bdi);
+//      bdi_destroy(bdi);
 #endif
 
       __FhgfsOps_uninitApp(app);

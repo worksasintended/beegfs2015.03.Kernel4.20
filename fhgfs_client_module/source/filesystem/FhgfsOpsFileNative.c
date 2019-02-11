@@ -27,6 +27,16 @@ void beegfs_native_release()
    writepages_pool_release();
 }
 
+//fix for iov_for_each, overwrite Kernel Header
+#undef iov_for_each
+#define iov_for_each(iov, iter, start)                          \
+        if (iov_iter_type(&start) == ITER_IOVEC ||               \
+            iov_iter_type(&start) == ITER_KVEC)                  \
+        for (iter = (start);                                    \
+             (iter).count &&                                    \
+             ((iov = iov_iter_iovec(&(iter))), 1);              \
+             iov_iter_advance(&(iter), (iov).iov_len))
+
 
 
 /*
@@ -222,6 +232,43 @@ static void set_mapping_ard(struct address_space* mapping, struct append_range_d
    spin_unlock(&mapping->private_lock);
 }
 
+//static void ard_assign(struct page* page, struct append_range_descriptor* ard)
+//{
+//   if(!ard)
+//   {
+//      ard = ard_from_page(page);
+//
+//      BUG_ON(!ard);
+//
+//      if(atomic_read(&ard->refs.refcount) == 1)
+//      {
+//         /* last ref to ard is on a page, so it must be detached if it hasn't been yet.
+//          * a concurrent writer may still get a reference to the ard *exactly here*,
+//          * but then the ard will be allocated and the writer will drop it. */
+//         spin_lock(&page->mapping->private_lock);
+//         {
+//            if(__mapping_ard(page->mapping) == ard)
+//               __set_mapping_ard(page->mapping, NULL);
+//         }
+//         spin_unlock(&page->mapping->private_lock);
+//      }
+//
+//      ard_put(ard);
+//      ClearPagePrivate(page);
+//      ClearPageChecked(page);
+//      page->private = 0;
+//      return;
+//   }
+//
+//   BUG_ON(ard_from_page(page) );
+//
+//   ard_get(ard);
+//   SetPagePrivate(page);
+//   SetPageChecked(page);
+//   page->private = (unsigned long) ard;
+//}
+
+//taken from v6 self fixed
 static void ard_assign(struct page* page, struct append_range_descriptor* ard)
 {
    if(!ard)
@@ -229,19 +276,6 @@ static void ard_assign(struct page* page, struct append_range_descriptor* ard)
       ard = ard_from_page(page);
 
       BUG_ON(!ard);
-
-      if(atomic_read(&ard->refs.refcount) == 1)
-      {
-         /* last ref to ard is on a page, so it must be detached if it hasn't been yet.
-          * a concurrent writer may still get a reference to the ard *exactly here*,
-          * but then the ard will be allocated and the writer will drop it. */
-         spin_lock(&page->mapping->private_lock);
-         {
-            if(__mapping_ard(page->mapping) == ard)
-               __set_mapping_ard(page->mapping, NULL);
-         }
-         spin_unlock(&page->mapping->private_lock);
-      }
 
       ard_put(ard);
       ClearPagePrivate(page);
@@ -257,6 +291,7 @@ static void ard_assign(struct page* page, struct append_range_descriptor* ard)
    SetPageChecked(page);
    page->private = (unsigned long) ard;
 }
+
 
 
 

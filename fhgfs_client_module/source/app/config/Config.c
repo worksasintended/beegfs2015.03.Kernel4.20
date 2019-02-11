@@ -34,6 +34,39 @@ static fhgfs_bool __Config_readLineFromFile(struct file* cfgFile,
    char* buf, size_t bufLen, fhgfs_bool* outEndOfFile);
 
 
+static size_t Config_fs_read(struct file *file, char *buf, size_t size, loff_t *pos)
+
+ {
+
+    size_t readRes;
+
+
+
+ #if defined(KERNEL_HAS_KERNEL_READ)
+
+    readRes = kernel_read(file, buf, size, pos);
+
+ #else
+
+    mm_segment_t oldfs;
+
+    ACQUIRE_PROCESS_CONTEXT(oldfs);
+
+
+
+    readRes = Config_fs_read(file, buf, size, pos);
+
+
+
+    RELEASE_PROCESS_CONTEXT(oldfs);
+
+ #endif
+
+
+
+    return readRes;
+
+ }
 
 /**
  * @param mountConfig will be copied (not owned by this object)
@@ -765,7 +798,7 @@ fhgfs_bool __Config_loadFromFile(struct Config* this, const char* filename)
    // clean up
    kfree(line);
 
-   ACQUIRE_PROCESS_CONTEXT(oldfs);
+   //ACQUIRE_PROCESS_CONTEXT(oldfs);
    filp_close(cfgFile, NULL);
    RELEASE_PROCESS_CONTEXT(oldfs);
 
@@ -915,7 +948,8 @@ fhgfs_bool __Config_readLineFromFile(struct file* cfgFile,
    {
       char charBuf;
 
-      ssize_t readRes = vfs_read(cfgFile, &charBuf, 1, &cfgFile->f_pos);
+      ssize_t readRes = Config_fs_read(cfgFile, &charBuf, 1, &cfgFile->f_pos);
+      //ssize_t readRes = vfs_read(cfgFile, &charBuf, 1, &cfgFile->f_pos);
 
       if( (readRes > 0) && (charBuf == '\n') )
       { // end of line
@@ -950,8 +984,8 @@ fhgfs_bool __Config_readLineFromFile(struct file* cfgFile,
    while(!endOfLine && !(*outEndOfFile) && !erroroccurred)
    {
       char charBuf;
-
-      ssize_t readRes = vfs_read(cfgFile, &charBuf, 1, &cfgFile->f_pos);
+      ssize_t readRes = Config_fs_read(cfgFile, &charBuf, 1, &cfgFile->f_pos);
+      //ssize_t readRes = vfs_read(cfgFile, &charBuf, 1, &cfgFile->f_pos);
       if( (readRes > 0) && (charBuf == '\n') )
          endOfLine = fhgfs_true;
       if(readRes == 0)
@@ -1186,7 +1220,8 @@ fhgfs_bool __Config_initConnAuthHash(Config* this, char* connAuthFile, uint64_t*
 
    ACQUIRE_PROCESS_CONTEXT(oldfs);
 
-   readRes = vfs_read(fileHandle, buf, CONFIG_AUTHFILE_READSIZE, &fileHandle->f_pos);
+   //readRes = vfs_read(fileHandle, buf, CONFIG_AUTHFILE_READSIZE, &fileHandle->f_pos);
+   readRes = Config_fs_read(fileHandle, buf, CONFIG_AUTHFILE_READSIZE, &fileHandle->f_pos);
 
    filp_close(fileHandle, NULL);
 

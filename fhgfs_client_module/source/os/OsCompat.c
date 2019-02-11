@@ -2,9 +2,11 @@
  * Compatibility functions for older Linux versions
  */
 
-#include <linux/mm.h> // for old sles10 kernels, which forgot to include it in backing-dev.h
+//#include <linux/mm.h> // for old sles10 kernels, which forgot to include it in backing-dev.h
 #include <linux/backing-dev.h>
 #include <linux/pagemap.h>
+#include <linux/uio.h>
+#include <linux/writeback.h>
 
 #include <app/App.h>
 #include <app/log/Logger.h>
@@ -43,35 +45,68 @@
 #endif // memdup_user, LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
 
 
-#if defined(KERNEL_HAS_SB_BDI) && !defined(KERNEL_HAS_BDI_SETUP_AND_REGISTER)
+
+#if defined(KERNEL_HAS_SB_BDI) && !defined(KERNEL_HAS_BDI_SETUP_AND_REGISTER) && \
+    !defined(KERNEL_HAS_SUPER_SETUP_BDI_NAME)
    /*
     * For use from filesystems to quickly init and register a bdi associated
     * with dirty writeback
     */
-   int bdi_setup_and_register(struct backing_dev_info *bdi, char *name,
-               unsigned int cap)
-   {
-      static atomic_long_t fhgfs_bdiSeq = ATOMIC_LONG_INIT(0);
-      char tmp[32];
-      int err;
-
-      bdi->name = name;
-      bdi->capabilities = cap;
-      err = bdi_init(bdi);
-      if (err)
-         return err;
-
-      sprintf(tmp, "%.28s%s", name, "-%d");
-      err = bdi_register(bdi, NULL, tmp, atomic_long_inc_return(&fhgfs_bdiSeq));
-      if (err) {
-         bdi_destroy(bdi);
-         return err;
-      }
-
-      return 0;
-   }
+//   int bdi_setup_and_register(struct backing_dev_info *bdi, char *name,
+//               unsigned int cap)
+//   {
+//      static atomic_long_t fhgfs_bdiSeq = ATOMIC_LONG_INIT(0);
+//      char tmp[32];
+//      int err;
+//
+//      bdi->name = name;
+//      bdi->capabilities = cap;
+//      err = bdi_init(bdi);
+//      if (err)
+//         return err;
+//
+//      sprintf(tmp, "%.28s%s", name, "-%d");
+//      err = bdi_register(bdi, NULL, tmp, atomic_long_inc_return(&fhgfs_bdiSeq));
+//      if (err) {
+//         bdi_destroy(bdi);
+//         return err;
+//      }
+//
+//      return 0;
+//   }
 #endif
 
+
+
+//if defined(KERNEL_HAS_SB_BDI) && !defined(KERNEL_HAS_BDI_SETUP_AND_REGISTER)
+//   /*
+//    * For use from filesystems to quickly init and register a bdi associated
+//    * with dirty writeback
+//    */
+//   int bdi_setup_and_register(struct backing_dev_info *bdi, char *name,
+//               unsigned int cap)
+//   {
+//      static atomic_long_t fhgfs_bdiSeq = ATOMIC_LONG_INIT(0);
+//      char tmp[32];
+//      int err;
+//
+//      bdi->name = name;
+//      bdi->capabilities = cap;
+//      err = bdi_init(bdi);
+//      if (err)
+//         return err;
+//
+//      sprintf(tmp, "%.28s%s", name, "-%d");
+//      err = bdi_register(bdi, NULL, tmp, atomic_long_inc_return(&fhgfs_bdiSeq));
+//      if (err) {
+//         bdi_destroy(bdi);
+//         return err;
+//      }
+//
+//      return 0;
+//   }
+//#endif
+//
 
 
 /* NOTE: We can't do a feature detection for find_get_pages_tag(), as 

@@ -237,8 +237,14 @@ struct dentry* FhgfsOps_lookupIntent(struct inode* parentDir, struct dentry* den
 }
 
 
-int FhgfsOps_getattr(struct vfsmount* mnt, struct dentry* dentry, struct kstat* kstat)
+int FhgfsOps_getattr(const struct path* path, struct kstat* kstat, u32 request_mask,
+      unsigned int query_flags)
 {
+   struct vfsmount* mnt = path->mnt;
+   struct dentry* dentry = path->dentry;
+
+   bool mustQuery = (query_flags & AT_STATX_SYNC_TYPE) == AT_STATX_FORCE_SYNC;
+
    App* app = FhgfsOps_getApp(dentry->d_sb);
    Config* cfg = App_getConfig(app);
    const char* logContext = "FhgfsOps_getattr";
@@ -628,6 +634,7 @@ int FhgfsOps_setattr(struct dentry* dentry, struct iattr* iattr)
    const char* logContext = "FhgfsOps_setattr";
 
    int retVal = 0;
+   int setAttrPrepRes;
    int inodeChangeRes;
    SettableFileAttribs fhgfsAttr;
    int validFhgfsAttribs;
@@ -641,9 +648,11 @@ int FhgfsOps_setattr(struct dentry* dentry, struct iattr* iattr)
          (iattr->ia_valid & ATTR_SIZE) ? "(with trunc)" : "");
    }
 
-   inodeChangeRes = inode_change_ok(inode, iattr);
-   if(inodeChangeRes < 0)
-      return inodeChangeRes;
+   setAttrPrepRes = setattr_prepare(dentry, iattr);
+   if(setAttrPrepRes < 0)
+      return setAttrPrepRes;
+
+   
 
    #ifdef KERNEL_HAS_ATTR_OPEN
       /* we do trunc during open message on meta server, so we don't want this redundant trunc
@@ -1199,7 +1208,7 @@ int FhgfsOps_atomicOpen(struct inode* dir, struct dentry* dentry, struct file* f
    {
       if (lookupOutInfo.createRes == FhgfsOpsErr_SUCCESS) // implies isCreate == true
       {
-         *outOpenedFlags |= FILE_CREATED;
+         *outOpenedFlags |= FMODE_CREATED;
 
          if (lookupOutInfo.lookupRes != FhgfsOpsErr_SUCCESS)
          {  // only update directory time stamps if the file did not exist yet
@@ -1261,7 +1270,7 @@ int FhgfsOps_atomicOpen(struct inode* dir, struct dentry* dentry, struct file* f
    // stripePattern is assigned to FhgfsInode now, make sure it does not get free'ed
    LookupIntentInfoOut_setStripePattern(&lookupOutInfo, NULL);
 
-   retVal = finish_open(file, dentry, generic_file_open, outOpenedFlags);
+   retVal = finish_open(file, dentry, generic_file_open);//, outOpenedFlags);
    if (unlikely(retVal) )
    {  // finish open failed
       int releaseRes;
@@ -1813,7 +1822,7 @@ void FhgfsOps_put_link(struct dentry* dentry, struct nameidata* nd, void* p)
 
 
 int FhgfsOps_rename(struct inode* inodeDirFrom, struct dentry* dentryFrom,
-   struct inode* inodeDirTo, struct dentry* dentryTo)
+   struct inode* inodeDirTo, struct dentry* dentryTo, unsigned flags)
 {
    struct super_block* sb = dentryFrom->d_sb;
    App* app = FhgfsOps_getApp(sb);

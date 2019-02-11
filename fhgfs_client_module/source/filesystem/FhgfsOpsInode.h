@@ -31,7 +31,9 @@ typedef struct FhgfsInodeComparisonInfo FhgfsInodeComparisonInfo;
       unsigned flags);
 #endif // KERNEL_HAS_ATOMIC_OPEN
 
-extern int FhgfsOps_getattr(struct vfsmount* mnt, struct dentry* dentry, struct kstat* kstat);
+extern int FhgfsOps_getattr(const struct path* path, struct kstat* kstat, u32 request_mask,
+      unsigned int query_flags);
+//extern int FhgfsOps_getattr(struct vfsmount* mnt, struct dentry* dentry, struct kstat* kstat);
 extern int FhgfsOps_setattr(struct dentry* dentry, struct iattr* iattr);
 
 extern ssize_t FhgfsOps_listxattr(struct dentry* dentry, char* value, size_t size);
@@ -99,7 +101,11 @@ extern void FhgfsOps_put_link(struct dentry* dentry, struct nameidata* nd, void*
 #endif
 
 extern int FhgfsOps_rename(struct inode* inodeDirFrom, struct dentry* dentryFrom,
-   struct inode* inodeDirTo, struct dentry* dentryTo);
+   struct inode* inodeDirTo, struct dentry* dentryTo, unsigned flags);
+
+
+//extern int FhgfsOps_rename(struct inode* inodeDirFrom, struct dentry* dentryFrom,
+//   struct inode* inodeDirTo, struct dentry* dentryTo);
 
 extern int FhgfsOps_vmtruncate(struct inode* inode, loff_t offset);
 
