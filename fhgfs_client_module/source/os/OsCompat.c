@@ -363,4 +363,26 @@ int have_submounts(struct dentry *parent)
         return ret;
 }
 
+  /*
+    * For use from filesystems to quickly init and register a bdi associated
+    * with dirty writeback
+    */
+   int bdi_setup_and_register(struct backing_dev_info *bdi, char *name,
+               unsigned int cap)
+   {
+      static atomic_long_t fhgfs_bdiSeq = ATOMIC_LONG_INIT(0);
+      char tmp[32];
+      int err;
+
+      bdi->name = name;
+      bdi->capabilities = cap;
+
+      sprintf(tmp, "%.28s%s", name, "-%d");
+      err = bdi_register(bdi, NULL, tmp, atomic_long_inc_return(&fhgfs_bdiSeq));
+      if (err) {
+         return err;
+      }
+
+      return 0;
+   }
 
