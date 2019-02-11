@@ -980,7 +980,7 @@ int __IBVSocket_postRecv(IBVSocket* _this, IBVCommContext* commContext, size_t b
 {
    struct ib_sge list;
    struct ib_recv_wr wr;
-   struct ib_recv_wr* bad_wr;
+   const struct ib_recv_wr* bad_wr;
    int postRes;
 
    list.addr = (u64)commContext->recvBufsDMA[bufIndex];
@@ -1029,7 +1029,7 @@ int __IBVSocket_postWrite(IBVSocket* _this, IBVCommDest* remoteDest, u64 localBu
          struct ib_send_wr wr;
    #endif
 
-   struct ib_send_wr *bad_wr;
+   const struct ib_send_wr *bad_wr;
    int postRes;
    int waitRes;
 
@@ -1099,7 +1099,7 @@ int __IBVSocket_postRead(IBVSocket* _this, IBVCommDest* remoteDest,
          struct ib_send_wr wr;
    #endif
 
-   struct ib_send_wr *bad_wr;
+   const struct ib_send_wr *bad_wr;
    int postRes;
    int waitRes;
 
@@ -1154,7 +1154,7 @@ int __IBVSocket_postSend(IBVSocket* _this, size_t bufIndex, int bufLen)
    IBVCommContext* commContext = _this->commContext;
    struct ib_sge list;
    struct ib_send_wr wr;
-   struct ib_send_wr *bad_wr;
+   const struct ib_send_wr *bad_wr;
    int postRes;
 
    list.addr   = (u64)commContext->sendBufsDMA[bufIndex];
@@ -2384,18 +2384,18 @@ struct ib_cq* __IBVSocket_createCompletionQueue(struct ib_device* device,
    ib_comp_handler comp_handler, void (*event_handler)(struct ib_event *, void *),
    void* cq_context, int cqe)
 {
-   #if defined (BEEGFS_OFED_1_2_API) && BEEGFS_OFED_1_2_API >= 1
-      return ib_create_cq(device, comp_handler, event_handler, cq_context, cqe);
-   #elif defined OFED_HAS_IB_CREATE_CQATTR 
+  // #if defined (BEEGFS_OFED_1_2_API) && BEEGFS_OFED_1_2_API >= 1
+   //   return ib_create_cq(device, comp_handler, event_handler, cq_context, cqe);
+   //#elif defined OFED_HAS_IB_CREATE_CQATTR 
       struct ib_cq_init_attr attrs = {
          .cqe = cqe,
          .comp_vector = 0,
       };
 
       return ib_create_cq(device, comp_handler, event_handler, cq_context, &attrs);
-   #else // OFED 1.2.5 or higher API
-      return ib_create_cq(device, comp_handler, event_handler, cq_context, cqe, 0);
-   #endif
+   //#else // OFED 1.2.5 or higher API
+   //   return ib_create_cq(device, comp_handler, event_handler, cq_context, cqe, 0);
+   //#endif
 }
 
 /**

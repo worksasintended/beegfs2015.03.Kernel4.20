@@ -195,6 +195,4 @@ struct kmem_cache* OsCompat_initKmemCache(const char* cacheName, size_t cacheSiz
 #endif // LINUX_VERSION_CODE
 
 
-   return cache;
-}
-
+//TODO accidentaly broken code, revert to original and implement check_mount
