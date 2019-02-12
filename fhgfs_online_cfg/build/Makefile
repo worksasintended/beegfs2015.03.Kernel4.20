@@ -9,14 +9,14 @@ BEEGFS_OPENTK_PATH ?= ../../beegfs_opentk_lib/
 BEEGFS_THIRDPARTY_PATH ?= ../../beegfs_thirdparty/
 BEEGFS_DEVEL_INCLUDE_PATH ?= ../../beegfs_client_devel/include
 BEEGFS_AUTO_CXX11_SCRIPT_PATH ?= $(BEEGFS_COMMON_PATH)/build/check-cxx-for-c++11.sh
-CPPUNIT_INC_PATH ?= $(BEEGFS_THIRDPARTY_PATH)/source/cppunit_install/usr/local/include
-
+#CPPUNIT_INC_PATH ?= $(BEEGFS_THIRDPARTY_PATH)/source/cppunit_install/usr/local/include
+CPPUNIT_INC_PATH = /usr/include/cppunit
 EXE = beegfs-ctl
 
 # note: general CXXFLAGS contains "-ggdb3" for $(EXE)-unstripped, normal $(EXE)
 # is stripped later.
 CXX = g++
-CXXFLAGS = -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 \
+CXXFLAGS = -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64\
 	-I../source -I$(BEEGFS_OPENTK_PATH)/include -I$(BEEGFS_COMMON_PATH)/source \
 	-I$(BEEGFS_DEVEL_INCLUDE_PATH) -I$(CPPUNIT_INC_PATH) \
 	-Wall -fmessage-length=0 -fno-strict-aliasing -Wunused-variable \
@@ -28,6 +28,7 @@ CXXFLAGS_DEBUG = -O1 -D_FORTIFY_SOURCE=2 \
 	-DDEBUG_BACKTRACE -DLOG_DEBUG_MESSAGES
 
 THIRTPARTY_LIBS = $(BEEGFS_THIRDPARTY_PATH)/build/libcppunit.a
+#THIRTPARTY_LIBS = -l libcppunit
 
 LDFLAGS = -L$(BEEGFS_COMMON_PATH)/build -L$(BEEGFS_OPENTK_PATH)/build \
 	-L$(BEEGFS_THIRDPARTY_PATH)/build -pthread -lrt -ldl -lbeegfs-common -lbeegfs-opentk \

@@ -6,7 +6,7 @@
 #include <cppunit/TestAssert.h>
 #include <cppunit/TestFixture.h>
 #include <cppunit/extensions/HelperMacros.h>
-
+#include <cppunit/Message.h>
 #include <libgen.h>
 
 #define DUMMY_NOEXIST_CONFIG_FILE   "/tmp/nonExistantConfigFile.conf.ctl"

@@ -13,6 +13,7 @@ BUILD_PATH      = $(shell echo `pwd` )
 
 CPPUNIT_VER             = 1.13.2
 CPPUNIT_VER_PATH        = $(shell echo `pwd`/../source/cppunit-${CPPUNIT_VER} )
+#CPPUNIT_VER_PATH        = $(shell echo `pwd`/../source/cppunit )
 CPPUNIT_INSTALL_PATH    = $(shell echo `pwd`/../source/cppunit_install)
 
 SQLITE_VER              = 3081101
@@ -88,9 +89,7 @@ cppunit:
 	#       but still everythings works.
 	if [ ! -f $(CPPUNIT_LIB_IN) ]; then                      \
 		rm -fr $(CPPUNIT_INSTALL_PATH)            &&     \
-		rm -fr $(CPPUNIT_VER_PATH)                &&     \
 		cd $(SOURCE_PATH)                         &&     \
-		tar xf cppunit-$(CPPUNIT_VER).tar.gz      &&     \
 		mkdir $(CPPUNIT_INSTALL_PATH)             &&     \
 		cd $(CPPUNIT_VER_PATH)                    &&     \
 		./configure $(BUILDTYPE)                  &&     \
@@ -98,7 +97,7 @@ cppunit:
 	fi
 	# copy lib
 	cp $(CPPUNIT_LIB_IN) $(CPPUNIT_LIB_OUT)
-
+	
 mongoose:
 	# we run make clean first here, to be sure to remove old object files
 	if [ ! -f $(MONGOOSE_LIB_IN) ]; then cd $(MONGOOSE_PATH); $(MAKE) clean && $(MAKE); fi

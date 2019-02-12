@@ -84,9 +84,9 @@ void TestRunnerBase::printOutput(TestRunnerOutputFormat outputFormat)
       case TestRunnerOutputFormat_TEXT:
          printTextOutput();
          break;
-      case TestRunnerOutputFormat_XML:
-         printXmlOutput();
-         break;
+      //case TestRunnerOutputFormat_XML:
+      //   printXmlOutput();
+      //   break;
    }
 }
 
@@ -104,10 +104,10 @@ void TestRunnerBase::printTextOutput()
    textOutputter.write();
 }
 
-void TestRunnerBase::printXmlOutput()
-{
-   // Print test in a xml format.
-   CppUnit::XmlOutputter xmlOutputter(&this->testResultCollector, *(this->outputStream));
-   xmlOutputter.write();
-}
+//void TestRunnerBase::printXmlOutput()
+//{
+//   // Print test in a xml format.
+//   CppUnit::XmlOutputter xmlOutputter(&this->testResultCollector, *(this->outputStream));
+//   xmlOutputter.write();
+//}
 

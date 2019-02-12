@@ -64,7 +64,7 @@ class TestRunnerBase : public PThread
 
       void printCompilerOutput();
       void printTextOutput();
-      void printXmlOutput();
+      //void printXmlOutput();
 
       void runTests();
 };
